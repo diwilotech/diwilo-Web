@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arquitectura y método · Diwilo</title>
+<meta name="description" content="Infraestructura desacoplada, orquestación con n8n y metodologías auditables: Scrum, Kanban, CRISP-DM, MLOps, PMI y Ley 1581.">
+<meta name="theme-color" content="#05060f">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Diwilo">
+<meta property="og:title" content="Arquitectura y método · Diwilo">
+<meta property="og:description" content="Infraestructura desacoplada, orquestación con n8n y metodologías auditables: Scrum, Kanban, CRISP-DM, MLOps, PMI y Ley 1581.">
+<meta property="og:image" content="assets/img/og.png">
+<meta property="og:locale" content="es_CO">
+<link rel="icon" type="image/png" href="assets/img/favicon.png">
+<link rel="apple-touch-icon" href="assets/img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/light/style.css">
+<link rel="stylesheet" href="assets/css/styles.css">
+<script>document.documentElement.classList.add('js');</script>
+<script src="assets/js/main.js" defer></script>
+</head>
+<body>
+<a class="sr-only" href="#main">Saltar al contenido</a>
+<div class="scroll-progress" aria-hidden="true"></div>
+<div class="page">
+  <div class="page-bg" aria-hidden="true"><div class="page-bg__grid"></div><div class="page-bg__beam"></div></div>
+  <header class="nav-wrap">
+    <nav class="nav" aria-label="Principal">
+      <a class="brand" href="index.html"><img src="assets/img/logo.png" alt="" width="26" height="26"><span>Diwilo</span></a>
+      <button class="nav__toggle" type="button" aria-label="Abrir menú" aria-expanded="false"><i class="ph-light ph-list"></i></button>
+      <div class="nav__links">
+        <a class="nav__link" href="index.html">Inicio</a>
+        <a class="nav__link" href="servicios.html">Servicios</a>
+        <a class="nav__link" href="arquitectura.html" aria-current="page">Arquitectura</a>
+        <a class="nav__link" href="contacto.html">Contacto</a>
+        <a class="btn btn--primary nav__cta" href="contacto.html">Agendar diagnóstico</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="container hero">
+      <p class="eyebrow hero-in">Arquitectura y método</p>
+      <h1 class="h1 h1--sm" data-split>Infraestructura que aguanta y un método que se puede auditar</h1>
+      <p class="lead hero-in" style="--d:750">Escalamos la automatización sobre servicios desacoplados y motores de orquestación. Cada proyecto sigue un marco de trabajo conocido, con entregables verificables en cada etapa.</p>
+      <div class="row row--center hero-in" style="--d:900;--gap:10px">
+        <a class="btn btn--primary" href="contacto.html">Solicitar auditoría técnica</a>
+        <a class="btn" href="servicios.html">Ver servicios</a>
+      </div>
+    </section>
+
+    <!-- Capas -->
+    <section class="container section" data-layers>
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Capa por capa</span></div>
+        <h2 class="h2" data-reveal>El sistema, capa por capa</h2>
+        <p class="sub" data-reveal>Haz clic en cualquier capa para ver qué corre ahí y cómo se conecta con el resto.</p>
+      </div>
+      <div class="split">
+        <div class="stack" data-layers-list data-reveal="left"></div>
+        <div data-reveal="right">
+          <div class="panel stack" style="--gap:16px" data-layers-panel>
+            <p class="tag" style="margin:0;justify-self:start" data-f="level"></p>
+            <h3 class="h3 h3--lg" style="margin:0" data-f="name"></h3>
+            <p style="margin:0;color:var(--ink2)" data-f="text"></p>
+            <div class="stack" style="--gap:10px" data-f="points"></div>
+            <div class="row" style="--gap:6px" data-f="tags"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Metodologías -->
+    <section class="container section" data-methods>
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Metodologías</span></div>
+        <h2 class="h2" style="max-width:24ch" data-reveal>Metodologías de trabajo</h2>
+        <p class="sub" style="margin-bottom:40px" data-reveal>Los marcos más usados en la industria colombiana, aplicados según el tipo de proyecto. Elige uno y mira sus fases y entregables.</p>
+        <div class="row row--center" style="margin-bottom:32px" data-methods-tabs data-reveal></div>
+      </div>
+      <div data-reveal="scale">
+        <div class="panel split" style="--min:280px;gap:36px" data-methods-panel>
+          <div>
+            <p class="tag" style="margin:0 0 12px" data-f="use"></p>
+            <h3 class="h3 h3--lg" data-f="name"></h3>
+            <p style="margin:0 0 20px;color:var(--ink2)" data-f="text"></p>
+            <p class="body muted"><span style="color:var(--sky)">Entregables:</span> <span data-f="out"></span></p>
+          </div>
+          <div class="stack" style="--gap:6px" data-f="phases"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Flujo técnico -->
+    <section class="container section">
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Flujo técnico</span></div>
+        <p class="sub" data-reveal>El camino de tus datos, de la extracción a la acción automatizada. Ejecuta el flujo y observa el recorrido completo.</p>
+      </div>
+      <div class="split" style="--min:300px;gap:40px;align-items:center">
+        <div class="stack" style="--gap:16px" data-stagger="140" data-reveal-type="left">
+          <div class="card">
+            <p class="mono" style="letter-spacing:.1em;color:var(--lilac);margin-bottom:10px">01</p>
+            <h3 class="h3">Extracción</h3>
+            <p class="body">Conexión a fuentes estructuradas y no estructuradas: bases de datos, documentos, correo, APIs de terceros.</p>
+          </div>
+          <div class="card">
+            <p class="mono" style="letter-spacing:.1em;margin-bottom:10px">02</p>
+            <h3 class="h3">Procesamiento con IA</h3>
+            <p class="body">Enriquecimiento y análisis con modelos de lenguaje y visión, más reglas de negocio validadas con el cliente.</p>
+          </div>
+          <div class="card">
+            <p class="mono" style="letter-spacing:.1em;margin-bottom:10px">03</p>
+            <h3 class="h3">Acción</h3>
+            <p class="body">Ejecución automática sobre CRM, ERP o plataformas propias, con registro de cada operación realizada.</p>
+          </div>
+        </div>
+        <div data-reveal="right"><div class="demo" data-demo="flow"></div></div>
+      </div>
+    </section>
+
+    <!-- Ecosistema -->
+    <section class="container section" data-stack>
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Ecosistema</span></div>
+        <p class="sub" style="margin-bottom:40px" data-reveal>Pasa el cursor sobre una herramienta para ver para qué la usamos.</p>
+      </div>
+      <div class="grid" style="--min:170px;gap:12px" data-stagger="60">
+        <div class="tool" tabindex="0" data-detail="n8n · orquesta cada automatización: dispara por evento u horario, reintenta y deja traza de cada ejecución.">
+          <span class="tool__logo"><img src="assets/img/stack-n8n.png" alt="" loading="lazy"></span><p class="tool__name">n8n</p><p class="tool__role">Orquestación de flujos</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="Python · transformaciones, modelos predictivos y scripts de extracción que corren programados.">
+          <span class="tool__logo"><img src="assets/img/stack-python.png" alt="" loading="lazy"></span><p class="tool__name">Python</p><p class="tool__role">Datos y modelos</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="Supabase · base de datos, autenticación y permisos por rol para las aplicaciones que construimos.">
+          <span class="tool__logo"><img src="assets/img/stack-supabase.png" alt="" loading="lazy"></span><p class="tool__name">Supabase</p><p class="tool__role">Base de datos y auth</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="Chatwoot · consolida WhatsApp, correo y web en una sola bandeja, con el agente de IA como primer filtro.">
+          <span class="tool__logo"><img src="assets/img/stack-chatwoot.svg" alt="" loading="lazy"></span><p class="tool__name">Chatwoot</p><p class="tool__role">Atención omnicanal</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="WhatsApp Business API · el canal donde ya están tus clientes, con plantillas aprobadas y trazabilidad.">
+          <span class="tool__logo"><i class="ph-light ph-whatsapp-logo"></i></span><p class="tool__name">Meta / WhatsApp</p><p class="tool__role">Canal de mensajería</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="Google Workspace · hojas, formularios y Drive como fuentes y destinos de los flujos automatizados.">
+          <span class="tool__logo"><i class="ph-light ph-google-logo"></i></span><p class="tool__name">Google Workspace</p><p class="tool__role">Integración documental</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="WordPress · para sitios que el propio cliente debe poder editar sin depender de nosotros.">
+          <span class="tool__logo"><img src="assets/img/stack-wordpress.png" alt="" loading="lazy"></span><p class="tool__name">WordPress</p><p class="tool__role">Sitios de contenido</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="Dokploy · despliegue de contenedores con ambientes separados y reversión rápida.">
+          <span class="tool__logo"><img src="assets/img/stack-dokploy.png" alt="" loading="lazy"></span><p class="tool__name">Dokploy</p><p class="tool__role">Despliegue y contenedores</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="GNU/Linux · servidores propios o del cliente, endurecidos y con respaldos programados.">
+          <span class="tool__logo"><img src="assets/img/stack-linux.png" alt="" loading="lazy"></span><p class="tool__name">GNU/Linux</p><p class="tool__role">Servidores dedicados</p>
+        </div>
+        <div class="tool" tabindex="0" data-detail="OpenClaw · agentes que ejecutan tareas con herramientas propias, bajo permisos acotados.">
+          <span class="tool__logo"><i class="ph-light ph-robot"></i></span><p class="tool__name">OpenClaw</p><p class="tool__role">Agentes autónomos</p>
+        </div>
+      </div>
+      <div class="inset" style="margin-top:16px;min-height:46px;display:flex;align-items:center" aria-live="polite" data-stack-detail>Pasa el cursor sobre una herramienta para ver su rol en la arquitectura.</div>
+    </section>
+
+    <section class="container section section--last center">
+      <h2 class="h2" data-reveal>Auditoría técnica de tu operación</h2>
+      <p class="sub" style="margin-bottom:28px" data-reveal>Revisamos tu infraestructura, integraciones y datos, y entregamos un informe con riesgos, cuellos de botella y un plan por etapas.</p>
+      <div data-reveal><a class="btn btn--primary btn--lg" href="contacto.html">Solicitar auditoría</a></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__grid" data-stagger="100">
+      <div style="max-width:34ch">
+        <a class="brand" href="index.html" style="margin-bottom:16px"><img src="assets/img/logo.png" alt="" width="26" height="26"><span>Diwilo</span></a>
+        <p class="body muted" style="line-height:1.5">Software, ciencia de datos y automatización para empresas que necesitan operar con menos trabajo manual.</p>
+      </div>
+      <div>
+        <p class="footer__title">Navegación</p>
+        <div class="footer__links">
+          <a href="index.html">Inicio</a>
+          <a href="servicios.html">Servicios</a>
+          <a href="arquitectura.html">Arquitectura</a>
+          <a href="contacto.html">Contacto</a>
+        </div>
+      </div>
+      <div>
+        <p class="footer__title">Contacto</p>
+        <div class="footer__links">
+          <a href="mailto:hola@diwilo.com"><i class="ph-light ph-envelope-simple"></i>hola@diwilo.com</a>
+          <a href="https://wa.me/573053840193?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20sus%20servicios" target="_blank" rel="noopener"><i class="ph-light ph-whatsapp-logo"></i>+57 305 384 0193</a>
+          <a href="https://www.instagram.com/diwilo.tech/" target="_blank" rel="noopener"><i class="ph-light ph-instagram-logo"></i>diwilo.tech</a>
+        </div>
+      </div>
+      <div>
+        <p class="footer__title">Empieza</p>
+        <p class="body muted" style="line-height:1.5;margin-bottom:16px">Cuéntanos sobre tu operación y te mostramos qué se puede automatizar.</p>
+        <a class="btn btn--primary btn--sm" href="contacto.html">Agendar diagnóstico</a>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span data-year>2026</span> Diwilo. Ingeniería de datos y automatización.</span>
+      <a href="privacidad.html">Política de privacidad</a>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
