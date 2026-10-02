@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel Diwilo</title>
+<link rel="icon" href="/assets/img/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/light/style.css">
+<style>
+:root{
+  --bg:#05060f;--panel:#0a0c17;--glass:rgba(186,214,247,.03);--fill:rgba(186,214,247,.06);--edge:rgba(186,215,247,.12);
+  --ink:#d1e4fa;--ink2:#c7d3ea;--ink3:#9da7ba;--hi:#d8ecf8;--sky:#b6d9fc;
+  --violet:#8f45f2;--mark:#a66cf5;--lilac:#c99bfa;--on:rgba(168,85,247,.14);--line:rgba(184,104,248,.6);
+  --good:#4ade80;--warn:#fbbf24;--bad:#f87171;
+  --f-ui:Inter,system-ui,sans-serif;--f-dis:'Space Grotesk',sans-serif;--f-mono:'JetBrains Mono',monospace;
+  --hair:inset 0 0 0 1px var(--edge);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-ui);-webkit-font-smoothing:antialiased}
+a{color:var(--sky)}button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-dis);font-weight:500;color:var(--hi);margin:0}
+h1{font-size:24px}h2{font-size:17px}
+.muted{color:var(--ink3)}.mono{font-family:var(--f-mono);font-size:12px}
+[hidden]{display:none!important}
+
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.login form{width:100%;max-width:360px;background:var(--panel);border-radius:16px;padding:32px;box-shadow:inset 0 1px 1px rgba(216,236,248,.2),0 24px 48px rgba(0,0,0,.5);display:grid;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-dis);font-size:17px;color:var(--hi)}
+.brand img{width:26px;height:26px}
+
+/* layout */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:20px 14px;box-shadow:inset -1px 0 0 var(--edge);display:flex;flex-direction:column;gap:4px;background:rgba(5,6,15,.9)}
+.side .brand{padding:4px 10px 20px}
+.tab{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:999px;color:var(--ink2);cursor:pointer}
+.tab i{font-size:18px;color:var(--ink3)}
+.tab:hover{background:var(--fill)}
+.tab.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line);color:#fff}.tab.on i{color:var(--lilac)}
+.tab .badge{margin-left:auto}
+.side .spacer{flex:1}
+main{padding:28px 32px 64px;min-width:0}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+
+/* piezas */
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(var(--min,200px),100%),1fr))}
+.card{background:var(--glass);border-radius:14px;padding:18px;box-shadow:inset 0 1px 1px rgba(199,211,234,.12),0 12px 24px rgba(6,6,14,.6)}
+.card h2{margin-bottom:12px}
+.kpi .v{font-family:var(--f-dis);font-size:30px;line-height:1.1;color:var(--hi);font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--ink3);font-size:13px;margin-top:4px}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good);animation:p 1.4s infinite;margin-right:6px}
+@keyframes p{50%{opacity:.35}}
+.btn{display:inline-flex;align-items:center;gap:7px;border:0;cursor:pointer;padding:8px 14px;border-radius:999px;background:transparent;box-shadow:var(--hair);color:var(--ink);font-size:13px;font-weight:500;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--fill);color:#fff}
+.btn.pri{background:rgba(168,85,247,.18);box-shadow:inset 0 0 0 1px var(--line),0 0 14px rgba(168,85,247,.2);color:#fff}
+.btn.pri:hover{background:rgba(168,85,247,.3)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.danger:hover{box-shadow:inset 0 0 0 1px var(--bad);color:var(--bad)}
+.seg{display:inline-flex;gap:4px}.seg .btn.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line);color:#fff}
+input.in,select.in,textarea.in{width:100%;padding:9px 12px;border:0;border-radius:6px;background:rgba(199,211,234,.06);box-shadow:var(--hair);outline:none}
+input.in:focus,select.in:focus,textarea.in:focus{box-shadow:inset 0 0 0 1px var(--line)}
+select.in option{background:#0a0c17}
+label.f{display:grid;gap:5px;font-size:12px;color:var(--ink3)}
+.form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+.form .full{grid-column:1/-1}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(199,211,234,.12);font-size:12px;color:var(--ink)}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--violet);color:#fff;font-size:11px;font-weight:600}
+.err{color:var(--bad);font-size:13px;min-height:1em}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#151827;box-shadow:inset 0 0 0 1px var(--line);padding:10px 18px;border-radius:999px;transition:transform .3s;z-index:20}
+.toast.on{transform:translateX(-50%) translateY(0)}
+
+/* tablas */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--ink3);font-size:12px;padding:8px 10px;box-shadow:inset 0 -1px 0 var(--edge);white-space:nowrap}
+td{padding:10px;box-shadow:inset 0 -1px 0 rgba(186,215,247,.06);vertical-align:top}
+tr:hover td{background:rgba(186,214,247,.025)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.empty{padding:28px;text-align:center;color:var(--ink3)}
+
+/* gráficas */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .axis{fill:var(--ink3);font:11px var(--f-mono)}
+.chart .grid-l{stroke:rgba(186,215,247,.08)}
+.chart .bar{fill:var(--mark);transition:opacity .15s}
+.chart .bar.dim{opacity:.35}
+.chart .hit{fill:transparent;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:#151827;box-shadow:inset 0 0 0 1px var(--edge),0 8px 18px rgba(0,0,0,.5);padding:6px 10px;border-radius:8px;font-size:12px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s}
+.tip b{color:var(--hi);font-weight:500}
+.rank{display:grid;gap:8px}
+.rank .r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;font-size:13px}
+.rank .r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
+.rank .r span:nth-child(2){font-variant-numeric:tabular-nums;color:var(--ink)}
+.rank .track{grid-column:1/-1;height:6px;border-radius:4px;background:rgba(186,215,247,.06)}
+.rank .track i{display:block;height:100%;border-radius:4px;background:var(--mark)}
+
+/* feed / chat */
+.feed{display:grid;gap:2px;max-height:420px;overflow-y:auto}
+.ev{display:grid;grid-template-columns:72px 22px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 8px;border-radius:8px;font-size:13px;animation:evin .5s ease both}
+.ev:hover{background:var(--fill)}
+.ev i{color:var(--lilac);font-size:16px}
+.ev .p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink2)}
+@keyframes evin{from{opacity:0;transform:translateY(-6px);background:var(--on)}}
+.chatgrid{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:14px;align-items:start}
+.chatlist{display:grid;gap:6px;max-height:70vh;overflow-y:auto}
+.ci{border:0;text-align:left;cursor:pointer;background:var(--glass);box-shadow:var(--hair);border-radius:12px;padding:10px 12px;display:grid;gap:2px}
+.ci:hover{background:var(--fill)}.ci.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line)}
+.ci .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.convo{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto}
+.msg{max-width:80%;padding:9px 13px;border-radius:14px;white-space:pre-wrap;font-size:13px}
+.msg.user{align-self:flex-end;background:rgba(168,85,247,.22);box-shadow:inset 0 0 0 1px rgba(184,104,248,.4);color:#fff}
+.msg.assistant{align-self:flex-start;background:rgba(199,211,234,.06);box-shadow:var(--hair)}
+.msg small{display:block;margin-top:4px;color:var(--ink3);font-size:10px}
+pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-shadow:var(--hair);overflow-x:auto;font:12px/1.6 var(--f-mono);color:var(--ink2)}
+.newkey{padding:12px;border-radius:8px;background:rgba(74,222,128,.08);box-shadow:inset 0 0 0 1px rgba(74,222,128,.4);word-break:break-all}
+.qrbox{width:140px;padding:8px;border-radius:8px;background:#fff}.qrbox svg{display:block;width:100%;height:auto}
+.menu-btn{display:none}
+
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:240px;z-index:10;transform:translateX(-100%);transition:transform .3s}
+  .side.open{transform:none}
+  main{padding:20px 16px 64px}
+  .menu-btn{display:inline-flex}
+  .chatgrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<section class="login" id="login" hidden>
+  <form id="loginForm">
+    <div class="brand"><img src="/assets/img/logo.png" alt="">Diwilo · Panel</div>
+    <label class="f">Contraseña<input class="in" type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <button class="btn pri" type="submit" style="justify-content:center;padding:11px">Entrar</button>
+    <p class="err" id="loginErr"></p>
+  </form>
+</section>
+
+<!-- App -->
+<div class="app" id="app" hidden>
+  <nav class="side" id="side">
+    <div class="brand"><img src="/assets/img/logo.png" alt="">Diwilo</div>
+    <button class="tab" data-view="resumen"><i class="ph-light ph-pulse"></i>En vivo</button>
+    <button class="tab" data-view="leads"><i class="ph-light ph-user-plus"></i>Leads<span class="badge" id="leadBadge" hidden></span></button>
+    <button class="tab" data-view="chats"><i class="ph-light ph-chats-circle"></i>Chats IA</button>
+    <button class="tab" data-view="links"><i class="ph-light ph-link-simple"></i>Links de rastreo</button>
+    <button class="tab" data-view="cards"><i class="ph-light ph-identification-card"></i>Tarjetas</button>
+    <button class="tab" data-view="api"><i class="ph-light ph-plugs-connected"></i>Integraciones</button>
+    <button class="tab" data-view="ajustes"><i class="ph-light ph-gear-six"></i>Ajustes del chat</button>
+    <div class="spacer"></div>
+    <a class="tab" href="/" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver sitio</a>
+    <button class="tab" id="logout"><i class="ph-light ph-sign-out"></i>Salir</button>
+  </nav>
+
+  <main>
+    <!-- EN VIVO -->
+    <section data-section="resumen">
+      <div class="head">
+        <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>En vivo</h1></div>
+        <div class="seg" id="range">
+          <button class="btn sm" data-days="1">24 h</button><button class="btn sm on" data-days="7">7 días</button><button class="btn sm" data-days="30">30 días</button><button class="btn sm" data-days="90">90 días</button>
+        </div>
+      </div>
+      <div class="grid" style="--min:150px;margin-bottom:14px" id="kpis"></div>
+      <div class="grid" style="--min:420px;margin-bottom:14px">
+        <div class="card"><h2>Visitas por día</h2><div class="chart" id="chartViews"></div></div>
+        <div class="card"><h2><span class="live-dot"></span>Actividad en tiempo real</h2><div class="feed" id="feed"></div></div>
+      </div>
+      <div class="grid" style="--min:260px">
+        <div class="card"><h2>Páginas más vistas</h2><div class="rank" id="rPages"></div></div>
+        <div class="card"><h2>De dónde llegan</h2><div class="rank" id="rRefs"></div></div>
+        <div class="card"><h2>Campañas (UTM)</h2><div class="rank" id="rUtm"></div></div>
+        <div class="card"><h2>Países</h2><div class="rank" id="rCountries"></div></div>
+        <div class="card"><h2>Dispositivos</h2><div class="rank" id="rDevices"></div></div>
+      </div>
+    </section>
+
+    <!-- LEADS -->
+    <section data-section="leads" hidden>
+      <div class="head">
+        <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Leads del formulario</h1></div>
+        <button class="btn" id="leadsCsv"><i class="ph-light ph-download-simple"></i>Exportar CSV</button>
+      </div>
+      <div class="card tbl-wrap"><table><thead><tr><th>Fecha</th><th>Contacto</th><th>Necesita</th><th>Mensaje</th><th>Origen</th><th>Estado</th><th></th></tr></thead><tbody id="leadsBody"></tbody></table></div>
+    </section>
+
+    <!-- CHATS -->
+    <section data-section="chats" hidden>
+      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Conversaciones del chat IA</h1></div></div>
+      <div class="chatgrid">
+        <div class="chatlist" id="chatList"></div>
+        <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:12px"><h2 id="chatTitle">Elige una conversación</h2><button class="btn sm danger" id="chatDel" hidden><i class="ph-light ph-trash"></i>Borrar</button></div><div class="convo" id="convo"></div></div>
+      </div>
+    </section>
+
+    <!-- LINKS -->
+    <section data-section="links" hidden>
+      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Links de rastreo</h1></div></div>
+      <form class="card" id="linkForm" style="margin-bottom:14px">
+        <h2 id="linkFormTitle">Nuevo link</h2>
+        <input type="hidden" name="id">
+        <div class="form" style="margin-top:12px">
+          <label class="f">Nombre<input class="in" name="title" placeholder="Campaña Instagram octubre" required></label>
+          <label class="f">Slug (URL corta)<input class="in" name="slug" placeholder="ig-octubre"></label>
+          <label class="f full">Destino<input class="in" name="target" type="url" placeholder="https://diwilo.diwilo.workers.dev/servicios.html" required></label>
+          <label class="f">utm_source<input class="in" name="utm_source" placeholder="instagram"></label>
+          <label class="f">utm_medium<input class="in" name="utm_medium" placeholder="social"></label>
+          <label class="f">utm_campaign<input class="in" name="utm_campaign" placeholder="octubre-2026"></label>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="btn pri" type="submit"><i class="ph-light ph-plus"></i>Guardar link</button><button class="btn" type="reset">Limpiar</button><span class="err" data-err></span></div>
+      </form>
+      <div class="card tbl-wrap"><table><thead><tr><th>Link</th><th>URL corta</th><th>Destino</th><th>UTM</th><th class="num">Clics</th><th></th></tr></thead><tbody id="linksBody"></tbody></table></div>
+      <div class="card" id="linkDetail" style="margin-top:14px" hidden></div>
+    </section>
+
+    <!-- TARJETAS -->
+    <section data-section="cards" hidden>
+      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Tarjetas de presentación</h1></div></div>
+      <form class="card" id="cardForm" style="margin-bottom:14px">
+        <h2 id="cardFormTitle">Nueva tarjeta</h2>
+        <input type="hidden" name="id">
+        <div class="form" style="margin-top:12px">
+          <label class="f">Nombre completo<input class="in" name="name" required placeholder="Y. Alejandro Echavarría"></label>
+          <label class="f">Slug<input class="in" name="slug" placeholder="alejandro"></label>
+          <label class="f">Cargo<input class="in" name="role" placeholder="Fundador · IA y ciencia de datos"></label>
+          <label class="f">Empresa<input class="in" name="company" placeholder="Diwilo"></label>
+          <label class="f">Teléfono<input class="in" name="phone" placeholder="+57 305 384 0193"></label>
+          <label class="f">WhatsApp<input class="in" name="whatsapp" placeholder="+57 305 384 0193"></label>
+          <label class="f">Correo<input class="in" name="email" type="email" placeholder="hola@diwilo.com"></label>
+          <label class="f">Sitio web<input class="in" name="website" placeholder="https://diwilo.com"></label>
+          <label class="f">Instagram<input class="in" name="instagram" placeholder="diwilo.tech"></label>
+          <label class="f">LinkedIn (URL)<input class="in" name="linkedin" placeholder="https://www.linkedin.com/in/..."></label>
+          <label class="f full">Foto (URL)<input class="in" name="photo_url" placeholder="/assets/img/alejandro.jpg"></label>
+          <label class="f full">Bio corta<textarea class="in" name="bio" rows="2" placeholder="Especialista en IA, ciencia de datos y web dashboards."></textarea></label>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="btn pri" type="submit"><i class="ph-light ph-plus"></i>Guardar tarjeta</button><button class="btn" type="reset">Limpiar</button><span class="err" data-err></span></div>
+      </form>
+      <div class="grid" style="--min:300px" id="cardsList"></div>
+    </section>
+
+    <!-- INTEGRACIONES -->
+    <section data-section="api" hidden>
+      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Integraciones y API</h1></div></div>
+      <div class="grid" style="--min:420px">
+        <div class="card">
+          <h2>Webhook instantáneo</h2>
+          <p class="muted" style="margin:0 0 12px">Cada lead nuevo y cada chat iniciado se envía al instante a esta URL (POST JSON). Ideal para un webhook de n8n, Make o Zapier.</p>
+          <form class="row" id="hookForm" style="flex-wrap:nowrap"><input class="in" name="webhook_url" type="url" placeholder="https://n8n.tudominio.com/webhook/diwilo"><button class="btn pri" type="submit">Guardar</button></form>
+          <div class="row" style="margin-top:10px"><button class="btn sm" id="hookTest"><i class="ph-light ph-paper-plane-tilt"></i>Enviar prueba</button></div>
+          <pre class="code" style="margin-top:12px">{ "type": "lead" | "chat_started" | "test",
+  "at": "2026-10-02T15:00:00.000Z",
+  "data": { ... } }</pre>
+        </div>
+        <div class="card">
+          <h2>Claves de API</h2>
+          <p class="muted" style="margin:0 0 12px">Para que otros sistemas lean leads, chats y estadísticas. La clave se muestra una sola vez.</p>
+          <form class="row" id="keyForm" style="flex-wrap:nowrap"><input class="in" name="name" placeholder="n8n producción" required><button class="btn pri" type="submit">Crear clave</button></form>
+          <div id="newKey" style="margin-top:12px" hidden></div>
+          <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>Nombre</th><th>Prefijo</th><th>Último uso</th><th></th></tr></thead><tbody id="keysBody"></tbody></table></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h2>Endpoints</h2>
+        <pre class="code" id="apiDocs"></pre>
+      </div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section data-section="ajustes" hidden>
+      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Ajustes del chat IA</h1></div></div>
+      <form class="card" id="setForm">
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <span class="muted">Motor de IA: <span class="tag" id="aiProvider"></span></span>
+          <label class="row" style="gap:6px"><input type="checkbox" name="chat_enabled"> Chat activo en el sitio</label>
+        </div>
+        <label class="f">Instrucciones del asistente (qué sabe y cómo responde)<textarea class="in" name="chat_prompt" rows="18" style="font-family:var(--f-mono);font-size:12px"></textarea></label>
+        <div class="row" style="margin-top:12px"><button class="btn pri" type="submit">Guardar</button><button class="btn" type="button" id="resetPrompt">Restaurar texto original</button></div>
+      </form>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(() => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ORIGIN = location.origin;
+  const fmtN = (n) => Number(n || 0).toLocaleString('es-CO');
+  const fmtDate = (ts) => new Date(ts).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const ago = (ts) => { const s = Math.round((Date.now() - ts) / 1000); if (s < 60) return `${s}s`; if (s < 3600) return `${Math.round(s / 60)}m`; if (s < 86400) return `${Math.round(s / 3600)}h`; return `${Math.round(s / 86400)}d`; };
+  const flag = (cc) => cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : '·';
+
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
+  async function api(path, opts = {}) {
+    const r = await fetch('/admin/api/' + path, { headers: { 'content-type': 'application/json' }, credentials: 'same-origin', ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    if (r.status === 401 && path !== 'login') { showLogin(); throw new Error('sesión'); }
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Error');
+    return d;
+  }
+  function qrSvg(text) { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
+  async function copy(t) { try { await navigator.clipboard.writeText(t); toast('Copiado'); } catch { prompt('Copia:', t); } }
+  function formData(form) { const o = {}; new FormData(form).forEach((v, k) => { o[k] = String(v).trim(); }); return o; }
+
+  /* ---------- login ---------- */
+  function showLogin() { $('#app').hidden = true; $('#login').hidden = false; stopLive(); }
+  $('#loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); $('#loginErr').textContent = '';
+    try { await api('login', { method: 'POST', body: formData(e.target) }); start(); }
+    catch (err) { $('#loginErr').textContent = err.message; }
+  });
+  $('#logout').addEventListener('click', async () => { await api('logout', { method: 'POST' }).catch(() => {}); showLogin(); });
+
+  /* ---------- navegación ---------- */
+  const loaders = {};
+  function go(view) {
+    $$('.tab[data-view]').forEach((t) => t.classList.toggle('on', t.dataset.view === view));
+    $$('[data-section]').forEach((s) => { s.hidden = s.dataset.section !== view; });
+    $('#side').classList.remove('open');
+    history.replaceState(null, '', '#' + view);
+    loaders[view]?.();
+    if (view === 'resumen') startLive(); else stopLive();
+  }
+  $$('.tab[data-view]').forEach((t) => t.addEventListener('click', () => go(t.dataset.view)));
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-menu]')) $('#side').classList.toggle('open'); });
+
+  /* ---------- gráficas ---------- */
+  function barChart(el, rows, label) {
+    if (!rows.length) { el.innerHTML = '<p class="empty">Aún no hay datos en este periodo.</p>'; return; }
+    const W = 640, H = 220, pl = 36, pb = 24, pt = 8;
+    const max = Math.max(...rows.map((r) => r.v), 1);
+    const nice = Math.pow(10, Math.floor(Math.log10(max))); const top = Math.ceil(max / nice) * nice;
+    const bw = (W - pl) / rows.length, gap = Math.min(8, bw * 0.25);
+    const y = (v) => pt + (H - pt - pb) * (1 - v / top);
+    const ticks = [0, top / 2, top];
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">`;
+    ticks.forEach((t) => { s += `<line class="grid-l" x1="${pl}" x2="${W}" y1="${y(t)}" y2="${y(t)}"/><text class="axis" x="${pl - 6}" y="${y(t) + 4}" text-anchor="end">${fmtN(Math.round(t))}</text>`; });
+    const every = Math.ceil(rows.length / 8);
+    rows.forEach((r, i) => {
+      const x = pl + i * bw + gap / 2, w = Math.max(2, bw - gap), yy = y(r.v), h = Math.max(0, H - pb - yy), rad = Math.min(4, w / 2, h);
+      // barra con extremo superior redondeado y base recta
+      s += h > 0 ? `<path class="bar" data-i="${i}" d="M${x},${H - pb} V${yy + rad} Q${x},${yy} ${x + rad},${yy} H${x + w - rad} Q${x + w},${yy} ${x + w},${yy + rad} V${H - pb} Z"/>` : '';
+      if (i % every === 0) s += `<text class="axis" x="${x + w / 2}" y="${H - 6}" text-anchor="middle">${esc(r.short)}</text>`;
+      s += `<rect class="hit" data-i="${i}" x="${pl + i * bw}" y="0" width="${bw}" height="${H - pb}"/>`;
+    });
+    s += '</svg><div class="tip"></div>';
+    el.innerHTML = s;
+    const tip = $('.tip', el), svg = $('svg', el);
+    $$('.hit', el).forEach((h) => {
+      h.addEventListener('mouseenter', () => {
+        const i = +h.dataset.i, r = rows[i];
+        $$('.bar', el).forEach((b) => b.classList.toggle('dim', +b.dataset.i !== i));
+        tip.innerHTML = `${esc(r.long)}<br><b>${fmtN(r.v)}</b> visitas · ${fmtN(r.v2)} visitantes`;
+        const sb = svg.getBoundingClientRect(), hb = h.getBoundingClientRect();
+        tip.style.left = (hb.left - sb.left + hb.width / 2) + 'px';
+        tip.style.top = (y(r.v) / H * sb.height) + 'px';
+        tip.style.opacity = 1;
+      });
+      h.addEventListener('mouseleave', () => { tip.style.opacity = 0; $$('.bar', el).forEach((b) => b.classList.remove('dim')); });
+    });
+  }
+  function rank(el, rows, fmtKey = (k) => k || '(sin dato)') {
+    if (!rows.length) { el.innerHTML = '<p class="muted" style="margin:0">Sin datos todavía.</p>'; return; }
+    const max = Math.max(...rows.map((r) => r.n), 1);
+    el.innerHTML = rows.map((r) => `<div class="r"><span title="${esc(r.k)}">${fmtKey(r.k)}</span><span>${fmtN(r.n)}</span><div class="track"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></div></div>`).join('');
+  }
+
+  /* ---------- EN VIVO ---------- */
+  let days = 7, liveTimer = null, lastTs = 0;
+  $$('#range .btn').forEach((b) => b.addEventListener('click', () => { days = +b.dataset.days; $$('#range .btn').forEach((x) => x.classList.toggle('on', x === b)); loadStats(); }));
+  async function loadStats() {
+    const s = await api('stats?days=' + days);
+    const k = s.kpi;
+    const tiles = [
+      ['<span class="live-dot"></span>En línea ahora', s.live], ['Visitas', k.views], ['Visitantes únicos', k.visitors],
+      ['Leads', k.leads], ['Chats IA', k.chats], ['Clics WhatsApp', k.whatsapp], ['Clics en links', k.link_clicks]
+    ];
+    $('#kpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
+    // completa días sin visitas con cero
+    const map = Object.fromEntries(s.series.map((r) => [r.date, r]));
+    const rows = [];
+    const n = Math.max(1, days);
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      const r = map[d] || { views: 0, visitors: 0 };
+      const dt = new Date(d + 'T12:00:00Z');
+      rows.push({ v: r.views, v2: r.visitors, short: dt.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }), long: dt.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' }) });
+    }
+    barChart($('#chartViews'), rows, 'Visitas por día');
+    const prettyRef = (r) => { try { return esc(new URL(r).hostname.replace(/^www\./, '')); } catch { return esc(r || '(directo)'); } };
+    rank($('#rPages'), s.pages, (k) => esc(k || '/'));
+    rank($('#rRefs'), s.refs, prettyRef);
+    rank($('#rUtm'), s.utm, esc);
+    rank($('#rCountries'), s.countries, (k) => `${flag(k)} ${esc(k || '—')}`);
+    rank($('#rDevices'), s.devices, esc);
+  }
+  const EV = { pageview: ['ph-eye', 'Visita'], click_whatsapp: ['ph-whatsapp-logo', 'Clic WhatsApp'], chat_open: ['ph-chats-circle', 'Abrió el chat'], lead: ['ph-user-plus', 'Nuevo lead'], cta: ['ph-cursor-click', 'Clic en botón'] };
+  async function loadLive() {
+    const d = await api('live');
+    const feed = $('#feed');
+    if (!d.events.length) { feed.innerHTML = '<p class="empty">Sin actividad en los últimos 30 minutos.</p>'; }
+    else {
+      feed.innerHTML = d.events.map((e) => {
+        const [icon, name] = EV[e.type] || ['ph-lightning', e.type];
+        const isNew = lastTs && e.ts > lastTs;
+        return `<div class="ev" style="${isNew ? '' : 'animation:none'}"><span class="muted mono">${ago(e.ts)}</span><i class="ph-light ${icon}"></i><span class="p">${esc(name)} · ${esc(e.label || e.path || '')}</span><span class="muted">${flag(e.country)} ${esc(e.device || '')}</span></div>`;
+      }).join('');
+    }
+    lastTs = d.events[0]?.ts || lastTs;
+    const t = $('#kpis .v'); if (t) t.textContent = fmtN(d.live.length);
+  }
+  function startLive() { stopLive(); loadLive().catch(() => {}); let n = 0; liveTimer = setInterval(() => { loadLive().catch(() => {}); if (++n % 6 === 0) loadStats().catch(() => {}); }, 5000); }
+  function stopLive() { clearInterval(liveTimer); liveTimer = null; }
+  loaders.resumen = () => loadStats().catch(() => {});
+
+  /* ---------- LEADS ---------- */
+  const STATUS = ['nuevo', 'contactado', 'propuesta', 'ganado', 'perdido'];
+  let leads = [];
+  loaders.leads = async () => {
+    leads = await api('leads');
+    $('#leadsBody').innerHTML = leads.length ? leads.map((l) => `<tr>
+      <td class="muted" style="white-space:nowrap">${fmtDate(l.ts)}</td>
+      <td><b style="font-weight:500;color:var(--hi)">${esc(l.name)}</b><br><a href="mailto:${esc(l.email)}">${esc(l.email)}</a>${l.phone ? `<br><a href="https://wa.me/${esc(l.phone.replace(/\D/g, ''))}" target="_blank" rel="noopener">${esc(l.phone)}</a>` : ''}</td>
+      <td>${esc(l.topics || '—')}</td>
+      <td style="max-width:340px;white-space:pre-wrap">${esc(l.message)}</td>
+      <td class="muted">${esc(l.utm_source || 'directo')}${l.utm_campaign ? ' / ' + esc(l.utm_campaign) : ''}<br>${flag(l.country)}</td>
+      <td><select class="in" data-status="${l.id}" style="width:auto">${STATUS.map((s) => `<option ${s === l.status ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+      <td><button class="btn sm danger" data-del-lead="${l.id}" aria-label="Borrar"><i class="ph-light ph-trash"></i></button></td></tr>`).join('')
+      : '<tr><td colspan="7" class="empty">Todavía no llegan leads. Aparecerán aquí al instante cuando alguien use el formulario de contacto.</td></tr>';
+    updateLeadBadge();
+  };
+  function updateLeadBadge() { const n = leads.filter((l) => l.status === 'nuevo').length; const b = $('#leadBadge'); b.hidden = !n; b.textContent = n; }
+  $('#leadsBody').addEventListener('change', async (e) => {
+    const id = e.target.dataset.status; if (!id) return;
+    await api('leads', { method: 'POST', body: { id: +id, status: e.target.value } });
+    const l = leads.find((x) => x.id === +id); if (l) l.status = e.target.value; updateLeadBadge(); toast('Estado actualizado');
+  });
+  $('#leadsBody').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-del-lead]'); if (!b || !confirm('¿Borrar este lead?')) return;
+    await api('leads?id=' + b.dataset.delLead, { method: 'DELETE' }); loaders.leads();
+  });
+  $('#leadsCsv').addEventListener('click', () => {
+    const cols = ['ts', 'name', 'email', 'phone', 'topics', 'message', 'status', 'utm_source', 'utm_medium', 'utm_campaign', 'page', 'country'];
+    const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [cols.join(',')].concat(leads.map((l) => cols.map((c) => q(c === 'ts' ? new Date(l.ts).toISOString() : l[c])).join(','))).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'leads-diwilo.csv'; a.click();
+  });
+
+  /* ---------- CHATS ---------- */
+  let currentChat = null;
+  loaders.chats = async () => {
+    const chats = await api('chats');
+    $('#chatList').innerHTML = chats.length ? chats.map((c) => `<button class="ci ${c.id === currentChat ? 'on' : ''}" data-chat="${esc(c.id)}">
+      <span class="t">${esc(c.first || '(sin mensajes)')}</span>
+      <span class="muted" style="font-size:12px">${fmtDate(c.last_at)} · ${c.msg_count} mensajes · ${flag(c.country)} ${esc(c.device || '')}</span></button>`).join('')
+      : '<p class="empty card">Aún no hay conversaciones.</p>';
+  };
+  $('#chatList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-chat]'); if (!b) return;
+    currentChat = b.dataset.chat;
+    $$('.ci').forEach((x) => x.classList.toggle('on', x === b));
+    const msgs = await api('chats?chat=' + encodeURIComponent(currentChat));
+    $('#chatTitle').textContent = 'Conversación';
+    $('#chatDel').hidden = false;
+    $('#convo').innerHTML = msgs.map((m) => `<div class="msg ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content)}<small>${fmtDate(m.ts)}</small></div>`).join('');
+  });
+  $('#chatDel').addEventListener('click', async () => {
+    if (!currentChat || !confirm('¿Borrar esta conversación?')) return;
+    await api('chats?chat=' + encodeURIComponent(currentChat), { method: 'DELETE' });
+    currentChat = null; $('#convo').innerHTML = ''; $('#chatDel').hidden = true; $('#chatTitle').textContent = 'Elige una conversación'; loaders.chats();
+  });
+
+  /* ---------- LINKS ---------- */
+  let links = [];
+  loaders.links = async () => {
+    links = await api('links');
+    $('#linksBody').innerHTML = links.length ? links.map((l) => {
+      const short = `${ORIGIN}/l/${l.slug}`;
+      return `<tr><td><b style="font-weight:500;color:var(--hi)">${esc(l.title || l.slug)}</b></td>
+        <td><button class="btn sm" data-copy="${esc(short)}"><i class="ph-light ph-copy"></i>/l/${esc(l.slug)}</button></td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" class="muted" title="${esc(l.target)}">${esc(l.target)}</td>
+        <td class="muted">${esc([l.utm_source, l.utm_medium, l.utm_campaign].filter(Boolean).join(' · ') || '—')}</td>
+        <td class="num">${fmtN(l.clicks)}</td>
+        <td style="white-space:nowrap"><button class="btn sm" data-link-stats="${l.id}"><i class="ph-light ph-chart-bar"></i></button> <button class="btn sm" data-link-edit="${l.id}"><i class="ph-light ph-pencil-simple"></i></button> <button class="btn sm danger" data-link-del="${l.id}"><i class="ph-light ph-trash"></i></button></td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty">Crea tu primer link para medir campañas, publicaciones o códigos QR impresos.</td></tr>';
+  };
+  $('#linkForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
+    const body = formData(e.target); if (body.id) body.id = +body.id; else delete body.id;
+    try { const r = await api('links', { method: 'POST', body }); e.target.reset(); $('#linkFormTitle').textContent = 'Nuevo link'; toast('Link guardado: /l/' + r.slug); loaders.links(); }
+    catch (x) { err.textContent = x.message.includes('UNIQUE') ? 'Ese slug ya existe' : x.message; }
+  });
+  $('#linkForm').addEventListener('reset', () => { $('#linkFormTitle').textContent = 'Nuevo link'; });
+  $('#linksBody').addEventListener('click', async (e) => {
+    const c = e.target.closest('[data-copy]'); if (c) return copy(c.dataset.copy);
+    const ed = e.target.closest('[data-link-edit]');
+    if (ed) { const l = links.find((x) => x.id === +ed.dataset.linkEdit); const f = $('#linkForm'); ['id', 'title', 'slug', 'target', 'utm_source', 'utm_medium', 'utm_campaign'].forEach((k) => { f.elements[k].value = l[k] ?? ''; }); $('#linkFormTitle').textContent = 'Editar link'; f.scrollIntoView({ behavior: 'smooth' }); return; }
+    const del = e.target.closest('[data-link-del]');
+    if (del) { if (!confirm('¿Borrar este link y sus clics?')) return; await api('links?id=' + del.dataset.linkDel, { method: 'DELETE' }); $('#linkDetail').hidden = true; return loaders.links(); }
+    const st = e.target.closest('[data-link-stats]');
+    if (st) {
+      const l = links.find((x) => x.id === +st.dataset.linkStats); const d = await api('link-clicks?id=' + l.id); const short = `${ORIGIN}/l/${l.slug}`;
+      const el = $('#linkDetail'); el.hidden = false;
+      el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:14px"><h2>${esc(l.title || l.slug)} · ${fmtN(l.clicks)} clics</h2><button class="btn sm" data-close>Cerrar</button></div>
+        <div class="grid" style="--min:200px"><div><p class="muted" style="margin:0 0 8px">Últimos días</p><div class="rank" id="ldDays"></div></div><div><p class="muted" style="margin:0 0 8px">Países</p><div class="rank" id="ldC"></div></div><div><p class="muted" style="margin:0 0 8px">Dispositivo</p><div class="rank" id="ldD"></div></div>
+        <div><p class="muted" style="margin:0 0 8px">QR para imprimir</p><div class="qrbox">${qrSvg(short)}</div><p class="mono muted">${esc(short)}</p></div></div>`;
+      rank($('#ldDays'), d.byDay.map((r) => ({ k: r.date, n: r.n })), esc);
+      rank($('#ldC'), d.byCountry, (k) => `${flag(k)} ${esc(k || '—')}`);
+      rank($('#ldD'), d.byDevice, esc);
+      $('[data-close]', el).onclick = () => { el.hidden = true; };
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  /* ---------- TARJETAS ---------- */
+  let cards = [];
+  const CARD_FIELDS = ['id', 'name', 'slug', 'role', 'company', 'phone', 'whatsapp', 'email', 'website', 'instagram', 'linkedin', 'photo_url', 'bio'];
+  loaders.cards = async () => {
+    cards = await api('cards');
+    $('#cardsList').innerHTML = cards.length ? cards.map((c) => {
+      const url = `${ORIGIN}/c/${c.slug}`;
+      return `<div class="card"><div class="row" style="align-items:flex-start;flex-wrap:nowrap;gap:14px">
+        <div class="qrbox" style="width:96px;flex:none">${qrSvg(url)}</div>
+        <div style="min-width:0"><h2>${esc(c.name)}</h2><p class="muted" style="margin:2px 0 8px">${esc([c.role, c.company].filter(Boolean).join(' · '))}</p>
+        <p class="mono muted" style="margin:0 0 10px">${fmtN(c.views)} vistas</p>
+        <div class="row"><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Abrir</a><button class="btn sm" data-copy="${esc(url)}"><i class="ph-light ph-copy"></i>Copiar</button><button class="btn sm" data-card-edit="${c.id}"><i class="ph-light ph-pencil-simple"></i></button><button class="btn sm danger" data-card-del="${c.id}"><i class="ph-light ph-trash"></i></button></div></div></div></div>`;
+    }).join('') : '<p class="empty card">Crea una tarjeta digital: se comparte con link o QR y permite guardar el contacto en el celular.</p>';
+  };
+  $('#cardForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
+    const body = formData(e.target); if (body.id) body.id = +body.id; else delete body.id;
+    try { await api('cards', { method: 'POST', body }); e.target.reset(); $('#cardFormTitle').textContent = 'Nueva tarjeta'; toast('Tarjeta guardada'); loaders.cards(); }
+    catch (x) { err.textContent = x.message.includes('UNIQUE') ? 'Ese slug ya existe' : x.message; }
+  });
+  $('#cardForm').addEventListener('reset', () => { $('#cardFormTitle').textContent = 'Nueva tarjeta'; });
+  $('#cardsList').addEventListener('click', async (e) => {
+    const c = e.target.closest('[data-copy]'); if (c) return copy(c.dataset.copy);
+    const ed = e.target.closest('[data-card-edit]');
+    if (ed) { const k = cards.find((x) => x.id === +ed.dataset.cardEdit); const f = $('#cardForm'); CARD_FIELDS.forEach((n) => { f.elements[n].value = k[n] ?? ''; }); $('#cardFormTitle').textContent = 'Editar tarjeta'; f.scrollIntoView({ behavior: 'smooth' }); return; }
+    const del = e.target.closest('[data-card-del]');
+    if (del && confirm('¿Borrar esta tarjeta?')) { await api('cards?id=' + del.dataset.cardDel, { method: 'DELETE' }); loaders.cards(); }
+  });
+
+  /* ---------- INTEGRACIONES ---------- */
+  loaders.api = async () => {
+    const [s, keys] = await Promise.all([api('settings'), api('keys')]);
+    $('#hookForm').elements.webhook_url.value = s.webhook_url || '';
+    $('#keysBody').innerHTML = keys.length ? keys.map((k) => `<tr style="${k.revoked ? 'opacity:.45' : ''}"><td>${esc(k.name)}</td><td class="mono">${esc(k.prefix)}…</td><td class="muted">${k.last_used ? fmtDate(k.last_used) : 'nunca'}</td>
+      <td>${k.revoked ? '<span class="tag">revocada</span>' : `<button class="btn sm danger" data-revoke="${k.id}">Revocar</button>`}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Sin claves todavía.</td></tr>';
+    $('#apiDocs').textContent = `# Público (lo usa el sitio)
+POST ${ORIGIN}/api/track     { type, path, ref, sid, utm_source, utm_medium, utm_campaign, label }
+POST ${ORIGIN}/api/lead      { name, email, phone, topics, message, page, sid, utm_* }
+POST ${ORIGIN}/api/chat      { sid, message, page }  →  { reply }
+GET  ${ORIGIN}/l/<slug>      link de rastreo (302 + registro del clic)
+GET  ${ORIGIN}/c/<slug>      tarjeta de presentación  ·  /c/<slug>.vcf  contacto
+
+# Con clave (encabezado Authorization: Bearer dwl_...)
+GET  ${ORIGIN}/v1/leads?since=<ms>&limit=100
+GET  ${ORIGIN}/v1/events?since=<ms>&limit=100
+GET  ${ORIGIN}/v1/chats?since=<ms>
+GET  ${ORIGIN}/v1/chats/<id>          mensajes de una conversación
+GET  ${ORIGIN}/v1/stats?days=7
+POST ${ORIGIN}/v1/links               { title, slug, target, utm_source, utm_medium, utm_campaign }
+
+curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
+  };
+  $('#hookForm').addEventListener('submit', async (e) => { e.preventDefault(); await api('settings', { method: 'POST', body: { webhook_url: e.target.elements.webhook_url.value.trim() } }); toast('Webhook guardado'); });
+  $('#hookTest').addEventListener('click', async () => { await api('webhook-test', { method: 'POST' }); toast('Prueba enviada'); });
+  $('#keyForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const r = await api('keys', { method: 'POST', body: formData(e.target) }); e.target.reset();
+    const el = $('#newKey'); el.hidden = false;
+    el.innerHTML = `<div class="newkey"><p style="margin:0 0 6px">Copia esta clave ahora, no se volverá a mostrar:</p><code class="mono" style="font-size:13px;color:#fff">${esc(r.key)}</code><div class="row" style="margin-top:8px"><button class="btn sm" data-copy="${esc(r.key)}">Copiar</button></div></div>`;
+    $('[data-copy]', el).onclick = () => copy(r.key);
+    loaders.api();
+  });
+  $('#keysBody').addEventListener('click', async (e) => { const b = e.target.closest('[data-revoke]'); if (b && confirm('¿Revocar esta clave? Las integraciones que la usan dejarán de funcionar.')) { await api('keys?id=' + b.dataset.revoke, { method: 'DELETE' }); loaders.api(); } });
+
+  /* ---------- AJUSTES ---------- */
+  let defaultPrompt = '';
+  loaders.ajustes = async () => {
+    const s = await api('settings'); defaultPrompt = s.default_prompt;
+    const f = $('#setForm'); f.elements.chat_prompt.value = s.chat_prompt; f.elements.chat_enabled.checked = s.chat_enabled;
+    $('#aiProvider').textContent = s.ai_provider;
+  };
+  $('#setForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const f = e.target;
+    await api('settings', { method: 'POST', body: { chat_prompt: f.elements.chat_prompt.value, chat_enabled: f.elements.chat_enabled.checked ? '1' : '0' } }); toast('Ajustes guardados');
+  });
+  $('#resetPrompt').addEventListener('click', () => { $('#setForm').elements.chat_prompt.value = defaultPrompt; });
+
+  /* ---------- arranque ---------- */
+  async function start() {
+    try { await api('stats?days=1'); } catch { return showLogin(); }
+    $('#login').hidden = true; $('#app').hidden = false;
+    api('leads').then((l) => { leads = l; updateLeadBadge(); }).catch(() => {});
+    const v = location.hash.slice(1);
+    go(loaders[v] ? v : 'resumen');
+  }
+  start();
+})();
+</script>
+</body>
+</html>

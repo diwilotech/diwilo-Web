@@ -1,46 +1,60 @@
-# Diwilo — sitio web
+# Diwilo — sitio web y gestión
 
-Rediseño del sitio de [Diwilo](https://diwilo.com): datos, automatización y agentes de IA.
-Sitio estático (HTML + CSS + JS, sin dependencias de build), listo para GitHub Pages o cualquier hosting.
+Sitio de [Diwilo](https://diwilo.diwilo.workers.dev) y su app de gestión, en un solo Worker de Cloudflare.
 
-## Páginas
+- **Sitio:** https://diwilo.diwilo.workers.dev
+- **Panel:** https://diwilo.diwilo.workers.dev/admin
 
-| Archivo | Contenido |
+## Estructura
+
+| Ruta | Contenido |
 | --- | --- |
-| `index.html` | Inicio: hero, capacidades, ruta de trabajo, tablero en vivo, cifras, casos, clientes |
-| `servicios.html` | Servicios, demos interactivas (tablero, flujo, agente), proyectos, modalidades |
-| `arquitectura.html` | Capas del sistema, metodologías, flujo técnico, ecosistema de herramientas |
-| `contacto.html` | Formulario de diagnóstico y calculadora de horas recuperables |
-| `privacidad.html` | Política de tratamiento de datos (Ley 1581 de 2012) |
+| `*.html`, `assets/` | Sitio estático (inicio, servicios, arquitectura, contacto, privacidad) |
+| `worker/src/index.js` | API, panel, links de rastreo y tarjetas |
+| `worker/src/admin.html` | Panel de gestión |
+| `worker/src/card.js` | Tarjeta de presentación y vCard |
+| `worker/schema.sql` | Esquema de la base D1 `diwilo-admin-db` |
+| `wrangler.jsonc` | Configuración de Cloudflare |
+| `.assetsignore` | Archivos del repo que no se publican |
 
-## Animaciones
+## Rutas del Worker
 
-- Aparición al hacer scroll: cualquier elemento con `data-reveal` (`""`, `left`, `right`, `scale`, `fade`).
-  Los hijos de un contenedor con `data-stagger="90"` aparecen escalonados.
-- Hero palabra por palabra (`data-split`), barra de progreso de lectura, paralaje del fondo.
-- Línea de la "Ruta" que se llena con el scroll, contadores (`data-count`), barras del tablero que crecen
-  y flujo de automatización que se ejecuta solo al entrar en pantalla.
-- Se respetan las preferencias de movimiento reducido del sistema (`prefers-reduced-motion`).
+| Ruta | Qué hace |
+| --- | --- |
+| `/` y demás | Sitio estático |
+| `/admin` | Panel: en vivo, leads, chats IA, links, tarjetas, integraciones, ajustes del chat |
+| `/api/track`, `/api/lead`, `/api/chat` | Analítica, formulario y chat con IA del sitio |
+| `/l/<slug>` | Link de rastreo con UTM y conteo de clics |
+| `/c/<slug>` · `/c/<slug>.vcf` | Tarjeta de presentación y contacto descargable |
+| `/v1/*` | API para integraciones (`Authorization: Bearer dwl_…`, claves desde el panel) |
+
+## Desplegar
+
+Automático: cada push a `main` despliega con GitHub Actions si existe el secreto
+`CLOUDFLARE_API_TOKEN` (plantilla "Edit Cloudflare Workers" + permiso D1 Edit).
+
+Manual:
+
+```bash
+npx wrangler deploy
+npx wrangler d1 execute diwilo-admin-db --remote --file=worker/schema.sql   # solo la primera vez
+```
+
+## Secretos
+
+```bash
+npx wrangler secret put ADMIN_PASSWORD     # contraseña del panel
+npx wrangler secret put GEMINI_API_KEY     # opcional: Gemini en el chat en lugar de Workers AI
+```
+
+## Animaciones del sitio
+
+- `data-reveal` (`""`, `left`, `right`, `scale`, `fade`) y `data-stagger="90"` para aparecer al hacer scroll.
+- Hero palabra por palabra (`data-split`), progreso de lectura, paralaje, línea de ruta, contadores (`data-count`).
+- Respeta `prefers-reduced-motion`.
 
 ## Ver en local
 
 ```bash
-python3 -m http.server 8000
-# abrir http://localhost:8000
+npx wrangler dev     # sitio + API con datos locales
 ```
-
-## Gestión: app en Cloudflare
-
-El sitio se conecta a la app `diwilo-admin` (Cloudflare Worker + D1), configurada en `API_BASE`
-al inicio de `assets/js/main.js`. Panel: https://diwilo-admin.diwilo.workers.dev/admin
-
-- Visitas, clics de WhatsApp y botones, y campañas UTM se registran solos (no en local).
-- El formulario de contacto guarda el lead en el panel; si la app no responde, abre el correo.
-- Los botones flotantes (WhatsApp y chat IA) se agregan desde `initFab()` en todas las páginas.
-
-## Editar contenido
-
-- Textos fijos: directamente en cada `.html`.
-- Casos, proyectos, capas y metodologías: arreglos de datos en `assets/js/main.js`
-  (`initCases`, `initProjects`, `initLayers`, `initMethods`).
-- Colores y tipografías: variables al inicio de `assets/css/styles.css`.

@@ -1,0 +1,24 @@
+name: Desplegar en Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Falta el secreto CLOUDFLARE_API_TOKEN
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::Agrega el secreto CLOUDFLARE_API_TOKEN en Settings > Secrets and variables > Actions para desplegar automáticamente."
+      - uses: actions/checkout@v4
+        if: env.HAS_TOKEN == 'true'
+      - uses: cloudflare/wrangler-action@v3
+        if: env.HAS_TOKEN == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: add05706f955a450e7d0c9680cc33ba4
+          command: deploy

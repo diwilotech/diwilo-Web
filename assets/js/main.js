@@ -4,8 +4,10 @@
 
   const CONTACT_EMAIL = 'hola@diwilo.com';
   const WHATSAPP = '573053840193';
-  // App de gestión en Cloudflare (panel en API_BASE + '/admin')
-  const API_BASE = 'https://diwilo-admin.diwilo.workers.dev';
+  // El sitio y la API viven en el mismo Worker de Cloudflare (panel en /admin).
+  // Desde otra copia del sitio (p. ej. GitHub Pages) se llama a la URL completa.
+  const API_HOST = 'https://diwilo.diwilo.workers.dev';
+  const API_BASE = /(\.workers\.dev|diwilo\.com)$/.test(location.hostname) ? '' : API_HOST;
   // El formulario se guarda en el panel; si falla, se abre el correo (mailto).
   const FORM_ENDPOINT = API_BASE + '/api/lead';
 

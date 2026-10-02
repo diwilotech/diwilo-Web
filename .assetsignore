@@ -1,0 +1,12 @@
+# Archivos del repo que NO se publican como parte del sitio
+worker
+wrangler.jsonc
+README.md
+.github
+.gitignore
+.assetsignore
+node_modules
+.wrangler
+.dev.vars
+.git
+.DS_Store
