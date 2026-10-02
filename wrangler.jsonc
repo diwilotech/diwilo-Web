@@ -1,24 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Un solo Worker sirve el sitio (archivos estáticos de la raíz), la API, el panel, links y tarjetas
+  // Proyecto Cloudflare Pages "diwilo": se despliega solo en cada push a main.
+  // public/     sitio estático (incluye el panel en /admin)
+  // functions/  rutas dinámicas: /api, /admin/api, /l, /c, /v1
   "name": "diwilo",
-  "main": "worker/src/index.js",
+  "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-01",
-  "observability": { "enabled": true },
-  "assets": {
-    "directory": ".",
-    "binding": "ASSETS",
-    "html_handling": "auto-trailing-slash",
-    "run_worker_first": ["/api/*", "/admin", "/admin/*", "/l/*", "/c/*", "/v1/*"]
-  },
   "d1_databases": [
     { "binding": "DB", "database_name": "diwilo-admin-db", "database_id": "076cb7c8-d60b-4cff-918f-2de045696be8" }
   ],
   "ai": { "binding": "AI" },
   "vars": {
-    "ALLOWED_ORIGINS": "https://diwilotech.github.io,https://diwilo.com,https://www.diwilo.com"
+    "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com,https://diwilo.pages.dev"
   }
   // Secretos (no van en este archivo):
-  //   ADMIN_PASSWORD   contraseña del panel            npx wrangler secret put ADMIN_PASSWORD
-  //   GEMINI_API_KEY   opcional, usa Gemini en el chat  npx wrangler secret put GEMINI_API_KEY
+  //   npx wrangler pages secret put ADMIN_PASSWORD --project-name diwilo
+  //   npx wrangler pages secret put GEMINI_API_KEY --project-name diwilo   (opcional)
 }

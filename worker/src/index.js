@@ -1,8 +1,7 @@
 /**
- * diwilo — Worker de Cloudflare: sitio + gestión de diwilo.com
+ * diwilo — lógica dinámica de diwilo.com (se ejecuta como Pages Functions, ver functions/)
  *
  * Público (CORS para el sitio):
- *   /*                     sitio estático (archivos de la raíz del repo)
  *   POST /api/track        eventos y visitas
  *   POST /api/lead         formulario de contacto
  *   POST /api/chat         chat de IA del sitio
@@ -11,10 +10,8 @@
  * Integraciones (Authorization: Bearer dwl_...):
  *   GET  /v1/leads  /v1/events  /v1/chats  /v1/stats   POST /v1/links
  * Panel:
- *   GET  /admin            panel de gestión (contraseña ADMIN_PASSWORD)
- *   /admin/api/*           API interna del panel
+ *   /admin/api/*           API del panel (public/admin.html, contraseña ADMIN_PASSWORD)
  */
-import ADMIN_HTML from './admin.html';
 import { renderCard, renderVcf } from './card.js';
 
 const DAY = 86400000;
@@ -430,11 +427,8 @@ export default {
       if (path.startsWith('/c/')) return showCard(req, env, ctx, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/v1/')) return externalApi(req, env, path, url);
       if (path.startsWith('/admin/api/')) return adminApi(req, env, path, url);
-      if (path === '/admin') {
-        return new Response(ADMIN_HTML, { headers: { 'content-type': 'text/html; charset=utf-8', 'x-frame-options': 'DENY', 'referrer-policy': 'same-origin', 'cache-control': 'no-store' } });
-      }
-      // Todo lo demás es el sitio estático
-      return env.ASSETS.fetch(req);
+      // Lo demás lo sirve Pages como archivo estático
+      return env.ASSETS ? env.ASSETS.fetch(req) : new Response('No encontrado', { status: 404 });
     } catch (e) {
       console.error(e);
       return json({ error: e.message || 'error' }, e.message === 'too large' ? 413 : 400);

@@ -1,0 +1,8 @@
+/admin
+  X-Frame-Options: DENY
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+  Referrer-Policy: same-origin
+
+/assets/*
+  Cache-Control: public, max-age=86400
