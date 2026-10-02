@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "diwilo-diagnostico",
+      "type": "skill-md",
+      "description": "Consultar los servicios de Diwilo y solicitar un diagnóstico de automatización sin costo.",
+      "url": "https://diwilo.com/.well-known/agent-skills/diwilo-diagnostico/SKILL.md",
+      "digest": "sha256:1a9c6b0465ad05e270cc7c5f770de9781316e986f84a585a211fc7028d3f1b9a"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://diwilo.com/",
+      "service-desc": [
+        {
+          "href": "https://diwilo.com/openapi.json",
+          "type": "application/vnd.oai.openapi+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://diwilo.com/docs/api",
+          "type": "text/html"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://diwilo.com/api/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

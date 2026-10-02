@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Página no encontrada · Diwilo</title>
-<meta name="description" content="La página que buscas no existe en diwilo.com.">
-<meta name="robots" content="noindex">
+<title>API de Diwilo · Desarrolladores</title>
+<meta name="description" content="Servidor MCP, API pública e integraciones de Diwilo para sistemas y agentes de IA.">
+<link rel="canonical" href="https://diwilo.com/docs/api">
+<link rel="alternate" type="text/markdown" href="/docs/api.md">
 <meta name="theme-color" content="#05060f">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Diwilo">
-<meta property="og:title" content="Página no encontrada · Diwilo">
-<meta property="og:description" content="La página que buscas no existe en diwilo.com.">
+<meta property="og:title" content="API de Diwilo · Desarrolladores">
+<meta property="og:description" content="Servidor MCP, API pública e integraciones de Diwilo para sistemas y agentes de IA.">
 <meta property="og:image" content="https://diwilo.com/assets/img/og.png">
+<meta property="og:url" content="https://diwilo.com/docs/api">
 <meta property="og:locale" content="es_CO">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link rel="apple-touch-icon" href="/assets/img/logo.png">
@@ -43,13 +45,44 @@
   </header>
 
   <main id="main">
-    <section class="container hero section--last">
-      <p class="eyebrow hero-in">Error 404</p>
-      <h1 class="h1 h1--sm" data-split>Esta página no existe</h1>
-      <p class="lead hero-in" style="--d:500">Puede que el enlace haya cambiado. Vuelve al inicio o pregúntale al asistente qué estás buscando.</p>
-      <div class="row row--center hero-in" style="--d:650;--gap:10px">
-        <a class="btn btn--primary" href="/">Ir al inicio</a>
-        <a class="btn" href="#" data-open-chat>Preguntar a la IA</a>
+    <section class="container hero">
+      <p class="eyebrow hero-in">Desarrolladores y agentes de IA</p>
+      <h1 class="h1 h1--sm" data-split>API de Diwilo</h1>
+      <p class="lead hero-in" style="--d:500">Conecta tus sistemas o tu agente de IA con Diwilo: consulta servicios, solicita un diagnóstico o integra los datos del panel.</p>
+    </section>
+    <section class="container section section--last">
+      <div class="prose panel" data-reveal>
+        <h2 style="margin-top:0">Servidor MCP</h2>
+        <p>Endpoint <code>https://diwilo.com/mcp</code> (Streamable HTTP, sin estado, JSON-RPC por POST). Herramientas:</p>
+        <ul>
+          <li><code>diwilo_info</code>: servicios, casos, metodologías o contacto.</li>
+          <li><code>diwilo_solicitar_diagnostico</code>: envía una solicitud de diagnóstico (nombre, correo, necesidad).</li>
+        </ul>
+        <p>Tarjeta del servidor: <a href="/.well-known/mcp/server-card.json">/.well-known/mcp/server-card.json</a>.</p>
+
+        <h2>API pública</h2>
+        <ul>
+          <li><code>POST /api/lead</code>: solicitud de contacto. JSON con <code>name</code>, <code>email</code>, <code>phone</code>, <code>topics</code>, <code>message</code>.</li>
+          <li><code>POST /api/chat</code>: pregunta al asistente de IA. JSON con <code>sid</code> y <code>message</code>; responde <code>{ reply }</code>.</li>
+          <li><code>GET /api/health</code>: estado del servicio.</li>
+        </ul>
+
+        <h2>API de integraciones</h2>
+        <p>Requiere una clave creada en el panel de Diwilo, enviada como <code>Authorization: Bearer dwl_…</code>.</p>
+        <ul>
+          <li><code>GET /v1/leads</code>, <code>GET /v1/events</code>, <code>GET /v1/chats</code>, <code>GET /v1/chats/{id}</code>, <code>GET /v1/stats</code></li>
+          <li><code>POST /v1/links</code>: crea un link de rastreo con UTM.</li>
+        </ul>
+
+        <h2>Descubrimiento</h2>
+        <ul>
+          <li>Especificación OpenAPI: <a href="/openapi.json">/openapi.json</a></li>
+          <li>Catálogo de APIs (RFC 9727): <a href="/.well-known/api-catalog">/.well-known/api-catalog</a></li>
+          <li>Catálogo de capacidades (ARD): <a href="/.well-known/ai-catalog.json">/.well-known/ai-catalog.json</a></li>
+          <li>Skills para agentes: <a href="/.well-known/agent-skills/index.json">/.well-known/agent-skills/index.json</a></li>
+          <li>Resumen para modelos de lenguaje: <a href="/llms.txt">/llms.txt</a></li>
+          <li>Cada página tiene versión Markdown: pide la URL con <code>Accept: text/markdown</code> o agrega <code>.md</code> (por ejemplo <a href="/servicios.md">/servicios.md</a>).</li>
+        </ul>
       </div>
     </section>
   </main>

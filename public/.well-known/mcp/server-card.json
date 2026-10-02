@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+  "serverInfo": {
+    "name": "diwilo",
+    "title": "Diwilo",
+    "version": "1.0.0"
+  },
+  "description": "Servicios de datos, automatización y agentes de IA de Diwilo. Consulta información y solicita un diagnóstico sin costo.",
+  "websiteUrl": "https://diwilo.com",
+  "transport": {
+    "type": "streamable-http",
+    "endpoint": "https://diwilo.com/mcp"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    {
+      "name": "diwilo_info",
+      "description": "Servicios, casos, metodologías o contacto de Diwilo."
+    },
+    {
+      "name": "diwilo_solicitar_diagnostico",
+      "description": "Envía una solicitud de diagnóstico de automatización."
+    }
+  ],
+  "authentication": {
+    "required": false
+  }
+}

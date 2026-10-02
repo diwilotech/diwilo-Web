@@ -770,6 +770,54 @@
     document.addEventListener('click', (e) => { if (e.target.closest('[data-open-chat]')) { e.preventDefault(); setOpen(true); } });
   }
 
+  /* ---------------- WebMCP: herramientas del sitio para agentes en el navegador ---------------- */
+  function initWebMCP() {
+    const mc = document.modelContext || navigator.modelContext;
+    if (!mc || typeof mc.registerTool !== 'function') return;
+    const text = (t) => ({ content: [{ type: 'text', text: t }] });
+    const post = async (path, body) => {
+      const r = await fetch(API_BASE + path, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(body) });
+      return r.json();
+    };
+    const pages = { inicio: '/', servicios: '/servicios', arquitectura: '/arquitectura', contacto: '/contacto', api: '/docs/api' };
+    const tools = [
+      {
+        name: 'preguntar_a_diwilo',
+        description: 'Pregunta al asistente de Diwilo sobre servicios de datos, automatización, agentes de IA, precios o tiempos.',
+        inputSchema: { type: 'object', properties: { pregunta: { type: 'string', description: 'La pregunta en lenguaje natural' } }, required: ['pregunta'] },
+        execute: async ({ pregunta }) => text((await post('/api/chat', { sid, message: String(pregunta).slice(0, 1000), page: location.pathname })).reply || 'Sin respuesta')
+      },
+      {
+        name: 'ir_a_pagina',
+        description: 'Abre una sección del sitio de Diwilo.',
+        inputSchema: { type: 'object', properties: { pagina: { type: 'string', enum: Object.keys(pages) } }, required: ['pagina'] },
+        execute: async ({ pagina }) => { location.href = pages[pagina] || '/'; return text(`Abriendo ${pagina}`); }
+      }
+    ];
+    // En /contacto el formulario ya se expone de forma declarativa con el mismo nombre
+    if (!document.querySelector('form[toolname="solicitar_diagnostico"]')) {
+      tools.push({
+        name: 'solicitar_diagnostico',
+        description: 'Envía a Diwilo una solicitud de diagnóstico de automatización (sin costo). Úsala solo con el consentimiento de la persona.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            nombre: { type: 'string', description: 'Nombre y empresa' },
+            correo: { type: 'string', format: 'email', description: 'Correo de contacto' },
+            telefono: { type: 'string', description: 'WhatsApp (opcional)' },
+            necesidad: { type: 'string', description: 'Proceso que quiere automatizar' }
+          },
+          required: ['nombre', 'correo', 'necesidad']
+        },
+        execute: async (a) => {
+          const r = await post('/api/lead', { name: a.nombre, email: a.correo, phone: a.telefono, message: a.necesidad, topics: 'Diagnóstico (WebMCP)', page: location.pathname, sid, via: 'webmcp', ...utm });
+          return text(r.ok ? `Solicitud recibida. Diwilo responderá a ${a.correo} en menos de 24 horas hábiles.` : `No se pudo enviar: ${r.error || 'error'}`);
+        }
+      });
+    }
+    tools.forEach((tool) => { try { Promise.resolve(mc.registerTool(tool)).catch(() => {}); } catch (_) { /* navegador sin soporte completo */ } });
+  }
+
   /* ---------------- Arranque ---------------- */
   document.addEventListener('DOMContentLoaded', () => {
     initHero();
@@ -791,6 +839,7 @@
     initSpotlight();
     initFab();
     initTracking();
+    initWebMCP();
     const y = $('[data-year]');
     if (y) y.textContent = new Date().getFullYear();
   });

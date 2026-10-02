@@ -5,6 +5,8 @@
  *   POST /api/track        eventos y visitas
  *   POST /api/lead         formulario de contacto
  *   POST /api/chat         chat de IA del sitio
+ *   POST /mcp              servidor MCP (herramientas para agentes de IA)
+ *   GET  /api/health       estado del servicio
  *   GET  /l/:slug          link de rastreo (redirige y cuenta el clic)
  *   GET  /c/:slug          tarjeta de presentación   (/c/:slug.vcf descarga el contacto)
  * Integraciones (Authorization: Bearer dwl_...):
@@ -108,10 +110,9 @@ async function apiTrack(req, env) {
   return json({ ok: true });
 }
 
-async function apiLead(req, env, ctx) {
-  const b = await readJson(req, 10000);
-  if (b.website) return json({ ok: true }); // campo trampa anti-spam
-  if (!b.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) return json({ ok: false, error: 'correo inválido' }, 400);
+/* Guarda un lead (formulario del sitio, servidor MCP o WebMCP) y avisa al webhook */
+async function createLead(req, env, ctx, b) {
+  if (!b.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new Error('correo inválido');
   const g = geo(req);
   const lead = {
     name: clip(b.name, 200), email: clip(b.email, 200), phone: clip(b.phone, 60), topics: clip(b.topics, 300),
@@ -121,10 +122,97 @@ async function apiLead(req, env, ctx) {
   const r = await env.DB.prepare(`INSERT INTO leads (ts, name, email, phone, topics, message, page, utm_source, utm_medium, utm_campaign, country)
     VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(now(), lead.name, lead.email, lead.phone, lead.topics, lead.message, lead.page,
     lead.utm_source, lead.utm_medium, lead.utm_campaign, lead.country).run();
-  await env.DB.prepare('INSERT INTO events (ts, type, path, sid, country, city, device) VALUES (?,?,?,?,?,?,?)')
-    .bind(now(), 'lead', lead.page, clip(b.sid, 64), g.country, g.city, g.device).run();
+  await env.DB.prepare('INSERT INTO events (ts, type, path, label, sid, country, city, device) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(now(), 'lead', lead.page, clip(b.via, 40), clip(b.sid, 64), g.country, g.city, g.device).run();
   ctx.waitUntil(fireWebhook(env, 'lead', { id: r.meta.last_row_id, ...lead }));
-  return json({ ok: true, id: r.meta.last_row_id });
+  return r.meta.last_row_id;
+}
+
+async function apiLead(req, env, ctx) {
+  const b = await readJson(req, 10000);
+  if (b.website) return json({ ok: true }); // campo trampa anti-spam
+  try { return json({ ok: true, id: await createLead(req, env, ctx, b) }); }
+  catch (e) { return json({ ok: false, error: e.message }, 400); }
+}
+
+/* ================= SERVIDOR MCP (Streamable HTTP, sin estado) ================= */
+const MCP_INFO = {
+  servicios: `Servicios de Diwilo (Medellín, Colombia):
+- Analítica y ciencia de datos: modelos predictivos, segmentación y pronóstico (Python, SQL, scikit-learn).
+- Automatización de flujos: conectar sistemas y eliminar trabajo repetitivo (n8n, APIs, webhooks).
+- Agentes de IA: atienden clientes y ejecutan tareas 24/7 (LLMs, RAG, herramientas propias).
+- Chatbots y atención: bots integrados a WhatsApp y otros canales (Chatwoot, WhatsApp Business).
+- Extracción de datos: documentos, sitios web y bases de datos (OCR, scraping, ETL).
+- Dashboards y tableros: indicadores en tiempo real con accesos por rol (Supabase, web dashboards).
+- Sitios y apps web.
+Modalidades: diagnóstico de automatización (1 a 2 semanas, primera sesión de 45 min sin costo); proyecto cerrado (4 a 12 semanas, sprints de 2 semanas); operación y soporte mensual. Los precios dependen del alcance.`,
+  casos: `Casos: Dashboards PMO para construcción (avance, costo y cronograma en un tablero que se alimenta de hojas y ERP); automatizaciones con n8n (CRM, correo y base de datos con reintentos y alertas); plataforma de Becas del Centenario Rotario (postulación y seguimiento); sitios para Madetableros, Fundación Amor por Medellín y Rotary Club Medellín.`,
+  metodologia: `Metodologías: Scrum, Kanban, CRISP-DM, MLOps/DevOps, PMI/PMBOK. Protección de datos conforme a la Ley 1581 de 2012 (Colombia); se firma NDA si se requiere. Arquitectura: fuentes de datos → orquestación (n8n) → datos y modelos (Python, LLMs) → aplicación (Supabase, dashboards, Chatwoot) → infraestructura (GNU/Linux, Docker, Dokploy).`,
+  contacto: `Contacto: hola@diwilo.com · WhatsApp +57 305 384 0193 (https://wa.me/573053840193) · Medellín, Colombia · https://diwilo.com/contacto. Respuesta en menos de 24 horas hábiles.`
+};
+const MCP_TOOLS = [
+  {
+    name: 'diwilo_info',
+    title: 'Información de Diwilo',
+    description: 'Devuelve información de Diwilo: servicios y modalidades, casos, metodologías o datos de contacto.',
+    inputSchema: { type: 'object', properties: { tema: { type: 'string', enum: ['servicios', 'casos', 'metodologia', 'contacto', 'todo'], description: 'Tema a consultar' } }, required: ['tema'] },
+    annotations: { readOnlyHint: true }
+  },
+  {
+    name: 'diwilo_solicitar_diagnostico',
+    title: 'Solicitar diagnóstico',
+    description: 'Envía a Diwilo una solicitud de diagnóstico de automatización (primera sesión sin costo). Úsala solo con el consentimiento de la persona y con sus datos reales.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string', description: 'Nombre y empresa de quien solicita' },
+        correo: { type: 'string', format: 'email', description: 'Correo de contacto' },
+        telefono: { type: 'string', description: 'WhatsApp o teléfono (opcional)' },
+        necesidad: { type: 'string', description: 'Proceso que quiere automatizar o problema a resolver' }
+      },
+      required: ['nombre', 'correo', 'necesidad']
+    }
+  }
+];
+
+async function mcpServer(req, env, ctx) {
+  if (req.method === 'GET' || req.method === 'DELETE') return new Response('Este servidor MCP es sin estado: usa POST con JSON-RPC.', { status: 405, headers: { allow: 'POST' } });
+  if (req.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } });
+  let msg;
+  try { msg = await readJson(req, 20000); } catch { return json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'JSON inválido' } }, 400); }
+  const ok = (id, result) => json({ jsonrpc: '2.0', id, result });
+  const fail = (id, code, message) => json({ jsonrpc: '2.0', id, error: { code, message } });
+  if (Array.isArray(msg)) return fail(null, -32600, 'Lotes no soportados');
+  const { id = null, method, params = {} } = msg;
+  if (id === null && method?.startsWith('notifications/')) return new Response(null, { status: 202 });
+  switch (method) {
+    case 'initialize':
+      return ok(id, {
+        protocolVersion: params.protocolVersion || '2025-06-18',
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: 'diwilo', title: 'Diwilo', version: '1.0.0' },
+        instructions: 'Servidor de Diwilo (datos, automatización y agentes de IA en Medellín). Usa diwilo_info para conocer servicios y diwilo_solicitar_diagnostico para pedir una sesión sin costo.'
+      });
+    case 'ping': return ok(id, {});
+    case 'tools/list': return ok(id, { tools: MCP_TOOLS });
+    case 'tools/call': {
+      const a = params.arguments || {};
+      if (params.name === 'diwilo_info') {
+        const text = a.tema === 'todo' || !MCP_INFO[a.tema] ? Object.values(MCP_INFO).join('\n\n') : MCP_INFO[a.tema];
+        return ok(id, { content: [{ type: 'text', text }] });
+      }
+      if (params.name === 'diwilo_solicitar_diagnostico') {
+        try {
+          const leadId = await createLead(req, env, ctx, { name: a.nombre, email: a.correo, phone: a.telefono, message: a.necesidad, topics: 'Diagnóstico (agente IA)', page: '/mcp', via: 'mcp' });
+          return ok(id, { content: [{ type: 'text', text: `Solicitud #${leadId} recibida. Diwilo responderá a ${a.correo} en menos de 24 horas hábiles.` }] });
+        } catch (e) {
+          return ok(id, { isError: true, content: [{ type: 'text', text: `No se pudo enviar: ${e.message}` }] });
+        }
+      }
+      return fail(id, -32602, `Herramienta desconocida: ${params.name}`);
+    }
+    default: return fail(id, -32601, `Método no soportado: ${method}`);
+  }
 }
 
 async function callAI(env, system, history) {
@@ -438,6 +526,10 @@ export default {
     try {
       if (path.startsWith('/api/')) {
         if (req.method === 'OPTIONS') return cors(env, req, new Response(null, { status: 204 }));
+        if (path === '/api/health') {
+          const db = await env.DB.prepare('SELECT 1 ok').first().then(() => 'ok', () => 'error');
+          return json({ status: db === 'ok' ? 'ok' : 'degraded', database: db, time: new Date().toISOString() }, db === 'ok' ? 200 : 503, { 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
+        }
         if (req.method !== 'POST') return json({ error: 'método no permitido' }, 405);
         let res;
         if (path === '/api/track') res = await apiTrack(req, env);
@@ -445,6 +537,14 @@ export default {
         else if (path === '/api/chat') res = await apiChat(req, env, ctx);
         else res = json({ error: 'no encontrado' }, 404);
         return cors(env, req, res);
+      }
+      if (path === '/mcp') {
+        const h = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type, mcp-protocol-version, mcp-session-id' };
+        if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
+        const r = await mcpServer(req, env, ctx);
+        const res = new Response(r.body, r);
+        Object.entries(h).forEach(([k, v]) => res.headers.set(k, v));
+        return res;
       }
       if (path.startsWith('/l/')) return trackLink(req, env, ctx, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/c/')) return showCard(req, env, ctx, decodeURIComponent(path.slice(3)));

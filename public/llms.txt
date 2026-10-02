@@ -1,0 +1,19 @@
+# Diwilo
+
+> Empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Primera sesión de diagnóstico sin costo.
+
+## Páginas
+- [Diwilo](https://diwilo.com/index.md): Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto en Colombia.
+- [Servicios](https://diwilo.com/servicios.md): Analítica, automatización de flujos, agentes de IA, chatbots, extracción de datos y dashboards. Prueba las demostraciones en vivo.
+- [Arquitectura y método](https://diwilo.com/arquitectura.md): Infraestructura desacoplada, orquestación con n8n y metodologías auditables: Scrum, Kanban, CRISP-DM, MLOps, PMI y Ley 1581.
+- [Contacto](https://diwilo.com/contacto.md): Cuéntanos sobre tu operación. Primera sesión de diagnóstico sin costo y respuesta en menos de 24 horas hábiles.
+- [Política de privacidad](https://diwilo.com/privacidad.md): Política de tratamiento de datos personales de Diwilo conforme a la Ley 1581 de 2012.
+- [API de Diwilo](https://diwilo.com/docs/api.md): Servidor MCP, API pública e integraciones de Diwilo para sistemas y agentes de IA.
+
+## Para agentes
+- [Servidor MCP](https://diwilo.com/.well-known/mcp/server-card.json): consulta servicios y solicita un diagnóstico
+- [API](https://diwilo.com/docs/api.md): documentación; especificación en https://diwilo.com/openapi.json
+- [Skill](https://diwilo.com/.well-known/agent-skills/diwilo-diagnostico/SKILL.md): cómo ayudar a alguien a contactar a Diwilo
+
+## Contacto
+- hola@diwilo.com · WhatsApp +57 305 384 0193

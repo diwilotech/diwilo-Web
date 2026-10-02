@@ -1,0 +1,41 @@
+# robots.txt de diwilo.com (RFC 9309)
+# Política: el contenido público puede indexarse, usarse en respuestas de IA y para entrenamiento.
+# Para impedir el entrenamiento cambia ai-train=yes por ai-train=no y Allow por Disallow en el grupo de entrenamiento.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /v1/
+Disallow: /l/
+Disallow: /c/
+
+# Buscadores y asistentes de IA (deciden si Diwilo aparece en sus respuestas)
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /v1/
+Disallow: /l/
+Disallow: /c/
+
+# Rastreadores de entrenamiento de modelos
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /v1/
+Disallow: /l/
+Disallow: /c/
+
+Sitemap: https://diwilo.com/sitemap.xml

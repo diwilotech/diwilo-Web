@@ -1,0 +1,54 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Diwilo",
+    "identifier": "did:web:diwilo.com",
+    "url": "https://diwilo.com"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:diwilo.com:mcp:diwilo",
+      "displayName": "Servidor MCP de Diwilo",
+      "type": "application/mcp-server-card+json",
+      "url": "https://diwilo.com/.well-known/mcp/server-card.json",
+      "representativeQueries": [
+        "empresa para automatizar procesos con IA en Medellín",
+        "quiero un diagnóstico de automatización sin costo",
+        "qué servicios de datos y agentes de IA ofrece Diwilo",
+        "contactar a Diwilo"
+      ]
+    },
+    {
+      "identifier": "urn:air:diwilo.com:api:public",
+      "displayName": "API de Diwilo",
+      "type": "application/vnd.oai.openapi+json",
+      "url": "https://diwilo.com/openapi.json",
+      "representativeQueries": [
+        "enviar una solicitud de contacto a Diwilo",
+        "API para integrar leads con n8n",
+        "preguntar al asistente de Diwilo"
+      ]
+    },
+    {
+      "identifier": "urn:air:diwilo.com:skills:index",
+      "displayName": "Skills de Diwilo para agentes",
+      "type": "application/json",
+      "url": "https://diwilo.com/.well-known/agent-skills/index.json",
+      "representativeQueries": [
+        "cómo solicitar un diagnóstico a Diwilo",
+        "cómo ayudar a un usuario a contactar a Diwilo"
+      ]
+    },
+    {
+      "identifier": "urn:air:diwilo.com:docs:llms",
+      "displayName": "Resumen del sitio para modelos de lenguaje",
+      "type": "text/markdown",
+      "url": "https://diwilo.com/llms.txt",
+      "representativeQueries": [
+        "qué es Diwilo",
+        "servicios y casos de Diwilo",
+        "metodologías de trabajo de Diwilo"
+      ]
+    }
+  ]
+}
