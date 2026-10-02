@@ -286,7 +286,7 @@ button { font: inherit; }
 
 /* ---------- Fundador ---------- */
 .founder { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; text-align: left; max-width: 820px; margin: 0 auto; }
-.founder__avatar { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 30% 30%, rgba(168, 85, 247, 0.4), rgba(5, 6, 15, 0.9)); box-shadow: var(--glow); font-family: var(--f-dis); font-size: 32px; color: var(--white); }
+.founder__avatar { width: 132px; height: 132px; border-radius: 50%; object-fit: cover; padding: 4px; background: linear-gradient(135deg, var(--violet), rgba(124, 145, 182, 0.5)); box-shadow: 0 0 32px rgba(168, 85, 247, 0.35); }
 .quote { margin: 0 0 14px; font-family: var(--f-dis); font-weight: 500; font-size: clamp(20px, 2.6vw, 28px); line-height: 1.25; color: var(--hi); text-wrap: pretty; }
 
 /* ---------- Demos ---------- */
