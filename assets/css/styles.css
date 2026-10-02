@@ -89,7 +89,7 @@ button { font: inherit; }
   will-change: transform, opacity;
 }
 @keyframes beam-in { from { opacity: 0; transform: scaleX(0.3); } to { opacity: 1; transform: none; } }
-.page > *:not(.page-bg) { position: relative; z-index: 1; }
+.page > *:not(.page-bg):not(.nav-wrap) { position: relative; z-index: 1; }
 
 /* ---------- Barra de progreso de scroll ---------- */
 .scroll-progress {
@@ -203,6 +203,7 @@ button { font: inherit; }
 
 /* ---------- Navegación ---------- */
 .nav-wrap {
+  /* menú fijo arriba mientras se recorre la página */
   position: sticky; top: 0; z-index: 50;
   background: rgba(5, 6, 15, 0.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   box-shadow: inset 0 -1px 0 var(--edge);
@@ -382,6 +383,74 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bo
 .prose ul { padding-left: 20px; }
 .prose li { margin-bottom: 6px; }
 .prose a { text-decoration: underline; }
+
+
+/* ---------- Botones flotantes: WhatsApp + chat IA ---------- */
+.fab { position: fixed; right: 20px; bottom: 20px; z-index: 70; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.fab__btn {
+  position: relative; display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 50%; cursor: pointer;
+  color: var(--white); font-size: 26px; background: radial-gradient(circle at 30% 25%, #a66cf5, var(--violet) 60%, #5b21b6);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 0 0 1px var(--violet-line), 0 10px 28px rgba(143, 69, 242, 0.45);
+  transition: transform 300ms var(--ease), box-shadow 300ms ease;
+  animation: fab-in 700ms var(--ease) both; animation-delay: var(--d, 900ms);
+}
+.fab__btn:hover { transform: translateY(-3px) scale(1.05); color: var(--white); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 0 0 1px var(--lilac), 0 14px 36px rgba(143, 69, 242, 0.6); }
+.fab__btn--wa { width: 50px; height: 50px; font-size: 24px; background: rgba(12, 10, 28, 0.92); box-shadow: inset 0 0 0 1px var(--violet-line), 0 0 18px rgba(168, 85, 247, 0.3), 0 10px 24px rgba(0, 0, 0, 0.5); --d: 1100ms; }
+.fab__btn--wa i { color: var(--lilac); }
+.fab__btn--wa:hover { background: rgba(30, 18, 60, 0.95); }
+/* anillo que late para llamar la atención */
+.fab__btn--ai::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--lilac); opacity: 0; animation: ring 2.6s ease-out 2.2s infinite; }
+.fab.is-open .fab__btn--ai::after { animation: none; }
+@keyframes ring { 0% { opacity: 0.7; transform: scale(0.9); } 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes fab-in { from { opacity: 0; transform: translateY(24px) scale(0.6); } }
+.fab__label {
+  position: absolute; right: calc(100% + 12px); top: 50%; transform: translate(6px, -50%); opacity: 0; pointer-events: none; white-space: nowrap;
+  font-size: 13px; font-weight: 500; color: var(--hi); padding: 7px 12px; border-radius: var(--r-pill);
+  background: rgba(10, 12, 23, 0.95); box-shadow: var(--hair); transition: opacity 200ms ease, transform 300ms var(--ease);
+}
+.fab__btn:hover .fab__label, .fab__btn:focus-visible .fab__label { opacity: 1; transform: translate(0, -50%); }
+.fab.is-open .fab__label { display: none; }
+.fab__btn--wa { transition: transform 300ms var(--ease), box-shadow 300ms ease, opacity 200ms ease; }
+.fab.is-open .fab__btn--wa { opacity: 0; transform: scale(0.6); pointer-events: none; }
+.fab__dot { position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 2px var(--bg); }
+
+.chatbox {
+  position: absolute; right: 0; bottom: calc(100% + 14px); width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 140px));
+  display: flex; flex-direction: column; border-radius: 20px; overflow: hidden; background: rgba(6, 7, 17, 0.97);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 1px rgba(216, 236, 248, 0.2), 0 0 0 1px var(--edge), 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(143, 69, 242, 0.18);
+  transform-origin: 100% 100%; transform: translateY(12px) scale(0.92); opacity: 0; pointer-events: none;
+  transition: transform 380ms var(--ease), opacity 240ms ease;
+}
+.fab.is-open .chatbox { transform: none; opacity: 1; pointer-events: auto; }
+.chatbox__head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: linear-gradient(180deg, rgba(143, 69, 242, 0.16), transparent); box-shadow: inset 0 -1px 0 var(--edge); }
+.chatbox__avatar { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--violet-soft); box-shadow: var(--glow); color: var(--white); font-size: 19px; }
+.chatbox__avatar .fab__dot { top: -1px; right: -1px; width: 10px; height: 10px; }
+.chatbox__title { margin: 0; font-family: var(--f-dis); font-weight: 500; font-size: 15px; color: var(--hi); }
+.chatbox__sub { margin: 1px 0 0; font-size: 12px; color: var(--ink3); }
+.chatbox__close { margin-left: auto; display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--ink2); font-size: 18px; cursor: pointer; }
+.chatbox__close:hover { background: var(--fill); color: var(--white); }
+.chatbox__log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+.chatbox__log .msg { max-width: 88%; }
+.chatbox__log .msg a { color: var(--sky); text-decoration: underline; }
+.typing { display: inline-flex; gap: 4px; align-items: center; height: 18px; }
+.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink3); animation: typing 1.1s ease-in-out infinite; }
+.typing span:nth-child(2) { animation-delay: 0.15s; } .typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing { 0%, 60%, 100% { transform: none; opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+.chatbox__foot { padding: 12px 14px 14px; box-shadow: inset 0 1px 0 var(--edge); display: grid; gap: 10px; }
+.chatbox__sugg { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.chatbox__sugg::-webkit-scrollbar { display: none; }
+.chatbox__sugg .pill { flex: none; font-size: 12px; padding: 6px 12px; }
+.chatbox__form { display: flex; gap: 8px; }
+.chatbox__form .btn--solid { padding: 10px 14px; flex: none; }
+.chatbox__note { margin: 0; font-size: 11px; color: var(--ink3); text-align: center; }
+.chatbox__note a { color: var(--ink2); text-decoration: underline; }
+
+@media (max-width: 480px) {
+  .fab { right: 14px; bottom: 14px; }
+  .chatbox { position: fixed; right: 8px; left: 8px; bottom: 84px; width: auto; height: calc(100dvh - 96px); }
+  .fab__label { display: none; }
+}
 
 /* ==========================================================================
    Animaciones de scroll

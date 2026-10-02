@@ -4,14 +4,63 @@
 
   const CONTACT_EMAIL = 'hola@diwilo.com';
   const WHATSAPP = '573053840193';
-  // Para recibir el formulario sin abrir el correo del visitante, pega aquí
-  // un endpoint de Formspree / FormSubmit / n8n (POST JSON). Vacío = mailto.
-  const FORM_ENDPOINT = '';
+  // App de gestión en Cloudflare (panel en API_BASE + '/admin')
+  const API_BASE = 'https://diwilo-admin.diwilo.workers.dev';
+  // El formulario se guarda en el panel; si falla, se abre el correo (mailto).
+  const FORM_ENDPOINT = API_BASE + '/api/lead';
 
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* Almacenamiento tolerante a fallos (modo privado, cookies bloqueadas) */
+  const store = (area) => ({
+    get(k) { try { return JSON.parse(window[area].getItem(k)); } catch (_) { return null; } },
+    set(k, v) { try { window[area].setItem(k, JSON.stringify(v)); } catch (_) { /* sin almacenamiento */ } }
+  });
+  const local = store('localStorage'), session = store('sessionStorage');
+
+  /* ---------------- Rastreo (visitas, clics, campañas) ---------------- */
+  const sid = local.get('dwl_sid') || (() => {
+    const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');
+    local.set('dwl_sid', id);
+    return id;
+  })();
+
+  // Los UTM de la llegada se conservan durante la visita para atribuir el lead
+  const utm = (() => {
+    const q = new URLSearchParams(location.search);
+    const fresh = {};
+    ['utm_source', 'utm_medium', 'utm_campaign'].forEach((k) => { if (q.get(k)) fresh[k] = q.get(k).slice(0, 100); });
+    if (Object.keys(fresh).length) session.set('dwl_utm', fresh);
+    return session.get('dwl_utm') || {};
+  })();
+
+  // No se cuentan vistas locales (archivo o localhost) ni navegadores automatizados
+  const noTrack = location.protocol === 'file:' || /^(localhost|127\.)/.test(location.hostname) || navigator.webdriver;
+
+  function track(type, extra = {}) {
+    if (noTrack) return;
+    const body = JSON.stringify({ type, path: location.pathname, sid, ...utm, ...extra });
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(API_BASE + '/api/track', new Blob([body], { type: 'text/plain' }))) return;
+    } catch (_) { /* usa fetch */ }
+    fetch(API_BASE + '/api/track', { method: 'POST', body, keepalive: true, headers: { 'content-type': 'text/plain' } }).catch(() => {});
+  }
+
+  function initTracking() {
+    if (noTrack) return;
+    const ref = document.referrer && !document.referrer.startsWith(location.origin) ? document.referrer : '';
+    track('pageview', { ref });
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a, button');
+      if (!a) return;
+      const label = (a.textContent || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      if (a.href && a.href.includes('wa.me')) track('click_whatsapp', { label });
+      else if (a.classList.contains('btn--primary')) track('cta', { label });
+    }, { capture: true });
+  }
 
   /* Cambia el contenido de un bloque con un pequeño fundido */
   function swap(el, fn) {
@@ -562,7 +611,11 @@
       let sent = false;
       if (FORM_ENDPOINT) {
         try {
-          const r = await fetch(FORM_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) });
+          const payload = {
+            name: data.nombre, email: data.correo, phone: data.telefono, topics: data.temas, message: data.mensaje,
+            page: location.pathname, sid, ...utm, website: (f.get('website') || '').toString()
+          };
+          const r = await fetch(FORM_ENDPOINT, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(payload) });
           sent = r.ok;
         } catch (_) { sent = false; }
       }
@@ -572,6 +625,9 @@
       }
       $('[data-f="name"]', done).textContent = data.nombre.split(/[\s·]+/)[0] || '';
       $('[data-f="mail"]', done).textContent = data.correo || 'tu correo';
+      $('[data-f="how"]', done).textContent = sent
+        ? 'Recibimos tu mensaje.'
+        : 'Abrimos tu correo con el mensaje listo para enviar; si no se abrió, escríbenos a hola@diwilo.com.';
       form.hidden = true;
       done.hidden = false;
       btn.disabled = false;
@@ -618,6 +674,102 @@
     onceVisible(root, update, 0.4);
   }
 
+  /* ---------------- Botones flotantes: WhatsApp + chat IA ---------------- */
+  function initFab() {
+    const HELLO = '¡Hola! Soy el asistente de Diwilo. Te cuento sobre automatización, datos y agentes de IA, o te ayudo a agendar un diagnóstico sin costo. ¿En qué te ayudo?';
+    const wrap = document.createElement('div');
+    wrap.className = 'fab';
+    wrap.innerHTML = `
+      <section class="chatbox" role="dialog" aria-label="Chat con el asistente de Diwilo" aria-hidden="true">
+        <header class="chatbox__head">
+          <span class="chatbox__avatar"><i class="ph-light ph-robot"></i><span class="fab__dot"></span></span>
+          <div><p class="chatbox__title">Asistente Diwilo</p><p class="chatbox__sub">IA · responde al instante</p></div>
+          <button type="button" class="chatbox__close" aria-label="Cerrar chat"><i class="ph-light ph-x"></i></button>
+        </header>
+        <div class="chatbox__log" aria-live="polite"></div>
+        <div class="chatbox__foot">
+          <div class="chatbox__sugg">
+            ${['¿Qué servicios ofrecen?', '¿Cuánto cuesta?', 'Quiero automatizar un proceso', 'Agendar diagnóstico'].map((s) => `<button type="button" class="pill">${s}</button>`).join('')}
+          </div>
+          <form class="chatbox__form">
+            <label class="sr-only" for="fab-q">Tu mensaje</label>
+            <input id="fab-q" class="input" name="q" placeholder="Escribe tu pregunta…" autocomplete="off" maxlength="1000">
+            <button type="submit" class="btn btn--solid" aria-label="Enviar"><i class="ph-light ph-paper-plane-tilt"></i></button>
+          </form>
+          <p class="chatbox__note">Asistente con IA · <a href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">hablar con una persona</a></p>
+        </div>
+      </section>
+      <a class="fab__btn fab__btn--wa" href="https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola, quiero información sobre sus servicios')}" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp">
+        <i class="ph-light ph-whatsapp-logo"></i><span class="fab__label">WhatsApp</span>
+      </a>
+      <button type="button" class="fab__btn fab__btn--ai" aria-label="Abrir chat con IA" aria-expanded="false">
+        <i class="ph-light ph-chats-teardrop"></i><span class="fab__label">Pregúntale a la IA</span>
+      </button>`;
+    document.body.appendChild(wrap);
+
+    const box = $('.chatbox', wrap), log = $('.chatbox__log', wrap), form = $('.chatbox__form', wrap);
+    const toggle = $('.fab__btn--ai', wrap), input = form.q;
+    let history = session.get('dwl_chat') || [];
+    let busy = false, opened = false;
+
+    // Texto plano con enlaces y correos clicables
+    const linkify = (t) => esc(t)
+      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+      .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>');
+    function add(role, text, save = true) {
+      const m = document.createElement('div');
+      m.className = `msg msg--${role === 'user' ? 'me' : 'bot'}`;
+      m.innerHTML = linkify(text);
+      log.appendChild(m);
+      log.scrollTop = log.scrollHeight;
+      if (save) { history.push({ role, text }); session.set('dwl_chat', history.slice(-40)); }
+    }
+    function render() {
+      log.innerHTML = '';
+      add('assistant', HELLO, false);
+      history.forEach((m) => add(m.role, m.text, false));
+    }
+    function setOpen(open) {
+      wrap.classList.toggle('is-open', open);
+      box.setAttribute('aria-hidden', String(!open));
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? 'Cerrar chat' : 'Abrir chat con IA');
+      $('i', toggle).className = open ? 'ph-light ph-x' : 'ph-light ph-chats-teardrop';
+      if (open) {
+        if (!opened) { opened = true; render(); track('chat_open'); }
+        setTimeout(() => input.focus({ preventScroll: true }), 250);
+      }
+    }
+    async function send(text) {
+      text = text.trim();
+      if (!text || busy) return;
+      busy = true;
+      add('user', text);
+      input.value = '';
+      const typing = document.createElement('div');
+      typing.className = 'msg msg--bot';
+      typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+      log.appendChild(typing);
+      log.scrollTop = log.scrollHeight;
+      let reply;
+      try {
+        const r = await fetch(API_BASE + '/api/chat', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: text, page: location.pathname }) });
+        reply = (await r.json()).reply;
+      } catch (_) { /* respuesta de respaldo abajo */ }
+      typing.remove();
+      add('assistant', reply || `No pude conectarme ahora. Escríbenos por WhatsApp: https://wa.me/${WHATSAPP} o a ${CONTACT_EMAIL}`);
+      busy = false;
+    }
+
+    toggle.addEventListener('click', () => setOpen(!wrap.classList.contains('is-open')));
+    $('.chatbox__close', wrap).addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && wrap.classList.contains('is-open')) setOpen(false); });
+    form.addEventListener('submit', (e) => { e.preventDefault(); send(input.value); });
+    $$('.chatbox__sugg .pill', wrap).forEach((b) => b.addEventListener('click', () => send(b.textContent)));
+    // Cualquier enlace del sitio con data-open-chat abre el asistente
+    document.addEventListener('click', (e) => { if (e.target.closest('[data-open-chat]')) { e.preventDefault(); setOpen(true); } });
+  }
+
   /* ---------------- Arranque ---------------- */
   document.addEventListener('DOMContentLoaded', () => {
     initHero();
@@ -637,6 +789,8 @@
     initReveal();
     initScroll();
     initSpotlight();
+    initFab();
+    initTracking();
     const y = $('[data-year]');
     if (y) y.textContent = new Date().getFullYear();
   });

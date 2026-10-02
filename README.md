@@ -29,11 +29,14 @@ python3 -m http.server 8000
 # abrir http://localhost:8000
 ```
 
-## Formulario de contacto
+## Gestión: app en Cloudflare
 
-Por defecto el formulario abre el correo del visitante con el mensaje listo para `hola@diwilo.com`.
-Para recibirlo directamente, pega un endpoint (Formspree, FormSubmit o un webhook de n8n) en
-`FORM_ENDPOINT` al inicio de `assets/js/main.js`.
+El sitio se conecta a la app `diwilo-admin` (Cloudflare Worker + D1), configurada en `API_BASE`
+al inicio de `assets/js/main.js`. Panel: https://diwilo-admin.diwilo.workers.dev/admin
+
+- Visitas, clics de WhatsApp y botones, y campañas UTM se registran solos (no en local).
+- El formulario de contacto guarda el lead en el panel; si la app no responde, abre el correo.
+- Los botones flotantes (WhatsApp y chat IA) se agregan desde `initFab()` en todas las páginas.
 
 ## Editar contenido
 

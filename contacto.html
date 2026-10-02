@@ -75,10 +75,11 @@
           <div class="stack" style="--gap:14px;justify-items:start;padding:28px 0" data-contact-done hidden aria-live="polite">
             <span class="icon-circle" style="width:48px;height:48px;color:var(--sky)"><i class="ph-light ph-check"></i></span>
             <h2 class="h3 h3--lg" style="margin:0">Gracias, <span data-f="name"></span></h2>
-            <p style="margin:0;font-size:15px;color:var(--ink2)">Abrimos tu correo con el mensaje listo para enviar. Si no se abrió, escríbenos a <a href="mailto:hola@diwilo.com" style="text-decoration:underline">hola@diwilo.com</a>. Te respondemos a <span data-f="mail"></span> en menos de 24 horas hábiles.</p>
+            <p style="margin:0;font-size:15px;color:var(--ink2)"><span data-f="how"></span> Te respondemos a <span data-f="mail"></span> en menos de 24 horas hábiles.</p>
             <button type="button" class="btn" data-contact-reset style="margin-top:6px">Enviar otro mensaje</button>
           </div>
           <form class="stack" style="--gap:18px" data-contact>
+            <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
             <div class="field">
               <label for="nombre">Nombre y empresa</label>
               <input class="input" id="nombre" name="nombre" type="text" required autocomplete="name" placeholder="Ana Ramírez · Logística del Valle">
