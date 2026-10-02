@@ -120,6 +120,69 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
 .qrbox{width:140px;padding:8px;border-radius:8px;background:#fff}.qrbox svg{display:block;width:100%;height:auto}
 .menu-btn{display:none}
 
+
+/* tarjetas: galería y editor visual */
+.vgrid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.vcard{position:relative;cursor:pointer;border:0;text-align:center;color:inherit;border-radius:18px;padding:26px 18px 16px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(var(--glow),.16),rgba(10,12,23,.95) 45%);box-shadow:inset 0 1px 1px rgba(216,236,248,.18),inset 0 0 0 1px rgba(var(--glow),.25),0 16px 32px rgba(0,0,0,.45);
+  transition:transform .3s cubic-bezier(.22,1,.36,1),box-shadow .3s}
+.vcard:hover{transform:translateY(-4px);box-shadow:inset 0 1px 1px rgba(216,236,248,.18),inset 0 0 0 1px rgba(var(--glow),.6),0 20px 40px rgba(0,0,0,.5),0 0 30px rgba(var(--glow),.18)}
+.vcard .vph{width:84px;height:84px;margin:0 auto 12px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--ac),rgba(124,145,182,.5));box-shadow:0 0 24px rgba(var(--glow),.35);display:grid;place-items:center;font-family:var(--f-dis);font-size:28px;color:#fff;object-fit:cover}
+.vcard h3{font-family:var(--f-dis);font-weight:500;font-size:18px;margin:0;background:linear-gradient(0deg,#98c0ef,#d8ecf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.vcard .vr{margin:3px 0 0;font-size:13px;color:var(--ink2);min-height:1.4em}
+.vcard .vc{margin:2px 0 0;font:11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);min-height:1.3em}
+.vcard .vi{display:flex;justify-content:center;gap:6px;margin:14px 0 12px;min-height:30px}
+.vcard .vi span{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;box-shadow:var(--hair);color:var(--acl);font-size:15px}
+.vcard .vf{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:12px;box-shadow:inset 0 1px 0 var(--edge);font-size:12px;color:var(--ink3)}
+.vcard .vf .row{gap:4px}
+.vcard .vedit{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border-radius:999px;background:rgba(5,6,15,.7);box-shadow:var(--hair);color:var(--ink2);opacity:0;transition:opacity .2s}
+.vcard:hover .vedit{opacity:1}
+.vnew{display:grid;place-items:center;gap:8px;min-height:300px;border-radius:18px;border:1px dashed rgba(186,215,247,.25);background:transparent;color:var(--ink3);cursor:pointer;font-size:14px;transition:all .2s}
+.vnew:hover{border-color:var(--line);color:#fff;background:var(--on)}
+.vnew i{font-size:30px;color:var(--lilac)}
+
+.editor{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:24px;align-items:start}
+.stage{position:sticky;top:20px;display:grid;justify-items:center;gap:10px;padding:28px 16px;border-radius:20px;
+  background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(var(--glow),.25),transparent 70%),#06070f;box-shadow:var(--hair)}
+.pcard{width:100%;max-width:360px;border-radius:20px;background:rgba(5,6,15,.92);padding:30px 22px 22px;text-align:center;
+  box-shadow:inset 0 1px 1px rgba(216,236,248,.2),inset 0 24px 48px rgba(168,216,245,.06),0 24px 48px rgba(0,0,0,.5)}
+.pphoto{position:relative;width:108px;height:108px;margin:0 auto 16px;border:0;border-radius:50%;padding:4px;cursor:pointer;
+  background:linear-gradient(135deg,var(--ac),rgba(124,145,182,.5));box-shadow:0 0 32px rgba(var(--glow),.35);display:grid;place-items:center;font-family:var(--f-dis);font-size:34px;color:#fff}
+.pphoto img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.pphoto .cam{position:absolute;inset:4px;border-radius:50%;display:grid;place-items:center;background:rgba(5,6,15,.6);opacity:0;transition:opacity .2s;font-size:24px}
+.pphoto:hover .cam,.pphoto:focus-visible .cam{opacity:1}
+.pdel{margin:-8px 0 10px;background:none;border:0;color:var(--ink3);font-size:11px;cursor:pointer;text-decoration:underline}
+.pcard [contenteditable]{outline:none;border-radius:8px;padding:2px 6px;margin-left:-6px;margin-right:-6px;transition:box-shadow .15s,background .15s;cursor:text}
+.pcard [contenteditable]:hover{box-shadow:inset 0 0 0 1px rgba(186,215,247,.22)}
+.pcard [contenteditable]:focus{box-shadow:inset 0 0 0 1px var(--acl);background:rgba(var(--glow),.08)}
+.pcard [contenteditable]:empty::before{content:attr(data-ph);color:rgba(157,167,186,.55);-webkit-text-fill-color:rgba(157,167,186,.55)}
+.pname{margin:0;font-family:var(--f-dis);font-weight:500;font-size:25px;line-height:1.2;background:linear-gradient(0deg,#98c0ef,#d8ecf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.prole{margin:6px 0 0;font-size:14px;color:var(--ink2)}
+.pco{margin:4px 0 0;font:12px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.pbio{margin:14px 0 0;font-size:14px;line-height:1.5;color:var(--ink3)}
+.pacts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:22px 0 14px}
+.pact{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 8px;border:0;border-radius:999px;font-size:13px;color:var(--ink);background:none;box-shadow:inset 0 0 0 1px var(--edge);cursor:pointer}
+.pact i{font-size:16px;color:var(--acl)}
+.pact.off{color:var(--ink3);box-shadow:none;outline:1px dashed rgba(186,215,247,.22);outline-offset:-1px}
+.pact.off i{color:var(--ink3)}
+.pact:hover{background:rgba(186,214,247,.06)}
+.psave{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:999px;font-size:15px;font-weight:500;color:#fff;background:rgba(var(--glow),.18);box-shadow:inset 0 0 0 1px rgba(var(--glow),.6),0 0 18px rgba(var(--glow),.22)}
+.hint{margin:0;font-size:12px;color:var(--ink3);text-align:center}
+.edpanel{display:grid;gap:14px}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:38px;height:38px;border-radius:50%;border:0;cursor:pointer;background:var(--c);box-shadow:0 0 0 2px var(--bg),0 0 0 3px transparent;transition:box-shadow .2s,transform .2s}
+.sw:hover{transform:scale(1.08)}
+.sw.on{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--c)}
+.cfield{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:10px}
+.cfield>i{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;box-shadow:var(--hair);color:var(--acl);font-size:16px}
+.cfield.flash input{box-shadow:inset 0 0 0 1px var(--acl)}
+.slugrow{display:flex;align-items:center;border-radius:6px;background:rgba(199,211,234,.06);box-shadow:var(--hair);overflow:hidden}
+.slugrow span{padding:9px 0 9px 12px;color:var(--ink3);font:12px var(--f-mono);white-space:nowrap}
+.slugrow input{flex:1;min-width:0;border:0;background:none;padding:9px 12px 9px 0;outline:none;font:12px var(--f-mono);color:#fff}
+.dirty{font-size:12px;color:var(--warn);display:flex;align-items:center;gap:6px}
+.dirty::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--warn)}
+@media (max-width:980px){.editor{grid-template-columns:1fr}.stage{position:static}}
+
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
   .side{position:fixed;inset:0 auto 0 0;width:240px;z-index:10;transform:translateX(-100%);transition:transform .3s}
@@ -221,27 +284,71 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
 
     <!-- TARJETAS -->
     <section data-section="cards" hidden>
-      <div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Tarjetas de presentación</h1></div></div>
-      <form class="card" id="cardForm" style="margin-bottom:14px">
-        <h2 id="cardFormTitle">Nueva tarjeta</h2>
-        <input type="hidden" name="id">
-        <div class="form" style="margin-top:12px">
-          <label class="f">Nombre completo<input class="in" name="name" required placeholder="Y. Alejandro Echavarría"></label>
-          <label class="f">Slug<input class="in" name="slug" placeholder="alejandro"></label>
-          <label class="f">Cargo<input class="in" name="role" placeholder="Fundador · IA y ciencia de datos"></label>
-          <label class="f">Empresa<input class="in" name="company" placeholder="Diwilo"></label>
-          <label class="f">Teléfono<input class="in" name="phone" placeholder="+57 305 384 0193"></label>
-          <label class="f">WhatsApp<input class="in" name="whatsapp" placeholder="+57 305 384 0193"></label>
-          <label class="f">Correo<input class="in" name="email" type="email" placeholder="hola@diwilo.com"></label>
-          <label class="f">Sitio web<input class="in" name="website" placeholder="https://diwilo.com"></label>
-          <label class="f">Instagram<input class="in" name="instagram" placeholder="diwilo.tech"></label>
-          <label class="f">LinkedIn (URL)<input class="in" name="linkedin" placeholder="https://www.linkedin.com/in/..."></label>
-          <label class="f full">Foto (URL)<input class="in" name="photo_url" placeholder="/assets/img/alejandro.jpg"></label>
-          <label class="f full">Bio corta<textarea class="in" name="bio" rows="2" placeholder="Especialista en IA, ciencia de datos y web dashboards."></textarea></label>
+      <div id="cardsGallery">
+        <div class="head">
+          <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Tarjetas de presentación</h1></div>
+          <button class="btn pri" id="cardNew"><i class="ph-light ph-plus"></i>Nueva tarjeta</button>
         </div>
-        <div class="row" style="margin-top:14px"><button class="btn pri" type="submit"><i class="ph-light ph-plus"></i>Guardar tarjeta</button><button class="btn" type="reset">Limpiar</button><span class="err" data-err></span></div>
-      </form>
-      <div class="grid" style="--min:300px" id="cardsList"></div>
+        <p class="muted" style="margin:-12px 0 20px">Así se ven las tarjetas publicadas. Haz clic en una para editarla directamente.</p>
+        <div class="vgrid" id="cardsList"></div>
+      </div>
+
+      <div id="cardEditor" hidden>
+        <div class="head">
+          <div class="row">
+            <button class="btn" id="cardBack"><i class="ph-light ph-arrow-left"></i>Tarjetas</button>
+            <h1 id="edTitle">Editar tarjeta</h1>
+            <span class="dirty" id="edDirty" hidden>Cambios sin guardar</span>
+          </div>
+          <div class="row">
+            <a class="btn" id="edOpen" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver publicada</a>
+            <button class="btn pri" id="edSave"><i class="ph-light ph-check"></i>Guardar</button>
+          </div>
+        </div>
+        <p class="err" id="edErr"></p>
+        <div class="editor" id="edRoot">
+          <div class="stage">
+            <div class="pcard">
+              <button type="button" class="pphoto" id="pPhoto" aria-label="Cambiar foto"></button>
+              <input type="file" id="pFile" accept="image/*" hidden>
+              <button type="button" class="pdel" id="pPhotoDel" hidden>Quitar foto</button>
+              <h3 class="pname" contenteditable="plaintext-only" spellcheck="false" data-k="name" data-ph="Nombre completo"></h3>
+              <p class="prole" contenteditable="plaintext-only" data-k="role" data-ph="Cargo"></p>
+              <p class="pco" contenteditable="plaintext-only" spellcheck="false" data-k="company" data-ph="Empresa"></p>
+              <p class="pbio" contenteditable="plaintext-only" data-k="bio" data-ph="Bio corta: qué haces y cómo ayudas."></p>
+              <div class="pacts" id="pActs"></div>
+              <div class="psave"><i class="ph-light ph-address-book"></i>Guardar contacto</div>
+            </div>
+            <p class="hint"><i class="ph-light ph-cursor-text"></i> Escribe sobre la tarjeta · clic en la foto para cambiarla</p>
+          </div>
+
+          <div class="edpanel">
+            <div class="card">
+              <h2>Color de la tarjeta</h2>
+              <p class="muted" style="margin:-6px 0 12px;font-size:13px">Ayuda a distinguir a cada persona o área.</p>
+              <div class="swatches" id="edSwatches"></div>
+            </div>
+            <div class="card">
+              <h2>Contacto</h2>
+              <p class="muted" style="margin:-6px 0 12px;font-size:13px">Solo aparecen en la tarjeta los botones que tengan dato.</p>
+              <div class="stack" style="display:grid;gap:10px" id="edContact"></div>
+            </div>
+            <div class="card">
+              <h2>Enlace y código QR</h2>
+              <div class="slugrow" style="margin:6px 0 14px"><span id="edBase"></span><input id="edSlug" spellcheck="false" aria-label="Enlace de la tarjeta"></div>
+              <div class="row" style="align-items:flex-start;gap:16px;flex-wrap:nowrap">
+                <div class="qrbox" id="edQr" style="width:120px;flex:none"></div>
+                <div style="display:grid;gap:8px">
+                  <button class="btn sm" id="edCopy"><i class="ph-light ph-copy"></i>Copiar enlace</button>
+                  <button class="btn sm" id="edQrDl"><i class="ph-light ph-download-simple"></i>Descargar QR</button>
+                  <span class="muted" style="font-size:12px" id="edViews"></span>
+                </div>
+              </div>
+            </div>
+            <div class="row"><button class="btn sm danger" id="edDelete" hidden><i class="ph-light ph-trash"></i>Borrar esta tarjeta</button></div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- INTEGRACIONES -->
@@ -521,34 +628,165 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
     }
   });
 
-  /* ---------- TARJETAS ---------- */
-  let cards = [];
-  const CARD_FIELDS = ['id', 'name', 'slug', 'role', 'company', 'phone', 'whatsapp', 'email', 'website', 'instagram', 'linkedin', 'photo_url', 'bio'];
-  loaders.cards = async () => {
-    cards = await api('cards');
-    $('#cardsList').innerHTML = cards.length ? cards.map((c) => {
-      const url = `${ORIGIN}/c/${c.slug}`;
-      return `<div class="card"><div class="row" style="align-items:flex-start;flex-wrap:nowrap;gap:14px">
-        <div class="qrbox" style="width:96px;flex:none">${qrSvg(url)}</div>
-        <div style="min-width:0"><h2>${esc(c.name)}</h2><p class="muted" style="margin:2px 0 8px">${esc([c.role, c.company].filter(Boolean).join(' · '))}</p>
-        <p class="mono muted" style="margin:0 0 10px">${fmtN(c.views)} vistas</p>
-        <div class="row"><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Abrir</a><button class="btn sm" data-copy="${esc(url)}"><i class="ph-light ph-copy"></i>Copiar</button><button class="btn sm" data-card-edit="${c.id}"><i class="ph-light ph-pencil-simple"></i></button><button class="btn sm danger" data-card-del="${c.id}"><i class="ph-light ph-trash"></i></button></div></div></div></div>`;
-    }).join('') : '<p class="empty card">Crea una tarjeta digital: se comparte con link o QR y permite guardar el contacto en el celular.</p>';
+  /* ---------- TARJETAS (galería + editor visual) ---------- */
+  const ACC = {
+    violeta: ['#8f45f2', '#c99bfa', '168,85,247', 'Violeta'],
+    azul: ['#2f6fed', '#93c5fd', '59,130,246', 'Azul'],
+    verde: ['#0f9f6e', '#6ee7b7', '16,185,129', 'Verde'],
+    ambar: ['#d97706', '#fcd34d', '245,158,11', 'Ámbar'],
+    rosa: ['#db2777', '#f9a8d4', '236,72,153', 'Rosa']
   };
-  $('#cardForm').addEventListener('submit', async (e) => {
-    e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
-    const body = formData(e.target); if (body.id) body.id = +body.id; else delete body.id;
-    try { await api('cards', { method: 'POST', body }); e.target.reset(); $('#cardFormTitle').textContent = 'Nueva tarjeta'; toast('Tarjeta guardada'); loaders.cards(); }
-    catch (x) { err.textContent = x.message.includes('UNIQUE') ? 'Ese slug ya existe' : x.message; }
+  const CONTACTS = [
+    ['whatsapp', 'ph-whatsapp-logo', 'WhatsApp', '+57 300 000 0000', 'tel'],
+    ['phone', 'ph-phone', 'Llamar', '+57 300 000 0000', 'tel'],
+    ['email', 'ph-envelope-simple', 'Correo', 'nombre@empresa.com', 'email'],
+    ['website', 'ph-globe', 'Sitio web', 'https://diwilo.com', 'url'],
+    ['instagram', 'ph-instagram-logo', 'Instagram', 'usuario', 'text'],
+    ['linkedin', 'ph-linkedin-logo', 'LinkedIn', 'https://www.linkedin.com/in/…', 'url']
+  ];
+  const TEXT_KEYS = ['name', 'role', 'company', 'bio'];
+  let cards = [], draft = null, saved = '', slugTouched = false;
+  const accentVars = (k) => { const a = ACC[k] || ACC.violeta; return `--ac:${a[0]};--acl:${a[1]};--glow:${a[2]}`; };
+  const initials = (n) => esc((n || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?');
+  const photoOf = (c) => c.photo_data || (c.has_photo ? `/c/${encodeURIComponent(c.slug)}/foto?v=${c.updated_at || c.created_at}` : (c.photo_url || ''));
+  const slugify = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  const snapshot = () => JSON.stringify(draft);
+
+  loaders.cards = async () => {
+    if (!$('#cardEditor').hidden) return;
+    cards = await api('cards');
+    $('#cardsList').innerHTML = cards.map((c) => {
+      const ph = photoOf(c);
+      const icons = CONTACTS.filter(([k]) => c[k]).map(([, ic]) => `<span><i class="ph-light ${ic}"></i></span>`).join('');
+      return `<div class="vcard" role="button" tabindex="0" data-card-edit="${c.id}" style="${accentVars(c.accent)}">
+        <span class="vedit"><i class="ph-light ph-pencil-simple"></i>Editar</span>
+        ${ph ? `<img class="vph" src="${esc(ph)}" alt="">` : `<div class="vph">${initials(c.name)}</div>`}
+        <h3>${esc(c.name)}</h3>
+        <p class="vr">${esc(c.role || '')}</p>
+        <p class="vc">${esc(c.company || '')}</p>
+        <div class="vi">${icons}</div>
+        <div class="vf"><span><i class="ph-light ph-eye"></i> ${fmtN(c.views)} vistas · /c/${esc(c.slug)}</span>
+          <span class="row"><a class="btn sm" href="/c/${esc(c.slug)}" target="_blank" rel="noopener" title="Abrir" data-stop><i class="ph-light ph-arrow-square-out"></i></a><button class="btn sm" data-copy="${esc(ORIGIN + '/c/' + c.slug)}" title="Copiar enlace"><i class="ph-light ph-copy"></i></button></span></div>
+      </div>`;
+    }).join('') + `<button class="vnew" id="cardNew2"><span><i class="ph-light ph-user-circle-plus"></i><br>Nueva tarjeta</span></button>`;
+  };
+
+  function openEditor(card) {
+    draft = card
+      ? { id: card.id, slug: card.slug, accent: card.accent || 'violeta', photo: photoOf(card), photo_data: undefined, views: card.views,
+          ...Object.fromEntries([...TEXT_KEYS, ...CONTACTS.map((c) => c[0])].map((k) => [k, card[k] || ''])) }
+      : { slug: '', accent: 'violeta', photo: '', photo_data: undefined, views: 0, ...Object.fromEntries([...TEXT_KEYS, ...CONTACTS.map((c) => c[0])].map((k) => [k, ''])), company: 'Diwilo', website: 'https://diwilo.com' };
+    slugTouched = !!card;
+    $('#cardsGallery').hidden = true; $('#cardEditor').hidden = false;
+    $('#edTitle').textContent = card ? 'Editar tarjeta' : 'Nueva tarjeta';
+    $('#edDelete').hidden = !card; $('#edOpen').hidden = !card; $('#edErr').textContent = '';
+    TEXT_KEYS.forEach((k) => { $(`.pcard [data-k="${k}"]`).textContent = draft[k]; });
+    $('#edContact').innerHTML = CONTACTS.map(([k, ic, label, ph, type]) => `<label class="cfield" data-cf="${k}"><i class="ph-light ${ic}"></i>
+      <input class="in" data-c="${k}" type="${type}" value="${esc(draft[k])}" placeholder="${esc(label)} · ${esc(ph)}" aria-label="${esc(label)}"></label>`).join('');
+    $('#edSwatches').innerHTML = Object.entries(ACC).map(([k, a]) => `<button type="button" class="sw" data-acc="${k}" style="--c:${a[0]}" title="${a[3]}" aria-label="${a[3]}"></button>`).join('');
+    $('#edBase').textContent = ORIGIN.replace(/^https?:\/\//, '') + '/c/';
+    saved = snapshot();
+    renderPreview();
+    window.scrollTo({ top: 0 });
+    if (!card) setTimeout(() => $('.pcard [data-k="name"]').focus(), 50);
+  }
+
+  function renderPreview() {
+    $('#edRoot').setAttribute('style', accentVars(draft.accent));
+    $$('.sw').forEach((b) => b.classList.toggle('on', b.dataset.acc === draft.accent));
+    $('#pPhoto').innerHTML = (draft.photo ? `<img src="${esc(draft.photo)}" alt="">` : initials(draft.name)) + '<span class="cam"><i class="ph-light ph-camera"></i></span>';
+    $('#pPhotoDel').hidden = !draft.photo;
+    $('#pActs').innerHTML = CONTACTS.map(([k, ic, label]) => `<button type="button" class="pact ${draft[k] ? '' : 'off'}" data-goto="${k}" title="${draft[k] ? esc(draft[k]) : 'Agregar ' + esc(label)}"><i class="ph-light ${draft[k] ? ic : 'ph-plus'}"></i>${esc(label)}</button>`).join('');
+    if (!slugTouched) draft.slug = slugify(draft.name);
+    if ($('#edSlug') !== document.activeElement) $('#edSlug').value = draft.slug;
+    const url = `${ORIGIN}/c/${draft.slug || '…'}`;
+    $('#edQr').innerHTML = qrSvg(url);
+    $('#edOpen').href = `/c/${draft.slug}`;
+    $('#edViews').textContent = draft.id ? `${fmtN(draft.views)} vistas` : 'Se publica al guardar';
+    $('#edDirty').hidden = snapshot() === saved;
+  }
+
+  // Edición directa sobre la tarjeta
+  $$('.pcard [contenteditable]').forEach((el) => {
+    el.addEventListener('input', () => {
+      if (!el.textContent.trim()) el.textContent = '';
+      draft[el.dataset.k] = el.textContent.trim();
+      renderPreview();
+    });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && el.dataset.k !== 'bio') { e.preventDefault(); el.blur(); } });
+    el.addEventListener('paste', (e) => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').replace(/\s+/g, ' ')); });
   });
-  $('#cardForm').addEventListener('reset', () => { $('#cardFormTitle').textContent = 'Nueva tarjeta'; });
-  $('#cardsList').addEventListener('click', async (e) => {
-    const c = e.target.closest('[data-copy]'); if (c) return copy(c.dataset.copy);
-    const ed = e.target.closest('[data-card-edit]');
-    if (ed) { const k = cards.find((x) => x.id === +ed.dataset.cardEdit); const f = $('#cardForm'); CARD_FIELDS.forEach((n) => { f.elements[n].value = k[n] ?? ''; }); $('#cardFormTitle').textContent = 'Editar tarjeta'; f.scrollIntoView({ behavior: 'smooth' }); return; }
-    const del = e.target.closest('[data-card-del]');
-    if (del && confirm('¿Borrar esta tarjeta?')) { await api('cards?id=' + del.dataset.cardDel, { method: 'DELETE' }); loaders.cards(); }
+  $('#edContact').addEventListener('input', (e) => { const k = e.target.dataset.c; if (k) { draft[k] = e.target.value.trim(); renderPreview(); } });
+  $('#pActs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-goto]'); if (!b) return;
+    const lab = $(`[data-cf="${b.dataset.goto}"]`); const inp = $('input', lab);
+    inp.focus(); lab.classList.add('flash'); setTimeout(() => lab.classList.remove('flash'), 900);
   });
+  $('#edSwatches').addEventListener('click', (e) => { const b = e.target.closest('[data-acc]'); if (b) { draft.accent = b.dataset.acc; renderPreview(); } });
+  $('#edSlug').addEventListener('input', (e) => { slugTouched = true; draft.slug = slugify(e.target.value); renderPreview(); });
+  $('#edSlug').addEventListener('blur', (e) => { e.target.value = draft.slug; });
+
+  // Foto: se recorta cuadrada y se reduce a 400 px antes de subirla
+  $('#pPhoto').addEventListener('click', () => $('#pFile').click());
+  $('#pFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file || !file.type.startsWith('image/')) return;
+    const img = new Image(); img.src = URL.createObjectURL(file);
+    try { await img.decode(); } catch { toast('No se pudo leer esa imagen. Prueba con JPG o PNG.'); return; }
+    const size = Math.min(img.naturalWidth, img.naturalHeight), S = 400;
+    const cv = document.createElement('canvas'); cv.width = cv.height = S;
+    cv.getContext('2d').drawImage(img, (img.naturalWidth - size) / 2, (img.naturalHeight - size) / 2, size, size, 0, 0, S, S);
+    URL.revokeObjectURL(img.src);
+    draft.photo_data = draft.photo = cv.toDataURL('image/jpeg', 0.85);
+    renderPreview();
+  });
+  $('#pPhotoDel').addEventListener('click', () => { draft.photo = ''; draft.photo_data = ''; renderPreview(); });
+
+  async function saveDraft() {
+    $('#edErr').textContent = '';
+    if (!draft.name) { $('#edErr').textContent = 'Escribe el nombre en la tarjeta.'; $('.pcard [data-k="name"]').focus(); return; }
+    const body = { id: draft.id, slug: draft.slug, accent: draft.accent, ...Object.fromEntries([...TEXT_KEYS, ...CONTACTS.map((c) => c[0])].map((k) => [k, draft[k]])) };
+    if (draft.photo_data !== undefined) { body.photo_data = draft.photo_data; body.photo_url = ''; }
+    if (!body.id) delete body.id;
+    const btn = $('#edSave'); btn.disabled = true;
+    try {
+      const r = await api('cards', { method: 'POST', body });
+      draft.id = r.id; draft.slug = r.slug; draft.photo_data = undefined; slugTouched = true;
+      saved = snapshot(); renderPreview();
+      $('#edTitle').textContent = 'Editar tarjeta'; $('#edDelete').hidden = false; $('#edOpen').hidden = false;
+      toast('Tarjeta guardada y publicada');
+    } catch (x) { $('#edErr').textContent = x.message.includes('UNIQUE') ? 'Ese enlace ya lo usa otra tarjeta; cámbialo.' : x.message; }
+    btn.disabled = false;
+  }
+  $('#edSave').addEventListener('click', saveDraft);
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#cardEditor').hidden) { e.preventDefault(); saveDraft(); } });
+
+  function closeEditor() {
+    if (snapshot() !== saved && !confirm('Hay cambios sin guardar. ¿Salir de todos modos?')) return;
+    $('#cardEditor').hidden = true; $('#cardsGallery').hidden = false; draft = null; loaders.cards();
+  }
+  $('#cardBack').addEventListener('click', closeEditor);
+  $('#edDelete').addEventListener('click', async () => {
+    if (!draft.id || !confirm(`¿Borrar la tarjeta de ${draft.name}? El enlace y el QR dejarán de funcionar.`)) return;
+    await api('cards?id=' + draft.id, { method: 'DELETE' }); saved = snapshot(); closeEditor(); toast('Tarjeta borrada');
+  });
+  $('#edCopy').addEventListener('click', () => copy(`${ORIGIN}/c/${draft.slug}`));
+  $('#edQrDl').addEventListener('click', () => {
+    const q = qrcode(0, 'M'); q.addData(`${ORIGIN}/c/${draft.slug}`); q.make();
+    const cv = document.createElement('canvas'), n = q.getModuleCount(), cell = 16, pad = 32; cv.width = cv.height = n * cell + pad * 2;
+    const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect(pad + c * cell, pad + r * cell, cell, cell);
+    const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = `qr-${draft.slug}.png`; a.click();
+  });
+  $('#cardNew').addEventListener('click', () => openEditor(null));
+  $('#cardsList').addEventListener('click', (e) => {
+    if (e.target.closest('[data-stop]')) return;
+    const c = e.target.closest('[data-copy]'); if (c) { e.stopPropagation(); return copy(c.dataset.copy); }
+    if (e.target.closest('#cardNew2')) return openEditor(null);
+    const ed = e.target.closest('[data-card-edit]'); if (ed) openEditor(cards.find((x) => x.id === +ed.dataset.cardEdit));
+  });
+  $('#cardsList').addEventListener('keydown', (e) => { const ed = e.target.closest('[data-card-edit]'); if (ed && e.key === 'Enter') openEditor(cards.find((x) => x.id === +ed.dataset.cardEdit)); });
+  window.addEventListener('beforeunload', (e) => { if (draft && snapshot() !== saved) e.preventDefault(); });
 
   /* ---------- INTEGRACIONES ---------- */
   loaders.api = async () => {

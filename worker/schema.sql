@@ -39,8 +39,11 @@ CREATE TABLE IF NOT EXISTS cards (
   role TEXT, company TEXT, bio TEXT,
   phone TEXT, whatsapp TEXT, email TEXT, website TEXT,
   instagram TEXT, linkedin TEXT, photo_url TEXT,
+  photo_data TEXT,               -- foto subida desde el panel (data URL JPEG, ~30 KB)
+  accent TEXT,                   -- color de la tarjeta: violeta | azul | verde | ambar | rosa
   views INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS chats (

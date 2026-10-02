@@ -207,14 +207,24 @@ async function trackLink(req, env, ctx, slug) {
 }
 
 async function showCard(req, env, ctx, slug) {
+  // /c/<slug>/foto → foto subida desde el panel
+  if (slug.endsWith('/foto')) {
+    const row = await env.DB.prepare('SELECT photo_data FROM cards WHERE slug = ?').bind(slug.slice(0, -5)).first();
+    const m = row?.photo_data?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+    if (!m) return new Response('Sin foto', { status: 404 });
+    const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+    return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': 'public, max-age=31536000, immutable' } });
+  }
   const vcf = slug.endsWith('.vcf');
   const card = await env.DB.prepare('SELECT * FROM cards WHERE slug = ?').bind(vcf ? slug.slice(0, -4) : slug).first();
   if (!card) return new Response('Tarjeta no encontrada', { status: 404 });
+  const origin = new URL(req.url).origin;
+  if (card.photo_data) card.photo_url = `${origin}/c/${encodeURIComponent(card.slug)}/foto?v=${card.updated_at || card.created_at}`;
   if (vcf) {
     return new Response(renderVcf(card), { headers: { 'content-type': 'text/vcard; charset=utf-8', 'content-disposition': `attachment; filename="${card.slug}.vcf"` } });
   }
   if (geo(req).device !== 'bot') ctx.waitUntil(env.DB.prepare('UPDATE cards SET views = views + 1 WHERE id = ?').bind(card.id).run());
-  return new Response(renderCard(card, new URL(req.url).origin), { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return new Response(renderCard(card, origin), { headers: { 'content-type': 'text/html; charset=utf-8' } });
 }
 
 /* ================= ESTADÍSTICAS ================= */
@@ -295,16 +305,28 @@ async function saveLink(env, b) {
   return { id: r.meta.last_row_id, slug };
 }
 
+const ACCENTS = ['violeta', 'azul', 'verde', 'ambar', 'rosa'];
+
 async function saveCard(env, b) {
   const slug = slugify(b.slug || b.name);
   if (!slug || !b.name) throw new Error('nombre requerido');
-  const fields = ['name', 'role', 'company', 'bio', 'phone', 'whatsapp', 'email', 'website', 'instagram', 'linkedin', 'photo_url'];
-  const vals = fields.map((f) => clip(b[f], f === 'bio' ? 600 : 300));
+  // photo_url solo se toca si viene en la petición (no se borra al guardar otros cambios)
+  const fields = ['name', 'role', 'company', 'bio', 'phone', 'whatsapp', 'email', 'website', 'instagram', 'linkedin', 'accent']
+    .concat(b.photo_url !== undefined || !b.id ? ['photo_url'] : []);
+  const vals = fields.map((f) => (f === 'accent' ? (ACCENTS.includes(b.accent) ? b.accent : 'violeta') : clip(b[f], f === 'bio' ? 600 : 300)));
+  // Foto: undefined = no cambia · '' o null = quitar · data URL = reemplazar
+  let photoSql = '', photoVal = [];
+  if (b.photo_data !== undefined) {
+    if (!b.photo_data) { photoSql = ', photo_data=NULL'; }
+    else if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(b.photo_data) && b.photo_data.length < 400000) { photoSql = ', photo_data=?'; photoVal = [b.photo_data]; }
+    else throw new Error('La foto no es válida o pesa demasiado');
+  }
   if (b.id) {
-    await env.DB.prepare(`UPDATE cards SET slug=?, ${fields.map((f) => f + '=?').join(', ')} WHERE id=?`).bind(slug, ...vals, b.id).run();
+    await env.DB.prepare(`UPDATE cards SET slug=?, ${fields.map((f) => f + '=?').join(', ')}, updated_at=?${photoSql} WHERE id=?`).bind(slug, ...vals, now(), ...photoVal, b.id).run();
     return { id: b.id, slug };
   }
-  const r = await env.DB.prepare(`INSERT INTO cards (slug, ${fields.join(', ')}, created_at) VALUES (?, ${fields.map(() => '?').join(', ')}, ?)`).bind(slug, ...vals, now()).run();
+  const r = await env.DB.prepare(`INSERT INTO cards (slug, ${fields.join(', ')}, created_at, updated_at) VALUES (?, ${fields.map(() => '?').join(', ')}, ?, ?)`).bind(slug, ...vals, now(), now()).run();
+  if (photoVal.length) await env.DB.prepare('UPDATE cards SET photo_data=? WHERE id=?').bind(photoVal[0], r.meta.last_row_id).run();
   return { id: r.meta.last_row_id, slug };
 }
 
@@ -357,8 +379,9 @@ async function adminApi(req, env, path, url) {
   }
 
   if (path === '/admin/api/cards') {
-    if (M === 'GET') return json((await db.prepare('SELECT * FROM cards ORDER BY created_at DESC').all()).results);
-    if (M === 'POST') return json(await saveCard(env, await readJson(req)));
+    if (M === 'GET') return json((await db.prepare(`SELECT id, slug, name, role, company, bio, phone, whatsapp, email, website, instagram, linkedin,
+      photo_url, accent, views, created_at, updated_at, photo_data IS NOT NULL AS has_photo FROM cards ORDER BY created_at DESC`).all()).results);
+    if (M === 'POST') return json(await saveCard(env, await readJson(req, 450000)));
     if (M === 'DELETE') { await db.prepare('DELETE FROM cards WHERE id=?').bind(id).run(); return json({ ok: true }); }
   }
 
