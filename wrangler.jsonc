@@ -3,6 +3,7 @@
   // Proyecto Cloudflare Pages "diwilo": se despliega solo en cada push a main.
   // public/     sitio estático (incluye el panel en /admin)
   // functions/  rutas dinámicas: /api, /admin/api, /l, /c, /v1
+  // /admin se protege con Cloudflare Access (worker/src/access.js verifica el JWT).
   "name": "diwilo",
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-01",
@@ -10,10 +11,23 @@
     { "binding": "DB", "database_name": "diwilo-admin-db", "database_id": "076cb7c8-d60b-4cff-918f-2de045696be8" }
   ],
   "ai": { "binding": "AI" },
+  // Apps de Diwilo que se administran desde /admin → Negocios (llamadas internas, sin pasar por internet).
+  "services": [
+    { "binding": "PEDIDOS", "service": "cdpedidos" },
+    { "binding": "NUTRICION", "service": "cdnutricion" },
+    { "binding": "CITAS", "service": "cdcitas" }
+  ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com,https://diwilo.pages.dev"
+    "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com,https://diwilo.pages.dev",
+    // URL pública de cada app: con ella se arman los links de invitación que se envían a los usuarios.
+    "PEDIDOS_URL": "https://cdpedidos.diwilo.com",
+    "NUTRICION_URL": "https://cdnutricion.diwilo.com",
+    "CITAS_URL": "https://cdcitas.diwilo.com"
   }
   // Secretos (no van en este archivo):
-  //   npx wrangler pages secret put ADMIN_PASSWORD --project-name diwilo
-  //   npx wrangler pages secret put GEMINI_API_KEY --project-name diwilo   (opcional)
+  //   npx wrangler pages secret put ACCESS_TEAM_DOMAIN --project-name diwilo  equipo.cloudflareaccess.com
+  //   npx wrangler pages secret put ACCESS_AUD --project-name diwilo      AUD tag de la app de Access que protege /admin
+  //   npx wrangler pages secret put PLATFORM_KEY --project-name diwilo    la misma clave en cdpedidos, cdnutricion y cdcitas
+  //   npx wrangler pages secret put ADMIN_EMAILS --project-name diwilo    (opcional) correos que pueden entrar, separados por coma
+  //   npx wrangler pages secret put GEMINI_API_KEY --project-name diwilo  (opcional)
 }

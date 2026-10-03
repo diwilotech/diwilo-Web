@@ -11,10 +11,13 @@
  *   GET  /c/:slug          tarjeta de presentación   (/c/:slug.vcf descarga el contacto)
  * Integraciones (Authorization: Bearer dwl_...):
  *   GET  /v1/leads  /v1/events  /v1/chats  /v1/stats   POST /v1/links
- * Panel:
- *   /admin/api/*           API del panel (public/admin.html, contraseña ADMIN_PASSWORD)
+ * Panel (protegido con Cloudflare Access, ver access.js):
+ *   /admin/api/*           API del panel (public/admin.html)
+ *   /admin/api/platform/*  negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas (platform.js)
  */
 import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
+import { adminEmail } from './access.js';
+import { platformApi } from './platform.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -51,12 +54,6 @@ async function sha256(text) {
 function randomToken(bytes = 24) {
   const a = crypto.getRandomValues(new Uint8Array(bytes));
   return [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-async function safeEqual(a, b) {
-  const [x, y] = await Promise.all([sha256(a || ''), sha256(b || '')]);
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
-  return diff === 0;
 }
 async function readJson(req, max = 20000) {
   const text = await req.text();
@@ -394,14 +391,6 @@ async function externalApi(req, env, path, url) {
 }
 
 /* ================= PANEL ================= */
-const COOKIE = 'dwl_session';
-async function isAdmin(req, env) {
-  const m = (req.headers.get('cookie') || '').match(new RegExp(`${COOKIE}=([a-f0-9]+)`));
-  if (!m) return false;
-  const row = await env.DB.prepare('SELECT expires FROM sessions WHERE token = ?').bind(await sha256(m[1])).first();
-  return !!row && row.expires > now();
-}
-
 async function saveLink(env, b) {
   const slug = slugify(b.slug || b.title || randomToken(3));
   if (!slug) throw new Error('slug requerido');
@@ -449,24 +438,11 @@ async function saveCard(env, b) {
 }
 
 async function adminApi(req, env, path, url) {
-  // login / logout no requieren sesión
-  if (path === '/admin/api/login' && req.method === 'POST') {
-    const b = await readJson(req, 2000);
-    if (!env.ADMIN_PASSWORD || !(await safeEqual(b.password, env.ADMIN_PASSWORD))) {
-      await new Promise((r) => setTimeout(r, 800));
-      return json({ error: 'Contraseña incorrecta' }, 401);
-    }
-    const token = randomToken();
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM sessions WHERE expires < ?').bind(now()),
-      env.DB.prepare('INSERT INTO sessions (token, expires) VALUES (?, ?)').bind(await sha256(token), now() + 14 * DAY)
-    ]);
-    return json({ ok: true }, 200, { 'set-cookie': `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${14 * 86400}` });
-  }
-  if (path === '/admin/api/logout') {
-    return json({ ok: true }, 200, { 'set-cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0` });
-  }
-  if (!(await isAdmin(req, env))) return json({ error: 'sesión requerida' }, 401);
+  // Solo entra quien pasó por Cloudflare Access (y está en ADMIN_EMAILS, si se definió).
+  const email = await adminEmail(req, env);
+  if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
+  if (path === '/admin/api/me') return json({ email });
+  if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
 
   const M = req.method;
   const id = Number(url.searchParams.get('id') || 0);

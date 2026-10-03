@@ -36,7 +36,7 @@ h1{font-size:24px}h2{font-size:17px}
 .app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
 .side{position:sticky;top:0;height:100vh;padding:20px 14px;box-shadow:inset -1px 0 0 var(--edge);display:flex;flex-direction:column;gap:4px;background:rgba(5,6,15,.9)}
 .side .brand{padding:4px 10px 20px}
-.tab{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:999px;color:var(--ink2);cursor:pointer}
+.tab{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;text-decoration:none;padding:10px 12px;border-radius:999px;color:var(--ink2);cursor:pointer}
 .tab i{font-size:18px;color:var(--ink3)}
 .tab:hover{background:var(--fill)}
 .tab.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line);color:#fff}.tab.on i{color:var(--lilac)}
@@ -60,7 +60,7 @@ main{padding:28px 32px 64px;min-width:0}
 .btn.sm{padding:5px 10px;font-size:12px}
 .btn.danger:hover{box-shadow:inset 0 0 0 1px var(--bad);color:var(--bad)}
 .seg{display:inline-flex;gap:4px}.seg .btn.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line);color:#fff}
-input.in,select.in,textarea.in{width:100%;padding:9px 12px;border:0;border-radius:6px;background:rgba(199,211,234,.06);box-shadow:var(--hair);outline:none}
+input.in,select.in,textarea.in{color-scheme:dark;width:100%;padding:9px 12px;border:0;border-radius:6px;background:rgba(199,211,234,.06);box-shadow:var(--hair);outline:none}
 input.in:focus,select.in:focus,textarea.in:focus{box-shadow:inset 0 0 0 1px var(--line)}
 select.in option{background:#0a0c17}
 label.f{display:grid;gap:5px;font-size:12px;color:var(--ink3)}
@@ -182,6 +182,15 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
 .slugrow input{flex:1;min-width:0;border:0;background:none;padding:9px 12px 9px 0;outline:none;font:12px var(--f-mono);color:#fff}
 .dirty{font-size:12px;color:var(--warn);display:flex;align-items:center;gap:6px}
 .dirty::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.st{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:12px;white-space:nowrap;box-shadow:inset 0 0 0 1px currentColor}
+.st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st.ok{color:var(--good)}.st.soon{color:var(--warn)}.st.bad{color:var(--bad)}.st.free{color:var(--ink3)}
+tr.sel td{background:var(--on)}
+.bizgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));margin-top:14px}
+.sub{background:rgba(199,211,234,.03);border-radius:12px;padding:14px;box-shadow:var(--hair);display:grid;gap:10px;align-content:start}
+.sub h3{font-size:14px}
+.urow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:8px 0;box-shadow:inset 0 -1px 0 rgba(186,215,247,.06)}
+.urow .e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:980px){.editor{grid-template-columns:1fr}.stage{position:static}}
 
 @media (max-width:860px){
@@ -196,12 +205,12 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
 </head>
 <body>
 
-<!-- Login -->
+<!-- Sin Cloudflare Access -->
 <section class="login" id="login" hidden>
   <form id="loginForm">
     <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo · Panel</div>
-    <label class="f">Contraseña<input class="in" type="password" name="password" autocomplete="current-password" required autofocus></label>
-    <button class="btn pri" type="submit" style="justify-content:center;padding:11px">Entrar</button>
+    <p class="muted" style="margin:0">El panel se abre con Cloudflare Access. Si tu sesión venció, vuelve a cargar la página para entrar con tu correo.</p>
+    <a class="btn pri" href="/admin" style="justify-content:center;padding:11px">Entrar con Cloudflare Access</a>
     <p class="err" id="loginErr"></p>
   </form>
 </section>
@@ -211,6 +220,7 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
   <nav class="side" id="side">
     <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo</div>
     <button class="tab" data-view="resumen"><i class="ph-light ph-pulse"></i>En vivo</button>
+    <button class="tab" data-view="negocios"><i class="ph-light ph-buildings"></i>Negocios<span class="badge" id="bizBadge" hidden></span></button>
     <button class="tab" data-view="leads"><i class="ph-light ph-user-plus"></i>Leads<span class="badge" id="leadBadge" hidden></span></button>
     <button class="tab" data-view="chats"><i class="ph-light ph-chats-circle"></i>Chats IA</button>
     <button class="tab" data-view="links"><i class="ph-light ph-link-simple"></i>Links de rastreo</button>
@@ -219,7 +229,8 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
     <button class="tab" data-view="ajustes"><i class="ph-light ph-gear-six"></i>Ajustes del chat</button>
     <div class="spacer"></div>
     <a class="tab" href="/" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver sitio</a>
-    <button class="tab" id="logout"><i class="ph-light ph-sign-out"></i>Salir</button>
+    <span class="muted" id="whoami" style="font-size:12px;padding:4px 12px;overflow:hidden;text-overflow:ellipsis"></span>
+    <a class="tab" id="logout" href="/cdn-cgi/access/logout"><i class="ph-light ph-sign-out"></i>Salir</a>
   </nav>
 
   <main>
@@ -243,6 +254,43 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
         <div class="card"><h2>Países</h2><div class="rank" id="rCountries"></div></div>
         <div class="card"><h2>Dispositivos</h2><div class="rank" id="rDevices"></div></div>
       </div>
+    </section>
+
+    <!-- NEGOCIOS -->
+    <section data-section="negocios" hidden>
+      <div class="head">
+        <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Negocios y suscripciones</h1></div>
+        <div class="row">
+          <div class="seg" id="appSeg"></div>
+          <button class="btn pri" id="bizNewBtn"><i class="ph-light ph-plus"></i>Nuevo negocio</button>
+        </div>
+      </div>
+      <p class="err" id="bizErr"></p>
+      <div class="grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
+
+      <form class="card" id="bizNew" style="margin-bottom:14px" hidden>
+        <h2>Nuevo negocio en <span data-appname></span></h2>
+        <p class="muted" style="margin:4px 0 0;font-size:13px">Se crea el negocio con su dueño y se genera un link para que el dueño cree su contraseña.</p>
+        <div class="form" style="margin-top:12px">
+          <label class="f">Nombre del negocio<input class="in" name="name" maxlength="120" required></label>
+          <label class="f" id="bizSlug">Slug (va en la URL)<input class="in" name="slug" maxlength="40" pattern="[a-z0-9\-]{3,40}" placeholder="mi-negocio"></label>
+          <label class="f">Correo del dueño<input class="in" name="owner_email" type="email" required></label>
+          <label class="f">Nombre del dueño<input class="in" name="owner_name" maxlength="100"></label>
+          <label class="f">Días de prueba<input class="in" name="trial_days" type="number" min="0" max="365"></label>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="btn pri" type="submit"><i class="ph-light ph-check"></i>Crear e invitar</button><button class="btn" type="button" data-cancel>Cancelar</button><span class="err" data-err></span></div>
+      </form>
+      <div id="inviteBox" style="margin-bottom:14px" hidden></div>
+
+      <div class="card tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th class="num">Usuarios</th><th>Pagado hasta</th><th>Estado</th><th>Último pago</th></tr></thead><tbody id="bizBody"></tbody></table></div>
+      <div class="card" id="bizDetail" style="margin-top:14px" hidden></div>
+
+      <form class="card" id="priceForm" style="margin-top:14px">
+        <h2>Precios y período de prueba</h2>
+        <p class="muted" style="margin:4px 0 0;font-size:13px">El precio mensual se sugiere al registrar un pago. Los días de prueba aplican a cada negocio nuevo.</p>
+        <div class="form" style="margin-top:12px" id="priceFields"></div>
+        <div class="row" style="margin-top:14px"><button class="btn pri" type="submit">Guardar</button></div>
+      </form>
     </section>
 
     <!-- LEADS -->
@@ -411,7 +459,7 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
   async function api(path, opts = {}) {
     const r = await fetch('/admin/api/' + path, { headers: { 'content-type': 'application/json' }, credentials: 'same-origin', ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
-    if (r.status === 401 && path !== 'login') { showLogin(); throw new Error('sesión'); }
+    if (r.status === 401) { showLogin(); throw new Error('sesión'); }
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'Error');
     return d;
@@ -420,14 +468,8 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
   async function copy(t) { try { await navigator.clipboard.writeText(t); toast('Copiado'); } catch { prompt('Copia:', t); } }
   function formData(form) { const o = {}; new FormData(form).forEach((v, k) => { o[k] = String(v).trim(); }); return o; }
 
-  /* ---------- login ---------- */
+  /* ---------- acceso (Cloudflare Access) ---------- */
   function showLogin() { $('#app').hidden = true; $('#login').hidden = false; stopLive(); }
-  $('#loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault(); $('#loginErr').textContent = '';
-    try { await api('login', { method: 'POST', body: formData(e.target) }); start(); }
-    catch (err) { $('#loginErr').textContent = err.message; }
-  });
-  $('#logout').addEventListener('click', async () => { await api('logout', { method: 'POST' }).catch(() => {}); showLogin(); });
 
   /* ---------- navegación ---------- */
   const loaders = {};
@@ -868,11 +910,222 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   });
   $('#resetPrompt').addEventListener('click', () => { $('#setForm').elements.chat_prompt.value = defaultPrompt; });
 
+  /* ---------- NEGOCIOS (Pedidos, Nutrición, Citas) ---------- */
+  const ROLE = { owner: 'Dueño', admin: 'Administrador', staff: 'Personal' };
+  const USTATUS = { active: 'Activo', invited: 'Invitación pendiente', inactive: 'Inactivo' };
+  const fmtCOP = (n) => '$' + fmtN(n);
+  const fmtDay = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  let plat = null, bizApp = 'pedidos', biz = [], bizToday = '', bizSel = null;
+
+  function subState(b) {
+    if (!b.paid_until) return { k: 'free', t: 'Sin límite' };
+    if (b.read_only || b.paid_until < bizToday) return { k: 'bad', t: 'Solo lectura' };
+    const left = daysBetween(bizToday, b.paid_until);
+    return left <= 7 ? { k: 'soon', t: left === 0 ? 'Vence hoy' : `Vence en ${left} d` } : { k: 'ok', t: 'Al día' };
+  }
+  const appCfg = () => plat.apps.find((a) => a.key === bizApp);
+  const bizPath = (id, rest = '') => `platform/${bizApp}/businesses/${encodeURIComponent(id)}${rest}`;
+
+  function inviteHtml(url, who) {
+    if (!url) return '';
+    return `<div class="newkey"><p style="margin:0 0 6px">Link de acceso para <b style="color:#fff;font-weight:500">${esc(who)}</b>. Envíaselo: al abrirlo crea su contraseña (sirve una vez).</p>
+      <code class="mono" style="font-size:12px;color:#fff">${esc(url)}</code>
+      <div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-copy="${esc(url)}"><i class="ph-light ph-copy"></i>Copiar</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Tu acceso: ' + url)}"><i class="ph-light ph-whatsapp-logo"></i>WhatsApp</a></div></div>`;
+  }
+  function showInvite(url, who) { const el = $('#inviteBox'); el.hidden = !url; el.innerHTML = inviteHtml(url, who); }
+
+  async function loadPlatform() {
+    plat = await api('platform');
+    $('#appSeg').innerHTML = plat.apps.map((a) => `<button class="btn sm ${a.key === bizApp ? 'on' : ''}" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+    $('#priceFields').innerHTML = plat.apps.map((a) => `<label class="f">Precio mensual ${esc(a.name)} (COP)<input class="in" type="number" min="0" step="1000" name="price_${a.key}" value="${plat.prices[a.key] || 0}"></label>`).join('')
+      + `<label class="f">Días de prueba<input class="in" type="number" min="0" max="365" name="trial_days" value="${plat.trial_days}"></label>`;
+  }
+
+  async function loadBiz() {
+    $('#bizErr').textContent = '';
+    $('#bizBody').innerHTML = '<tr><td colspan="6" class="empty">Cargando…</td></tr>';
+    const app = appCfg();
+    $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
+    $('#bizSlug').hidden = !app.slug;
+    $('#bizSlug').querySelector('input').required = app.slug === 'required';
+    if (!app.connected) {
+      biz = []; renderBiz();
+      $('#bizErr').textContent = `${app.name} no está conectada: falta el service binding o la URL en wrangler.jsonc.`;
+      return;
+    }
+    try {
+      const d = await api(`platform/${bizApp}/businesses`);
+      biz = d.businesses; bizToday = d.today;
+      renderBiz(d.month_income);
+    } catch (e) {
+      biz = []; renderBiz();
+      if (e.message !== 'sesión') $('#bizErr').textContent = e.message;
+    }
+  }
+
+  function renderBiz(monthIncome = 0) {
+    const st = biz.map(subState);
+    const tiles = [['Negocios', fmtN(biz.length)], ['Al día', fmtN(st.filter((s) => s.k === 'ok' || s.k === 'free').length)],
+      ['Vencen en 7 días', fmtN(st.filter((s) => s.k === 'soon').length)], ['Solo lectura', fmtN(st.filter((s) => s.k === 'bad').length)],
+      ['Cobrado este mes', fmtCOP(monthIncome)]];
+    $('#bizKpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    $('#bizBody').innerHTML = biz.length ? biz.map((b, i) => {
+      const owner = b.users.find((u) => u.role === 'owner');
+      return `<tr data-biz="${esc(b.id)}" class="${b.id === bizSel ? 'sel' : ''}" style="cursor:pointer">
+        <td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="muted mono">/${esc(b.slug)}</span>` : ''}</td>
+        <td>${owner ? esc(owner.email) : '<span class="muted">—</span>'}</td>
+        <td class="num">${b.users.length}</td>
+        <td>${fmtDay(b.paid_until)}</td>
+        <td><span class="st ${st[i].k}">${st[i].t}</span></td>
+        <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td></tr>`;
+    }).join('') : `<tr><td colspan="6" class="empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
+    if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
+  }
+
+  async function renderDetail() {
+    const b = biz.find((x) => x.id === bizSel); if (!b) return;
+    const app = appCfg(), s = subState(b), price = plat.prices[bizApp] || 0;
+    const el = $('#bizDetail'); el.hidden = false;
+    el.innerHTML = `<div class="row" style="justify-content:space-between">
+        <h2>${esc(b.name)} <span class="muted" style="font-size:13px">· ${esc(app.name)}</span></h2>
+        <div class="row">${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
+      <div class="bizgrid">
+        <div class="sub">
+          <h3>Suscripción</h3>
+          <div class="row"><span class="st ${s.k}">${s.t}</span><span class="muted">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
+          <form class="form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            <label class="f">Meses<input class="in" type="number" name="months" min="1" max="24" value="1" required></label>
+            <label class="f">Monto (COP)<input class="in" type="number" name="amount" min="0" step="1000" value="${price}"></label>
+            <label class="f full">Nota<input class="in" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
+            <div class="row full"><button class="btn pri" type="submit"><i class="ph-light ph-currency-circle-dollar"></i>Registrar pago</button><span class="err" data-err></span></div>
+          </form>
+          <form class="row" id="dateForm" style="flex-wrap:nowrap">
+            <input class="in" type="date" name="paid_until" value="${esc(b.paid_until || '')}" aria-label="Pagado hasta">
+            <button class="btn sm" type="submit">Cambiar fecha</button>
+          </form>
+          <p class="muted" style="margin:0;font-size:12px">Dejar la fecha vacía = sin límite (no se cobra). Al vencer, la app queda en solo lectura.</p>
+        </div>
+        <div class="sub">
+          <h3>Usuarios</h3>
+          <div id="bizUsers">${b.users.map((u) => `<div class="urow">
+            <span class="e" title="${esc(u.email)}">${esc(u.name || u.email)}<br><span class="muted" style="font-size:12px">${esc(u.email)} · ${ROLE[u.role] || esc(u.role)} · ${USTATUS[u.status] || esc(u.status)}</span></span>
+            <span class="row" style="gap:4px;flex-wrap:nowrap"><button class="btn sm" data-uinvite="${esc(u.id)}" title="Link para crear o restablecer la contraseña"><i class="ph-light ph-link-simple"></i>Link</button><button class="btn sm danger" data-udel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button></span></div>`).join('') || '<p class="muted" style="margin:0">Sin usuarios.</p>'}</div>
+          <div id="userInvite"></div>
+          <form class="form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+            <label class="f">Correo<input class="in" type="email" name="email" required></label>
+            <label class="f">Nombre<input class="in" name="name" maxlength="100"></label>
+            <label class="f">Rol<select class="in" name="role">${app.roles.map((r) => `<option value="${r}" ${r === 'staff' ? 'selected' : ''}>${ROLE[r]}</option>`).join('')}</select></label>
+            <div class="row full"><button class="btn" type="submit"><i class="ph-light ph-user-plus"></i>Agregar e invitar</button><span class="err" data-err></span></div>
+          </form>
+        </div>
+        <div class="sub">
+          <h3>Datos</h3>
+          <form class="row" id="renameForm" style="flex-wrap:nowrap"><input class="in" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn sm" type="submit">Renombrar</button></form>
+          <p class="muted" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
+          <h3 style="margin-top:6px">Historial de pagos</h3>
+          <div id="payHist" class="muted">Cargando…</div>
+        </div>
+      </div>`;
+    const pay = $('#payForm', el);
+    pay.elements.months.addEventListener('input', () => { pay.elements.amount.value = price * (parseInt(pay.elements.months.value, 10) || 0); });
+    try {
+      const h = await api(bizPath(b.id, '/payments'));
+      $('#payHist', el).innerHTML = h.length ? h.map((p) => `<div class="urow"><span class="e">${fmtCOP(p.amount)} · ${p.months} ${p.months === 1 ? 'mes' : 'meses'}${p.note ? ' · ' + esc(p.note) : ''}<br><span style="font-size:12px">${fmtDate(p.ts)} → hasta ${fmtDay(p.paid_until_after)}</span></span></div>`).join('') : 'Sin pagos registrados.';
+    } catch { $('#payHist', el).textContent = 'No se pudo cargar.'; }
+  }
+
+  async function updateBizBadge() {
+    let n = 0;
+    for (const a of plat.apps.filter((x) => x.connected)) {
+      try { const d = await api(`platform/${a.key}/businesses`); bizToday = d.today; n += d.businesses.filter((b) => ['bad', 'soon'].includes(subState(b).k)).length; } catch {}
+    }
+    const el = $('#bizBadge'); el.hidden = !n; el.textContent = n;
+  }
+
+  loaders.negocios = async () => {
+    try { if (!plat) await loadPlatform(); } catch (e) { $('#bizErr').textContent = e.message; return; }
+    loadBiz();
+  };
+  $('#appSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-app]'); if (!b) return;
+    bizApp = b.dataset.app; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
+    $$('#appSeg .btn').forEach((x) => x.classList.toggle('on', x === b));
+    loadBiz();
+  });
+  $('#bizNewBtn').addEventListener('click', () => { const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trial_days; f.elements.name.focus(); });
+  $('[data-cancel]', $('#bizNew')).addEventListener('click', () => { $('#bizNew').hidden = true; });
+  $('#bizNew').addEventListener('submit', async (e) => {
+    e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
+    const body = formData(e.target);
+    try {
+      const r = await api(`platform/${bizApp}/businesses`, { method: 'POST', body });
+      e.target.hidden = true; toast('Negocio creado');
+      showInvite(r.invite_url, body.owner_email);
+      bizSel = r.id; await loadBiz();
+    } catch (x) { err.textContent = x.message; }
+  });
+  $('#bizBody').addEventListener('click', (e) => {
+    const tr = e.target.closest('[data-biz]'); if (!tr) return;
+    bizSel = tr.dataset.biz; $$('#bizBody tr').forEach((x) => x.classList.toggle('sel', x === tr));
+    renderDetail(); $('#bizDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  $('#bizDetail').addEventListener('click', async (e) => {
+    if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
+    const b = biz.find((x) => x.id === bizSel);
+    const inv = e.target.closest('[data-uinvite]');
+    if (inv) {
+      const u = b.users.find((x) => x.id === inv.dataset.uinvite);
+      try { const r = await api(bizPath(b.id, '/users'), { method: 'POST', body: { email: u.email, role: u.role } }); $('#userInvite').innerHTML = inviteHtml(r.invite_url, u.email); }
+      catch (x) { toast(x.message); }
+      return;
+    }
+    const del = e.target.closest('[data-udel]');
+    if (del) {
+      const u = b.users.find((x) => x.id === del.dataset.udel);
+      if (!confirm(`¿Quitar a ${u.email} de ${b.name}? Perderá el acceso.`)) return;
+      try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'DELETE' }); toast('Usuario quitado'); loadBiz(); } catch (x) { toast(x.message); }
+    }
+  });
+  $('#bizDetail').addEventListener('submit', async (e) => {
+    e.preventDefault(); const f = e.target, b = biz.find((x) => x.id === bizSel), err = $('[data-err]', f);
+    if (err) err.textContent = '';
+    try {
+      if (f.id === 'payForm') {
+        const r = await api(bizPath(b.id, '/payments'), { method: 'POST', body: formData(f) });
+        toast('Pago registrado: hasta ' + fmtDay(r.paid_until));
+      } else if (f.id === 'dateForm') {
+        await api(bizPath(b.id), { method: 'PATCH', body: { paid_until: f.elements.paid_until.value || null } });
+        toast('Fecha actualizada');
+      } else if (f.id === 'renameForm') {
+        await api(bizPath(b.id), { method: 'PATCH', body: { name: f.elements.name.value.trim() } });
+        toast('Nombre actualizado');
+      } else if (f.id === 'userForm') {
+        const body = formData(f);
+        const r = await api(bizPath(b.id, '/users'), { method: 'POST', body });
+        await loadBiz();
+        $('#userInvite').innerHTML = inviteHtml(r.invite_url, body.email);
+        return;
+      }
+      loadBiz();
+    } catch (x) { if (err) err.textContent = x.message; else toast(x.message); }
+  });
+  document.addEventListener('click', (e) => { const c = e.target.closest('#inviteBox [data-copy], #userInvite [data-copy]'); if (c) copy(c.dataset.copy); });
+  $('#priceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = await api('platform/config', { method: 'POST', body: formData(e.target) });
+    plat.prices = r.prices; plat.trial_days = r.trial_days; toast('Precios guardados');
+  });
+
   /* ---------- arranque ---------- */
   async function start() {
-    try { await api('stats?days=1'); } catch { return showLogin(); }
+    let me;
+    try { me = await api('me'); } catch { return showLogin(); }
+    $('#whoami').textContent = me.email;
     $('#login').hidden = true; $('#app').hidden = false;
     api('leads').then((l) => { leads = l; updateLeadBadge(); }).catch(() => {});
+    loadPlatform().then(updateBizBadge).catch(() => {});
     const v = location.hash.slice(1);
     go(loaders[v] ? v : 'resumen');
   }
