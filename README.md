@@ -1,6 +1,6 @@
 # Diwilo — sitio web y gestión
 
-Sitio de [diwilo.com](https://diwilo.com) y su app de gestión, en el **Cloudflare Worker "diwilo-web"** (con archivos estáticos).
+Sitio de [diwilo.com](https://diwilo.com) y su app de gestión, en el **Cloudflare Worker "diwilo"** (con archivos estáticos).
 Cada push a `main` se publica solo en diwilo.com (Workers Builds, comando `npx wrangler deploy`).
 
 - **Sitio:** https://diwilo.com

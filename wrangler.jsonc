@@ -1,12 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Worker "diwilo-web": sitio diwilo.com + panel /admin. Se despliega solo en cada push a main
+  // Worker "diwilo": sitio diwilo.com + panel /admin. Se despliega solo en cada push a main
   // (Workers Builds, comando: npx wrangler deploy).
   //   public/                 sitio estático (incluye el panel admin.html, 404.html y _headers)
   //   worker/src/worker.js    entrada: negociación HTML/Markdown y rutas dinámicas
   //   worker/src/index.js     /api, /admin/api, /l, /c, /v1, /mcp
   // /admin se protege con Cloudflare Access (worker/src/access.js verifica el JWT).
-  "name": "diwilo-web",
+  "name": "diwilo",
   "main": "worker/src/worker.js",
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },

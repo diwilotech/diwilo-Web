@@ -1,5 +1,5 @@
 /**
- * Entrada del Worker "diwilo-web" (diwilo.com). Antes era un proyecto Pages con functions/;
+ * Entrada del Worker "diwilo" (diwilo.com). Antes era un proyecto Pages con functions/;
  * ahora un solo Worker con archivos estáticos (public/ vía env.ASSETS):
  *   - Páginas del sitio: HTML o Markdown según la cabecera Accept (markdown.js)
  *   - /api, /admin/api, /v1, /l, /c y /mcp: lógica dinámica (index.js)
