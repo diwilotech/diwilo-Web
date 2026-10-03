@@ -682,7 +682,7 @@
     wrap.innerHTML = `
       <section class="chatbox" role="dialog" aria-label="Chat con el asistente de Diwilo" aria-hidden="true">
         <header class="chatbox__head">
-          <span class="chatbox__avatar"><i class="ph-light ph-robot"></i><span class="fab__dot"></span></span>
+          <span class="chatbox__avatar"><img src="/assets/img/brand/logo-mark.svg" alt="" width="20" height="20"><span class="fab__dot"></span></span>
           <div><p class="chatbox__title">Asistente Diwilo</p><p class="chatbox__sub">IA · responde al instante</p></div>
           <button type="button" class="chatbox__close" aria-label="Cerrar chat"><i class="ph-light ph-x"></i></button>
         </header>

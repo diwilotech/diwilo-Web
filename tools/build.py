@@ -99,8 +99,10 @@ def head(title, desc, canonical):
 <meta property="og:description" content="{desc}">
 <meta property="og:image" content="{SITE}/assets/img/og.png">
 {f'<meta property="og:url" content="{SITE}{canonical}">' + chr(10) if canonical else ''}<meta property="og:locale" content="es_CO">
-<link rel="icon" type="image/png" href="/assets/img/favicon.png">
-<link rel="apple-touch-icon" href="/assets/img/logo.png">
+<link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="/assets/img/favicon.png">
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
@@ -126,7 +128,7 @@ def nav(current):
                       for key, href, label in NAV_ITEMS)
     return f"""  <header class="nav-wrap">
     <nav class="nav" aria-label="Principal">
-      <a class="brand" href="/"><img src="/assets/img/logo.png" alt="" width="26" height="26"><span>Diwilo</span></a>
+      <a class="brand" href="/"><img src="/assets/img/brand/logo-mark.svg" alt="" width="25" height="26"><span>Diwilo</span></a>
       <button class="nav__toggle" type="button" aria-label="Abrir menú" aria-expanded="false"><i class="ph-light ph-list"></i></button>
       <div class="nav__links">
 {links}
@@ -141,7 +143,7 @@ FOOTER = """
   <footer class="footer">
     <div class="footer__grid" data-stagger="100">
       <div style="max-width:34ch">
-        <a class="brand" href="/" style="margin-bottom:16px"><img src="/assets/img/logo.png" alt="" width="26" height="26"><span>Diwilo</span></a>
+        <a class="brand" href="/" style="margin-bottom:16px"><img src="/assets/img/brand/logo-mark.svg" alt="" width="25" height="26"><span>Diwilo</span></a>
         <p class="body muted" style="line-height:1.5">Software, ciencia de datos y automatización para empresas que necesitan operar con menos trabajo manual.</p>
       </div>
       <div>

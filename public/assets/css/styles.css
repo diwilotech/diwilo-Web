@@ -213,7 +213,7 @@ button { font: inherit; }
 .nav { display: flex; align-items: center; gap: 24px; max-width: 1200px; margin: 0 auto; padding: 16px var(--gutter); transition: padding 240ms ease; }
 .nav-wrap.is-scrolled .nav { padding-top: 11px; padding-bottom: 11px; }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-.brand img { width: 26px; height: 26px; object-fit: contain; }
+.brand img { width: 25px; height: 26px; object-fit: contain; }
 .brand span { font-family: var(--f-dis); font-weight: 500; font-size: 17px; color: var(--hi); }
 .nav__links { display: flex; align-items: center; gap: 6px; }
 .nav__link { font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: var(--r-pill); color: var(--ink2); }
@@ -425,6 +425,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bo
 .fab.is-open .chatbox { transform: none; opacity: 1; pointer-events: auto; }
 .chatbox__head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: linear-gradient(180deg, rgba(143, 69, 242, 0.16), transparent); box-shadow: inset 0 -1px 0 var(--edge); }
 .chatbox__avatar { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--violet-soft); box-shadow: var(--glow); color: var(--white); font-size: 19px; }
+.chatbox__avatar img { width: 20px; height: 20px; }
 .chatbox__avatar .fab__dot { top: -1px; right: -1px; width: 10px; height: 10px; }
 .chatbox__title { margin: 0; font-family: var(--f-dis); font-weight: 500; font-size: 15px; color: var(--hi); }
 .chatbox__sub { margin: 1px 0 0; font-size: 12px; color: var(--ink3); }
