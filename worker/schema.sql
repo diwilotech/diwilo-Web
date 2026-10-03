@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS cards (
   instagram TEXT, linkedin TEXT, photo_url TEXT,
   photo_data TEXT,               -- foto subida desde el panel (data URL JPEG, ~30 KB)
   accent TEXT,                   -- color de la tarjeta: violeta | azul | verde | ambar | rosa
+  icon_192 TEXT, icon_512 TEXT,  -- íconos de la app instalable (PNG en data URL, los genera el panel)
   views INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER

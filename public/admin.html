@@ -343,6 +343,7 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
                   <button class="btn sm" id="edCopy"><i class="ph-light ph-copy"></i>Copiar enlace</button>
                   <button class="btn sm" id="edQrDl"><i class="ph-light ph-download-simple"></i>Descargar QR</button>
                   <span class="muted" style="font-size:12px" id="edViews"></span>
+                  <span class="muted" style="font-size:12px"><i class="ph-light ph-device-mobile-camera"></i> Instalable como app con su foto como ícono</span>
                 </div>
               </div>
             </div>
@@ -743,6 +744,36 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
   });
   $('#pPhotoDel').addEventListener('click', () => { draft.photo = ''; draft.photo_data = ''; renderPreview(); });
 
+  /* Ícono de la app instalable de la tarjeta: foto (o iniciales) sobre el color de la tarjeta.
+     Fondo completo para que Android/iOS puedan recortarlo (maskable); la foto queda en la zona segura. */
+  function loadImg(src) {
+    return new Promise((res, rej) => { const i = new Image(); if (!src.startsWith('data:') && !src.startsWith('/')) i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  }
+  async function makeIcons() {
+    const [ac, acl] = ACC[draft.accent] || ACC.violeta;
+    let img = null;
+    if (draft.photo) { try { img = await loadImg(draft.photo); } catch { img = null; } }
+    const draw = (S) => {
+      const cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
+      const bg = g.createLinearGradient(0, 0, S, S); bg.addColorStop(0, ac); bg.addColorStop(1, '#150B2B');
+      g.fillStyle = bg; g.fillRect(0, 0, S, S);
+      const cx = S / 2, cy = S / 2, r = S * 0.3;
+      g.beginPath(); g.arc(cx, cy, r + S * 0.022, 0, Math.PI * 2); g.fillStyle = acl; g.fill();
+      g.save(); g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.clip();
+      if (img) {
+        const k = Math.min(img.naturalWidth, img.naturalHeight);
+        g.drawImage(img, (img.naturalWidth - k) / 2, (img.naturalHeight - k) / 2, k, k, cx - r, cy - r, r * 2, r * 2);
+      } else {
+        g.fillStyle = '#150B2B'; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+        g.fillStyle = '#fff'; g.font = `600 ${Math.round(S * 0.2)}px "Space Grotesk", Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText((draft.name || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase(), cx, cy + S * 0.01);
+      }
+      g.restore();
+      return cv.toDataURL('image/png');
+    };
+    try { return { icon_192: draw(192), icon_512: draw(512) }; } catch { return {}; } // foto de otro dominio sin permiso: sin ícono propio
+  }
+
   async function saveDraft() {
     $('#edErr').textContent = '';
     if (!draft.name) { $('#edErr').textContent = 'Escribe el nombre en la tarjeta.'; $('.pcard [data-k="name"]').focus(); return; }
@@ -750,6 +781,7 @@ pre.code{margin:0;padding:12px 14px;border-radius:8px;background:#0d0f1c;box-sha
     if (draft.photo_data !== undefined) { body.photo_data = draft.photo_data; body.photo_url = ''; }
     if (!body.id) delete body.id;
     const btn = $('#edSave'); btn.disabled = true;
+    Object.assign(body, await makeIcons());
     try {
       const r = await api('cards', { method: 'POST', body });
       draft.id = r.id; draft.slug = r.slug; draft.photo_data = undefined; slugTouched = true;

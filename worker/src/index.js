@@ -14,7 +14,7 @@
  * Panel:
  *   /admin/api/*           API del panel (public/admin.html, contraseña ADMIN_PASSWORD)
  */
-import { renderCard, renderVcf } from './card.js';
+import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -294,25 +294,47 @@ async function trackLink(req, env, ctx, slug) {
   return new Response(null, { status: 302, headers: { location: target.toString(), 'cache-control': 'no-store' } });
 }
 
+const CARD_COLS = 'id, slug, name, role, company, bio, phone, whatsapp, email, website, instagram, linkedin, photo_url, accent, views, created_at, updated_at, photo_data IS NOT NULL AS has_photo, icon_512 IS NOT NULL AS has_icon';
+
+function dataUrlResponse(dataUrl, cache = 'public, max-age=31536000, immutable') {
+  const m = dataUrl?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if (!m) return new Response('No encontrado', { status: 404 });
+  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': cache } });
+}
+
 async function showCard(req, env, ctx, slug) {
-  // /c/<slug>/foto → foto subida desde el panel
-  if (slug.endsWith('/foto')) {
-    const row = await env.DB.prepare('SELECT photo_data FROM cards WHERE slug = ?').bind(slug.slice(0, -5)).first();
-    const m = row?.photo_data?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
-    if (!m) return new Response('Sin foto', { status: 404 });
-    const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-    return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': 'public, max-age=31536000, immutable' } });
+  // /c/sw.js → service worker de las tarjetas (funcionan sin conexión una vez abiertas)
+  if (slug === 'sw.js') return new Response(CARD_SW, { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
+
+  // /c/<slug>/foto · /c/<slug>/icon-192.png · /c/<slug>/icon-512.png · /c/<slug>/manifest.webmanifest
+  const sub = slug.match(/^([^/]+)\/(foto|icon-192\.png|icon-512\.png|manifest\.webmanifest)$/);
+  if (sub) {
+    const [, s, part] = sub;
+    if (part === 'foto') return dataUrlResponse((await env.DB.prepare('SELECT photo_data v FROM cards WHERE slug = ?').bind(s).first())?.v);
+    if (part !== 'manifest.webmanifest') {
+      const col = part === 'icon-192.png' ? 'icon_192' : 'icon_512';
+      const row = await env.DB.prepare(`SELECT ${col} v FROM cards WHERE slug = ?`).bind(s).first();
+      if (!row) return new Response('No encontrado', { status: 404 });
+      // sin ícono propio: el de Diwilo
+      return row.v ? dataUrlResponse(row.v, 'public, max-age=3600') : Response.redirect(new URL(`/assets/img/icon-${part === 'icon-192.png' ? '192' : '512'}.png`, req.url), 302);
+    }
+    const card = await env.DB.prepare(`SELECT ${CARD_COLS} FROM cards WHERE slug = ?`).bind(s).first();
+    if (!card) return new Response('No encontrado', { status: 404 });
+    return new Response(JSON.stringify(cardManifest(card)), { headers: { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'public, max-age=300' } });
   }
+
   const vcf = slug.endsWith('.vcf');
-  const card = await env.DB.prepare('SELECT * FROM cards WHERE slug = ?').bind(vcf ? slug.slice(0, -4) : slug).first();
+  const card = await env.DB.prepare(`SELECT ${CARD_COLS} FROM cards WHERE slug = ?`).bind(vcf ? slug.slice(0, -4) : slug).first();
   if (!card) return new Response('Tarjeta no encontrada', { status: 404 });
   const origin = new URL(req.url).origin;
-  if (card.photo_data) card.photo_url = `${origin}/c/${encodeURIComponent(card.slug)}/foto?v=${card.updated_at || card.created_at}`;
+  const v = card.updated_at || card.created_at;
+  if (card.has_photo) card.photo_url = `${origin}/c/${encodeURIComponent(card.slug)}/foto?v=${v}`;
   if (vcf) {
     return new Response(renderVcf(card), { headers: { 'content-type': 'text/vcard; charset=utf-8', 'content-disposition': `attachment; filename="${card.slug}.vcf"` } });
   }
   if (geo(req).device !== 'bot') ctx.waitUntil(env.DB.prepare('UPDATE cards SET views = views + 1 WHERE id = ?').bind(card.id).run());
-  return new Response(renderCard(card, origin), { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return new Response(renderCard(card, origin), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
 }
 
 /* ================= ESTADÍSTICAS ================= */
@@ -409,13 +431,21 @@ async function saveCard(env, b) {
     else if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(b.photo_data) && b.photo_data.length < 400000) { photoSql = ', photo_data=?'; photoVal = [b.photo_data]; }
     else throw new Error('La foto no es válida o pesa demasiado');
   }
-  if (b.id) {
-    await env.DB.prepare(`UPDATE cards SET slug=?, ${fields.map((f) => f + '=?').join(', ')}, updated_at=?${photoSql} WHERE id=?`).bind(slug, ...vals, now(), ...photoVal, b.id).run();
-    return { id: b.id, slug };
+  // Íconos de la app instalable (PNG que genera el panel a partir de la foto y el color)
+  for (const k of ['icon_192', 'icon_512']) {
+    if (b[k] === undefined) continue;
+    if (b[k] && !(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(b[k]) && b[k].length < 900000)) throw new Error('Ícono inválido');
+    photoSql += `, ${k}=?`; photoVal.push(b[k] || null);
   }
-  const r = await env.DB.prepare(`INSERT INTO cards (slug, ${fields.join(', ')}, created_at, updated_at) VALUES (?, ${fields.map(() => '?').join(', ')}, ?, ?)`).bind(slug, ...vals, now(), now()).run();
-  if (photoVal.length) await env.DB.prepare('UPDATE cards SET photo_data=? WHERE id=?').bind(photoVal[0], r.meta.last_row_id).run();
-  return { id: r.meta.last_row_id, slug };
+  let id = b.id;
+  if (id) {
+    await env.DB.prepare(`UPDATE cards SET slug=?, ${fields.map((f) => f + '=?').join(', ')}, updated_at=?${photoSql} WHERE id=?`).bind(slug, ...vals, now(), ...photoVal, id).run();
+  } else {
+    const r = await env.DB.prepare(`INSERT INTO cards (slug, ${fields.join(', ')}, created_at, updated_at) VALUES (?, ${fields.map(() => '?').join(', ')}, ?, ?)`).bind(slug, ...vals, now(), now()).run();
+    id = r.meta.last_row_id;
+    if (photoSql) await env.DB.prepare(`UPDATE cards SET ${photoSql.slice(2)} WHERE id=?`).bind(...photoVal, id).run();
+  }
+  return { id, slug };
 }
 
 async function adminApi(req, env, path, url) {
@@ -469,7 +499,7 @@ async function adminApi(req, env, path, url) {
   if (path === '/admin/api/cards') {
     if (M === 'GET') return json((await db.prepare(`SELECT id, slug, name, role, company, bio, phone, whatsapp, email, website, instagram, linkedin,
       photo_url, accent, views, created_at, updated_at, photo_data IS NOT NULL AS has_photo FROM cards ORDER BY created_at DESC`).all()).results);
-    if (M === 'POST') return json(await saveCard(env, await readJson(req, 450000)));
+    if (M === 'POST') return json(await saveCard(env, await readJson(req, 2000000)));
     if (M === 'DELETE') { await db.prepare('DELETE FROM cards WHERE id=?').bind(id).run(); return json({ ok: true }); }
   }
 
