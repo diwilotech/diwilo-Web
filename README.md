@@ -1,7 +1,7 @@
 # Diwilo — sitio web y gestión
 
-Sitio de [diwilo.com](https://diwilo.com) y su app de gestión, en el proyecto **Cloudflare Pages "diwilo"**.
-Cada push a `main` se publica solo en diwilo.com (integración GitHub ↔ Cloudflare Pages).
+Sitio de [diwilo.com](https://diwilo.com) y su app de gestión, en el **Cloudflare Worker "diwilo-web"** (con archivos estáticos).
+Cada push a `main` se publica solo en diwilo.com (Workers Builds, comando `npx wrangler deploy`).
 
 - **Sitio:** https://diwilo.com
 - **Panel:** https://diwilo.com/admin (protegido con Cloudflare Access)
@@ -13,14 +13,14 @@ Cada push a `main` se publica solo en diwilo.com (integración GitHub ↔ Cloudf
 | `src/pages/` | Fuente de las páginas (solo el `<main>` de cada una) |
 | `tools/build.py` | Genera `public/`: páginas, versiones `.md`, sitemap, robots, llms.txt, OpenAPI y archivos `.well-known` |
 | `public/` | Lo que se publica (incluye el panel `admin.html`, `404.html` y `_headers`) |
-| `functions/` | Rutas dinámicas (Pages Functions): `/api/*`, `/admin/api/*`, `/l/*`, `/c/*`, `/v1/*`, `/mcp` y la negociación HTML/Markdown de cada página |
+| `worker/src/worker.js` | Entrada del Worker: negociación HTML/Markdown de cada página y despacho de `/api/*`, `/admin/api/*`, `/l/*`, `/c/*`, `/v1/*`, `/mcp` |
 | `worker/src/index.js` | Lógica compartida: analítica, leads, chat IA, links, tarjetas, API y servidor MCP |
 | `worker/src/access.js` | Verifica el JWT de Cloudflare Access en `/admin/api/*` |
 | `worker/src/platform.js` | Negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas |
 | `worker/src/markdown.js` | `Accept: text/markdown` → versión `.md` de la página, y cabeceras `Link` |
 | `worker/src/card.js` | Tarjeta de presentación y vCard |
 | `worker/schema.sql` | Esquema de la base D1 `diwilo-admin-db` |
-| `wrangler.jsonc` | Configuración del proyecto Pages: base de datos D1, Workers AI, variables |
+| `wrangler.jsonc` | Configuración del Worker: dominios, archivos estáticos, D1, Workers AI, service bindings, variables |
 
 **Para cambiar textos:** edita `src/pages/*.html`, ejecuta `python3 tools/build.py` y sube los cambios.
 El script regenera también el sitemap (fecha de actualización) y las versiones Markdown.
@@ -73,9 +73,9 @@ Las apps ya no usan Cloudflare Access: entran con correo + contraseña.
 
 Zero Trust → Access → Applications → **Self-hosted**:
 
-- Dominios: `diwilo.com/admin` y `diwilo.com/admin.html` (y lo mismo en `diwilo.pages.dev` si se usa).
+- Destinos: `diwilo.com/admin`, `diwilo.com/admin.html`, `www.diwilo.com/admin` y `www.diwilo.com/admin.html`.
 - Política *Allow* con tu correo (código por correo o Google).
-- Copia el **Application Audience (AUD) Tag** al secreto `ACCESS_AUD`.
+- El **Application Audience (AUD) Tag** va en `ACCESS_AUD` (variable en `wrangler.jsonc`).
 
 El Worker verifica el JWT de Access en cada llamada a `/admin/api/*`, así que la API queda cerrada aunque
 alguien llegue por otra ruta. Para salir: `/cdn-cgi/access/logout` (botón **Salir**).
@@ -83,11 +83,9 @@ alguien llegue por otra ruta. Para salir: `/cdn-cgi/access/logout` (botón **Sal
 ## Secretos
 
 ```bash
-npx wrangler pages secret put ACCESS_TEAM_DOMAIN --project-name diwilo  # equipo.cloudflareaccess.com
-npx wrangler pages secret put ACCESS_AUD --project-name diwilo          # AUD tag de la app de Access
-npx wrangler pages secret put PLATFORM_KEY --project-name diwilo        # la misma clave en las 3 apps
-npx wrangler pages secret put ADMIN_EMAILS --project-name diwilo        # opcional: correos permitidos
-npx wrangler pages secret put GEMINI_API_KEY --project-name diwilo      # opcional: Gemini en el chat
+npx wrangler secret put PLATFORM_KEY        # la misma clave en las 3 apps
+npx wrangler secret put ADMIN_EMAILS        # opcional: correos permitidos
+npx wrangler secret put GEMINI_API_KEY      # opcional: Gemini en el chat
 ```
 
 Si la base ya existía, crea la tabla de pagos: `npx wrangler d1 execute diwilo-admin-db --remote --file=worker/schema.sql`
@@ -98,7 +96,7 @@ Sin `GEMINI_API_KEY` el chat usa Workers AI de Cloudflare.
 ## Ver en local
 
 ```bash
-npx wrangler pages dev      # sitio + funciones con datos locales
+npx wrangler dev            # sitio + rutas dinámicas con datos locales
 ```
 
 En local no hay Access: crea `.dev.vars` con `DEV_ADMIN_EMAIL=tu@correo.com` y `PLATFORM_KEY=…`. Si las apps

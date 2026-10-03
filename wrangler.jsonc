@@ -1,12 +1,29 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // Proyecto Cloudflare Pages "diwilo": se despliega solo en cada push a main.
-  // public/     sitio estático (incluye el panel en /admin)
-  // functions/  rutas dinámicas: /api, /admin/api, /l, /c, /v1
+  // Worker "diwilo-web": sitio diwilo.com + panel /admin. Se despliega solo en cada push a main
+  // (Workers Builds, comando: npx wrangler deploy).
+  //   public/                 sitio estático (incluye el panel admin.html, 404.html y _headers)
+  //   worker/src/worker.js    entrada: negociación HTML/Markdown y rutas dinámicas
+  //   worker/src/index.js     /api, /admin/api, /l, /c, /v1, /mcp
   // /admin se protege con Cloudflare Access (worker/src/access.js verifica el JWT).
-  "name": "diwilo",
-  "pages_build_output_dir": "./public",
+  "name": "diwilo-web",
+  "main": "worker/src/worker.js",
   "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "routes": [
+    { "pattern": "diwilo.com", "custom_domain": true },
+    { "pattern": "www.diwilo.com", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    // Rutas que pasan primero por el Worker (lo demás se sirve directo como archivo).
+    "run_worker_first": [
+      "/", "/contacto", "/servicios", "/arquitectura", "/privacidad", "/docs/api",
+      "/api/*", "/admin/api/*", "/v1/*", "/l/*", "/c/*", "/mcp"
+    ]
+  },
   "d1_databases": [
     { "binding": "DB", "database_name": "diwilo-admin-db", "database_id": "076cb7c8-d60b-4cff-918f-2de045696be8" }
   ],
@@ -18,16 +35,17 @@
     { "binding": "CITAS", "service": "cdcitas" }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com,https://diwilo.pages.dev",
+    "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com",
     // URL pública de cada app: con ella se arman los links de invitación que se envían a los usuarios.
     "PEDIDOS_URL": "https://cdpedidos.diwilo.com",
     "NUTRICION_URL": "https://cdnutricion.diwilo.com",
-    "CITAS_URL": "https://cdcitas.diwilo.com"
+    "CITAS_URL": "https://cdcitas.diwilo.com",
+    // Cloudflare Access (Zero Trust → Access → Applications): equipo y AUD de la app que protege /admin.
+    "ACCESS_TEAM_DOMAIN": "diwilo.cloudflareaccess.com",
+    "ACCESS_AUD": "8aff5757625de9f788990028811bd004a1e93adac714772bc786ce263e4af6dc"
   }
   // Secretos (no van en este archivo):
-  //   npx wrangler pages secret put ACCESS_TEAM_DOMAIN --project-name diwilo  equipo.cloudflareaccess.com
-  //   npx wrangler pages secret put ACCESS_AUD --project-name diwilo      AUD tag de la app de Access que protege /admin
-  //   npx wrangler pages secret put PLATFORM_KEY --project-name diwilo    la misma clave en cdpedidos, cdnutricion y cdcitas
-  //   npx wrangler pages secret put ADMIN_EMAILS --project-name diwilo    (opcional) correos que pueden entrar, separados por coma
-  //   npx wrangler pages secret put GEMINI_API_KEY --project-name diwilo  (opcional)
+  //   npx wrangler secret put PLATFORM_KEY      la misma clave en cdpedidos, cdnutricion y cdcitas
+  //   npx wrangler secret put ADMIN_EMAILS      (opcional) correos que pueden entrar, separados por coma
+  //   npx wrangler secret put GEMINI_API_KEY    (opcional) Gemini en el chat; sin ella usa Workers AI
 }
