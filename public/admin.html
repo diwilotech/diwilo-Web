@@ -932,7 +932,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   const LINK_TEXT = {
     registro: ['Link de registro', 'Al abrirlo crea su contraseña y entra. Sirve una sola vez.', 'Te invito a la app. Crea tu contraseña aquí:'],
     reset: ['Link para restablecer contraseña', 'Al abrirlo elige una contraseña nueva. Sirve una sola vez; su contraseña actual sigue funcionando hasta que lo use.', 'Restablece tu contraseña aquí:'],
-    ingreso: ['Link de ingreso', 'Dirección para entrar con correo y contraseña. Se puede compartir las veces que quieras.', 'Entra a la app aquí:'],
+    ingreso: ['Link de ingreso', 'Dirección para entrar con correo y contraseña; después de entrar lleva a cada quien a su negocio. Se puede compartir las veces que quieras.', 'Entra a la app aquí:'],
   };
   function inviteHtml(url, who, kind = 'registro') {
     if (!url) return '';
@@ -946,13 +946,12 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   const linkBtn = (u, attr) => u.status === 'active'
     ? `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera un link para que elija una contraseña nueva"><i class="ph-light ph-key"></i>Restablecer contraseña</button>`
     : `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera el link para que cree su contraseña"><i class="ph-light ph-envelope-simple"></i>Link de registro</button>`;
-  // Dirección de la app donde entra la gente de este negocio (sin token).
-  function loginUrl(b) {
+  // Dirección general de ingreso de la app (sin token ni negocio): la persona entra con su correo y
+  // contraseña y la app la lleva a su negocio (o le deja elegir si tiene varios).
+  function loginUrl() {
     const base = appCfg().url;
     if (!base) return null;
-    if (bizApp === 'nutricion') return `${base}/admin/login`;
-    if (bizApp === 'citas') return b.slug ? `${base}/${b.slug}/admin` : null;
-    return `${base}/`;
+    return bizApp === 'citas' ? `${base}/login` : `${base}/`;
   }
   // Genera (en la app) un link nuevo para crear o restablecer la contraseña de u.
   async function issueLink(b, u, box) {
