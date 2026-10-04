@@ -191,6 +191,7 @@ tr.sel td{background:var(--on)}
 .sub h3{font-size:14px}
 .urow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:8px 0;box-shadow:inset 0 -1px 0 rgba(186,215,247,.06)}
 .urow .e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#bizUsers .urow{grid-template-columns:1fr;gap:6px}
 @media (max-width:980px){.editor{grid-template-columns:1fr}.stage{position:static}}
 
 @media (max-width:860px){
@@ -282,7 +283,7 @@ tr.sel td{background:var(--on)}
       </form>
       <div id="inviteBox" style="margin-bottom:14px" hidden></div>
 
-      <div class="card tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th class="num">Usuarios</th><th>Pagado hasta</th><th>Estado</th><th>Último pago</th></tr></thead><tbody id="bizBody"></tbody></table></div>
+      <div class="card tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th class="num">Usuarios</th><th>Pagado hasta</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
       <div class="card" id="bizDetail" style="margin-top:14px" hidden></div>
 
       <form class="card" id="priceForm" style="margin-top:14px">
@@ -927,14 +928,39 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   const appCfg = () => plat.apps.find((a) => a.key === bizApp);
   const bizPath = (id, rest = '') => `platform/${bizApp}/businesses/${encodeURIComponent(id)}${rest}`;
 
-  function inviteHtml(url, who) {
+  // kind: 'registro' (aún no tiene contraseña) | 'reset' (restablecer) | 'ingreso' (dirección para entrar)
+  const LINK_TEXT = {
+    registro: ['Link de registro', 'Al abrirlo crea su contraseña y entra. Sirve una sola vez.', 'Te invito a la app. Crea tu contraseña aquí:'],
+    reset: ['Link para restablecer contraseña', 'Al abrirlo elige una contraseña nueva. Sirve una sola vez; su contraseña actual sigue funcionando hasta que lo use.', 'Restablece tu contraseña aquí:'],
+    ingreso: ['Link de ingreso', 'Dirección para entrar con correo y contraseña. Se puede compartir las veces que quieras.', 'Entra a la app aquí:'],
+  };
+  function inviteHtml(url, who, kind = 'registro') {
     if (!url) return '';
-    return `<div class="newkey"><p style="margin:0 0 6px">Link de acceso para <b style="color:#fff;font-weight:500">${esc(who)}</b>. Envíaselo: al abrirlo crea su contraseña (sirve una vez).</p>
+    const [title, hint, wa] = LINK_TEXT[kind];
+    return `<div class="newkey"><p style="margin:0 0 6px"><b style="color:#fff;font-weight:500">${title}</b>${who ? ` para ${esc(who)}` : ''}. ${hint}</p>
       <code class="mono" style="font-size:12px;color:#fff">${esc(url)}</code>
       <div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-copy="${esc(url)}"><i class="ph-light ph-copy"></i>Copiar</button>
-      <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Tu acceso: ' + url)}"><i class="ph-light ph-whatsapp-logo"></i>WhatsApp</a></div></div>`;
+      <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(wa + ' ' + url)}"><i class="ph-light ph-whatsapp-logo"></i>WhatsApp</a></div></div>`;
   }
-  function showInvite(url, who) { const el = $('#inviteBox'); el.hidden = !url; el.innerHTML = inviteHtml(url, who); }
+  const linkKind = (u) => (u.status === 'active' ? 'reset' : 'registro');
+  const linkBtn = (u, attr) => u.status === 'active'
+    ? `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera un link para que elija una contraseña nueva"><i class="ph-light ph-key"></i>Restablecer contraseña</button>`
+    : `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera el link para que cree su contraseña"><i class="ph-light ph-envelope-simple"></i>Link de registro</button>`;
+  // Dirección de la app donde entra la gente de este negocio (sin token).
+  function loginUrl(b) {
+    const base = appCfg().url;
+    if (!base) return null;
+    if (bizApp === 'nutricion') return `${base}/admin/login`;
+    if (bizApp === 'citas') return b.slug ? `${base}/${b.slug}/admin` : null;
+    return `${base}/`;
+  }
+  // Genera (en la app) un link nuevo para crear o restablecer la contraseña de u.
+  async function issueLink(b, u, box) {
+    const r = await api(bizPath(b.id, '/users'), { method: 'POST', body: { email: u.email, role: u.role } });
+    const el = $(box); el.hidden = false; el.innerHTML = inviteHtml(r.invite_url, u.email, linkKind(u));
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function showInvite(url, who, kind) { const el = $('#inviteBox'); el.hidden = !url; el.innerHTML = inviteHtml(url, who, kind); }
 
   async function loadPlatform() {
     plat = await api('platform');
@@ -945,7 +971,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
 
   async function loadBiz() {
     $('#bizErr').textContent = '';
-    $('#bizBody').innerHTML = '<tr><td colspan="6" class="empty">Cargando…</td></tr>';
+    $('#bizBody').innerHTML = '<tr><td colspan="7" class="empty">Cargando…</td></tr>';
     const app = appCfg();
     $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
     $('#bizSlug').hidden = !app.slug;
@@ -979,8 +1005,9 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
         <td class="num">${b.users.length}</td>
         <td>${fmtDay(b.paid_until)}</td>
         <td><span class="st ${st[i].k}">${st[i].t}</span></td>
-        <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td></tr>`;
-    }).join('') : `<tr><td colspan="6" class="empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
+        <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
+        <td>${owner ? linkBtn(owner, 'data-olink') : '<span class="muted">—</span>'}</td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
     if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
   }
 
@@ -990,7 +1017,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     const el = $('#bizDetail'); el.hidden = false;
     el.innerHTML = `<div class="row" style="justify-content:space-between">
         <h2>${esc(b.name)} <span class="muted" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="row">${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
+        <div class="row">${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
       <div class="bizgrid">
         <div class="sub">
           <h3>Suscripción</h3>
@@ -1011,7 +1038,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
           <h3>Usuarios</h3>
           <div id="bizUsers">${b.users.map((u) => `<div class="urow">
             <span class="e" title="${esc(u.email)}">${esc(u.name || u.email)}<br><span class="muted" style="font-size:12px">${esc(u.email)} · ${ROLE[u.role] || esc(u.role)} · ${USTATUS[u.status] || esc(u.status)}</span></span>
-            <span class="row" style="gap:4px;flex-wrap:nowrap"><button class="btn sm" data-uinvite="${esc(u.id)}" title="Link para crear o restablecer la contraseña"><i class="ph-light ph-link-simple"></i>Link</button><button class="btn sm danger" data-udel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button></span></div>`).join('') || '<p class="muted" style="margin:0">Sin usuarios.</p>'}</div>
+            <span class="row" style="gap:4px;flex-wrap:nowrap">${linkBtn(u, 'data-uinvite')}<button class="btn sm danger" data-udel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button></span></div>`).join('') || '<p class="muted" style="margin:0">Sin usuarios.</p>'}</div>
           <div id="userInvite"></div>
           <form class="form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
             <label class="f">Correo<input class="in" type="email" name="email" required></label>
@@ -1062,7 +1089,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     try {
       const r = await api(`platform/${bizApp}/businesses`, { method: 'POST', body });
       e.target.hidden = true; toast('Negocio creado');
-      showInvite(r.invite_url, body.owner_email);
+      showInvite(r.invite_url, body.owner_email, 'registro');
       bizSel = r.id; await loadBiz();
     } catch (x) { err.textContent = x.message; }
   });
@@ -1071,14 +1098,24 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     bizSel = tr.dataset.biz; $$('#bizBody tr').forEach((x) => x.classList.toggle('sel', x === tr));
     renderDetail(); $('#bizDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
+  // Botón "Link de registro / Restablecer contraseña" del dueño, directo en la tabla.
+  $('#bizBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-olink]'); if (!btn) return;
+    e.stopImmediatePropagation();
+    const b = biz.find((x) => x.users.some((u) => u.id === btn.dataset.olink));
+    const u = b.users.find((x) => x.id === btn.dataset.olink);
+    btn.disabled = true;
+    try { await issueLink(b, u, '#inviteBox'); } catch (x) { toast(x.message); } finally { btn.disabled = false; }
+  }, true);
   $('#bizDetail').addEventListener('click', async (e) => {
     if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
     const b = biz.find((x) => x.id === bizSel);
+    if (e.target.closest('[data-loginlink]')) { const el = $('#userInvite'); el.innerHTML = inviteHtml(loginUrl(b), b.name, 'ingreso'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
     const inv = e.target.closest('[data-uinvite]');
     if (inv) {
       const u = b.users.find((x) => x.id === inv.dataset.uinvite);
-      try { const r = await api(bizPath(b.id, '/users'), { method: 'POST', body: { email: u.email, role: u.role } }); $('#userInvite').innerHTML = inviteHtml(r.invite_url, u.email); }
-      catch (x) { toast(x.message); }
+      inv.disabled = true;
+      try { await issueLink(b, u, '#userInvite'); } catch (x) { toast(x.message); } finally { inv.disabled = false; }
       return;
     }
     const del = e.target.closest('[data-udel]');
@@ -1105,7 +1142,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
         const body = formData(f);
         const r = await api(bizPath(b.id, '/users'), { method: 'POST', body });
         await loadBiz();
-        $('#userInvite').innerHTML = inviteHtml(r.invite_url, body.email);
+        $('#userInvite').innerHTML = inviteHtml(r.invite_url, body.email, 'registro');
         return;
       }
       loadBiz();
