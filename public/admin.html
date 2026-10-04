@@ -951,7 +951,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   function loginUrl() {
     const base = appCfg().url;
     if (!base) return null;
-    return bizApp === 'citas' ? `${base}/login` : `${base}/`;
+    return `${base}/`;
   }
   // Genera (en la app) un link nuevo para crear o restablecer la contraseña de u.
   async function issueLink(b, u, box) {

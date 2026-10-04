@@ -23,7 +23,7 @@ Antes de escribir código, lee cómo está hecho hoy el login, los negocios y lo
 - Si la app usaba **PIN** (4-8 dígitos): el PIN viejo se acepta **una sola vez**. Si el login es correcto pero la clave tiene menos de 8 caracteres, no abras sesión: genera un link de invitación (punto 3) y responde `{ mustSetPassword: true, invite: "<token>" }` para que el frontend pida crear la contraseña.
 - Las mutaciones que usan cookie deben tener protección CSRF (por ejemplo, exigir un encabezado propio como `x-app: 1`).
 - Pantalla de login con: correo, contraseña, botón Entrar y el texto "¿Olvidaste tu contraseña? Pide un link nuevo al administrador".
-- **Un solo link de ingreso, sin el negocio en la URL** (la raíz de la app, o `/login`): la persona entra con correo y contraseña y la app la lleva a su negocio. Si el mismo correo pertenece a varios negocios, muestra "¿A qué negocio entras?" con la lista. Con sesión abierta, ese link manda directo al negocio.
+- **Un solo link de ingreso, sin el negocio en la URL** (la raíz de la app, por ejemplo `https://cdcitas.diwilo.com`): la persona entra con correo y contraseña y la app la lleva a su negocio. Si el mismo correo pertenece a varios negocios, muestra "¿A qué negocio entras?" con la lista. Con sesión abierta, ese link manda directo al negocio.
 - Usa el mismo diseño de login que las demás apps (`diwilo-login.css`): un cuadro grande con Diwilo a la izquierda (oscuro, logo y mensaje) y el ingreso en blanco a la derecha, con los colores de la app.
 
 ## 3. Links de invitación (registro y restablecer contraseña)
