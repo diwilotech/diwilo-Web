@@ -32,7 +32,8 @@
   "services": [
     { "binding": "PEDIDOS", "service": "cdpedidos" },
     { "binding": "NUTRICION", "service": "cdnutricion" },
-    { "binding": "CITAS", "service": "cdcitas" }
+    { "binding": "CITAS", "service": "cdcitas" },
+    { "binding": "RESIDENTES", "service": "cdresidentes" }
   ],
   "vars": {
     "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com",
@@ -40,12 +41,13 @@
     "PEDIDOS_URL": "https://cdpedidos.diwilo.com",
     "NUTRICION_URL": "https://cdnutricion.diwilo.com",
     "CITAS_URL": "https://cdcitas.diwilo.com",
+    "RESIDENTES_URL": "https://cdresidentes.diwilo.com",
     // Cloudflare Access (Zero Trust → Access → Applications): equipo y AUD de la app que protege /admin.
     "ACCESS_TEAM_DOMAIN": "diwilo.cloudflareaccess.com",
     "ACCESS_AUD": "8aff5757625de9f788990028811bd004a1e93adac714772bc786ce263e4af6dc"
   }
   // Secretos (no van en este archivo):
-  //   npx wrangler secret put PLATFORM_KEY      la misma clave en cdpedidos, cdnutricion y cdcitas
+  //   npx wrangler secret put PLATFORM_KEY      la misma clave en cdpedidos, cdnutricion, cdcitas y cdresidentes
   //   npx wrangler secret put ADMIN_EMAILS      (opcional) correos que pueden entrar, separados por coma
   //   npx wrangler secret put GEMINI_API_KEY    (opcional) Gemini en el chat; sin ella usa Workers AI
 }

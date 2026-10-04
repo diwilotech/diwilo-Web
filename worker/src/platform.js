@@ -20,6 +20,7 @@ export const APPS = {
   pedidos: { name: 'Pedidos', binding: 'PEDIDOS', url: 'PEDIDOS_URL', roles: ['owner', 'staff'], slug: false },
   nutricion: { name: 'Nutrición', binding: 'NUTRICION', url: 'NUTRICION_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional' },
   citas: { name: 'Citas', binding: 'CITAS', url: 'CITAS_URL', roles: ['owner', 'staff'], slug: 'required' },
+  residentes: { name: 'Residentes', binding: 'RESIDENTES', url: 'RESIDENTES_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional' },
 };
 const DEFAULT_TRIAL_DAYS = 15;
 
