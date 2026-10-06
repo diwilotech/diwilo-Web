@@ -5,7 +5,7 @@
  *   GET  /blog                      índice (?cat=, ?q=, ?p=)
  *   GET  /blog/<slug>               artículo con menú lateral de sugerencias
  *   GET  /blog.md · /blog/<slug>.md versión Markdown (también con Accept: text/markdown)
- *   GET  /blog/rss.xml · /blog/sitemap.xml
+ *   GET  /blog/rss.xml · /blog/sitemap.xml · /blog/latest.json (bloque «Del blog» del inicio)
  *   GET  /blog/img/<id> · /blog/img/portada-<postId>
  *
  *   GET    /admin/api/blog                 lista (sin contenido)
@@ -325,6 +325,19 @@ export async function blogPublic(req, env, ctx) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return new Response(null, { status: 405 });
   if (path === '/blog' || path === '/blog.md') return path.endsWith('.md') ? blogIndex(new Request(req, { headers: { accept: 'text/markdown' } }), env, url) : blogIndex(req, env, url);
   if (path === '/blog/rss.xml') return rss(env);
+  if (path === '/blog/latest.json') {
+    // Para el inicio: últimas entradas y qué guías están publicadas
+    const t = now();
+    const [latest, slugs] = await env.DB.batch([
+      env.DB.prepare(`SELECT ${LIST_COLS}, content FROM posts WHERE ${PUBLISHED} ORDER BY published_at DESC LIMIT 3`).bind(t),
+      env.DB.prepare(`SELECT slug FROM posts WHERE ${PUBLISHED}`).bind(t),
+    ]);
+    return new Response(JSON.stringify({
+      posts: latest.results.map((p) => ({ slug: p.slug, title: p.title, excerpt: p.excerpt, category: p.category, cover: coverUrl(p),
+        date: fmtDate(p.published_at), minutes: renderMarkdown(p.content).minutes })),
+      slugs: slugs.results.map((r) => r.slug),
+    }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=120' } });
+  }
   if (path === '/blog/sitemap.xml') return sitemap(env);
   const img = path.match(/^\/blog\/img\/(portada-)?(\d+)$/);
   if (img) {

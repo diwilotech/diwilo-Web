@@ -970,6 +970,100 @@
     track('post_read_start', { label: body.closest('[data-post]')?.dataset.post || '' });
   }
 
+  /* ---------------- Inicio: chat con la IA en el hero ---------------- */
+  function initHeroChat() {
+    const root = $('[data-hero-chat]');
+    if (!root) return;
+    const log = $('.hero-chat__log', root), sugg = $('.hero-chat__sugg', root), form = $('.hero-chat__form', root), input = form.q;
+    const INTRO_Q = '¿Qué hace Diwilo?';
+    const INTRO_A = 'Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas en Colombia. También tenemos apps listas para usar: Pedidos, Nutrición, Citas y Residentes. ¿Qué proceso te gustaría automatizar?';
+    let options = ['¿Cuánto cuesta un proyecto?', '¿Qué apps tienen?', 'Quiero automatizar WhatsApp', '¿Cuánto tarda un proyecto?', 'Agendar diagnóstico'];
+    let busy = false, used = false;
+    const wait = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
+    const linkify = (s) => esc(s)
+      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+      .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>');
+    const scroll = () => { log.scrollTop = log.scrollHeight; };
+    function bubble(who) {
+      const m = document.createElement('div');
+      m.className = `msg msg--${who}`;
+      log.appendChild(m); scroll();
+      return m;
+    }
+    async function typeText(el, text, perChar) {
+      if (reduced) { el.innerHTML = linkify(text); return; }
+      el.innerHTML = '<span></span><span class="caret"></span>';
+      const out = el.firstChild;
+      // Por palabras, como cuando la IA responde en vivo
+      const parts = text.split(/(\s+)/);
+      let acc = '';
+      for (const w of parts) { acc += w; out.innerHTML = linkify(acc); scroll(); await wait(perChar * Math.max(1, w.length)); }
+      el.innerHTML = linkify(text);
+    }
+    function typing() {
+      const t = bubble('bot');
+      t.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+      return t;
+    }
+    function showSugg() {
+      sugg.innerHTML = options.slice(0, 4).map((o) => `<button type="button" class="pill">${esc(o)}</button>`).join('');
+    }
+    async function answer(q) {
+      if (busy) return;
+      q = q.trim(); if (!q) return;
+      busy = true; sugg.innerHTML = ''; input.value = '';
+      if (!used) { used = true; track('hero_chat', { label: q.slice(0, 80) }); }
+      if (/agendar diagn/i.test(q)) { location.href = '/contacto'; return; }
+      bubble('me').textContent = q;
+      const t = typing();
+      let reply;
+      try {
+        const r = await fetch(API_BASE + '/api/chat', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: q, page: location.pathname }) });
+        reply = (await r.json()).reply;
+      } catch (_) { /* respuesta de respaldo */ }
+      t.classList.remove('msg--typing');
+      await typeText(t, reply || `No pude conectarme ahora. Escríbenos por WhatsApp: https://wa.me/${WHATSAPP}`, 14);
+      options = options.filter((o) => o !== q);
+      showSugg();
+      busy = false;
+    }
+    async function intro() {
+      busy = true;
+      await wait(900);
+      const me = bubble('me');
+      await typeText(me, INTRO_Q, 45);
+      const t = typing();
+      await wait(900);
+      await typeText(t, INTRO_A, 22);
+      showSugg();
+      busy = false;
+    }
+    sugg.addEventListener('click', (e) => { const b = e.target.closest('.pill'); if (b) answer(b.textContent); });
+    form.addEventListener('submit', (e) => { e.preventDefault(); answer(input.value); });
+    intro();
+  }
+
+  /* ---------------- Inicio: últimas entradas del blog ---------------- */
+  async function initLatestPosts() {
+    const sec = $('[data-latest]');
+    if (!sec && !$('.app-show')) return;
+    let d;
+    try { d = await (await fetch('/blog/latest.json')).json(); } catch (_) { return; }
+    // Botones "Guía" de las apps: solo si la guía ya está publicada
+    $$('.app-show a[href^="/blog/"]').forEach((a) => { a.hidden = !d.slugs.includes(a.getAttribute('href').slice(6)); });
+    if (!sec || !d.posts.length) return;
+    $('[data-latest-list]', sec).innerHTML = d.posts.map((p) => `
+      <article class="post-card">
+        <a class="post-card__media" href="/blog/${esc(p.slug)}" tabindex="-1" aria-hidden="true">${p.cover ? `<img class="post-cover" src="${esc(p.cover)}" alt="" loading="lazy">` : '<div class="post-cover post-cover--ph"><i class="ph-light ph-article"></i></div>'}</a>
+        <div class="post-card__body">
+          <div class="post-meta">${p.category ? `<span class="tag">${esc(p.category)}</span>` : ''}<span>${esc(p.date)}</span><span>· ${p.minutes} min</span></div>
+          <h3 class="post-card__title"><a href="/blog/${esc(p.slug)}">${esc(p.title)}</a></h3>
+          ${p.excerpt ? `<p class="post-card__excerpt">${esc(p.excerpt)}</p>` : ''}
+        </div>
+      </article>`).join('');
+    sec.hidden = false;
+  }
+
   /* ---------------- Arranque ---------------- */
   document.addEventListener('DOMContentLoaded', () => {
     initHero();
@@ -995,6 +1089,8 @@
     initAppsModal();
     initAppsNudge();
     initPost();
+    initHeroChat();
+    initLatestPosts();
     const y = $('[data-year]');
     if (y) y.textContent = new Date().getFullYear();
   });

@@ -1,61 +1,163 @@
 
   <main id="main">
-    <!-- Hero -->
-    <section class="container hero">
-      <p class="eyebrow hero-in" style="--d:0">Nueva era de IA automatizada</p>
-      <h1 class="h1" data-split>Datos que deciden. Procesos que se ejecutan solos.</h1>
-      <p class="lead hero-in" style="--d:650">Diseñamos, construimos y operamos software de datos y automatización para empresas, fundaciones y equipos de producto. Menos trabajo manual, decisiones con evidencia.</p>
-      <div class="row row--center hero-in" style="--d:800;--gap:10px">
-        <a class="btn btn--primary" href="contacto.html">Agendar diagnóstico</a>
-        <a class="btn" href="servicios.html">Ver servicios</a>
+    <!-- Hero: texto + chat con la IA de Diwilo -->
+    <section class="container hero hero--split">
+      <div class="hero__text">
+        <p class="eyebrow hero-in" style="--d:0">Datos, automatización e IA · Medellín</p>
+        <h1 class="h1" data-split>Datos que deciden. Procesos que se ejecutan solos.</h1>
+        <p class="lead hero-in" style="--d:650">Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Menos trabajo manual, decisiones con evidencia.</p>
+        <div class="row hero-in hero__ctas" style="--d:800;--gap:10px">
+          <a class="btn btn--primary btn--lg" href="contacto.html">Agendar diagnóstico <i class="ph-light ph-arrow-right"></i></a>
+          <a class="btn btn--lg" href="servicios.html">Ver servicios</a>
+        </div>
+        <p class="hero__proof hero-in" style="--d:950"><i class="ph-light ph-seal-check"></i>Primera sesión sin costo <span>·</span> Respuesta en menos de 24 h hábiles</p>
       </div>
-      <div class="hero__demo" data-reveal="scale" style="--d:200">
-        <div class="demo" data-demo="flow"></div>
+
+      <div class="hero-chat hero-in" style="--d:500" data-hero-chat aria-label="Chat con la IA de Diwilo">
+        <div class="hero-chat__head">
+          <span class="chatbox__avatar"><img src="/assets/img/brand/logo-mark.svg" alt="" width="20" height="20"><span class="fab__dot"></span></span>
+          <div><p class="chatbox__title">Pregúntale a Diwilo</p><p class="chatbox__sub">IA · responde al instante</p></div>
+          <span class="hero-chat__badge">En vivo</span>
+        </div>
+        <div class="hero-chat__log" aria-live="polite"></div>
+        <div class="hero-chat__sugg"></div>
+        <form class="hero-chat__form">
+          <label class="sr-only" for="hero-q">Escribe tu pregunta</label>
+          <input id="hero-q" class="input" name="q" placeholder="Pregunta lo que quieras sobre Diwilo…" autocomplete="off" maxlength="1000">
+          <button type="submit" class="btn btn--solid" aria-label="Enviar"><i class="ph-light ph-paper-plane-tilt"></i></button>
+        </form>
       </div>
     </section>
 
-    <!-- Capacidades -->
+    <!-- Franja de datos -->
+    <section class="container"><div class="trust" data-reveal>
+      <div class="trust__item"><i class="ph-light ph-map-pin"></i><div><b>Medellín, Colombia</b><span>Hora de Colombia (GMT-5)</span></div></div>
+      <div class="trust__item"><i class="ph-light ph-squares-four"></i><div><b>4 apps propias</b><span>Pedidos, Nutrición, Citas y Residentes</span></div></div>
+      <div class="trust__item"><i class="ph-light ph-clock-countdown"></i><div><b>Diagnóstico en 1 a 2 semanas</b><span>Primera sesión sin costo</span></div></div>
+      <div class="trust__item"><i class="ph-light ph-shield-check"></i><div><b>Ley 1581 de 2012</b><span>Tus datos protegidos · NDA si lo necesitas</span></div></div>
+    </div></section>
+
+    <!-- Lo que hacemos -->
     <section class="container section">
-      <div class="eyebrow-rule eyebrow-rule--lg" data-reveal><span class="eyebrow">Extensible por diseño</span></div>
-      <div class="caps" data-stagger="90">
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-chart-line-up"></i></span>Analítica</div>
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-flow-arrow"></i></span>Automatización</div>
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-robot"></i></span>Agentes de IA</div>
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-chats-circle"></i></span>Chatbots</div>
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-file-magnifying-glass"></i></span>Extracción</div>
-        <div class="cap"><span class="icon-circle icon-circle--lg"><i class="ph-light ph-squares-four"></i></span>Dashboards</div>
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Lo que hacemos</span></div>
+        <h2 class="h2" data-reveal>Seis frentes que casi siempre terminan conectados</h2>
+        <p class="sub" data-reveal>Empezamos por el proceso que más duele y lo conectamos con el resto de tu operación.</p>
+      </div>
+      <div class="grid svc-grid" style="--min:300px" data-stagger="90">
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-flow-arrow"></i></span>
+          <h3 class="h3">Automatización de flujos</h3>
+          <p class="body muted">Conectamos CRM, correo, hojas y ERP para que la información se mueva sola, con reintentos y alertas.</p>
+          <span class="svc__more">n8n · APIs · webhooks <i class="ph-light ph-arrow-right"></i></span>
+        </a>
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-robot"></i></span>
+          <h3 class="h3">Agentes de IA</h3>
+          <p class="body muted">Agentes que atienden clientes, ejecutan tareas y responden con tus datos, y pasan a una persona cuando hace falta.</p>
+          <span class="svc__more">LLMs · RAG · herramientas propias <i class="ph-light ph-arrow-right"></i></span>
+        </a>
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-whatsapp-logo"></i></span>
+          <h3 class="h3">Chatbots en WhatsApp</h3>
+          <p class="body muted">Atención en el canal donde ya están tus clientes, con una bandeja compartida para tu equipo.</p>
+          <span class="svc__more">Chatwoot · WhatsApp Business <i class="ph-light ph-arrow-right"></i></span>
+        </a>
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-chart-line-up"></i></span>
+          <h3 class="h3">Analítica y ciencia de datos</h3>
+          <p class="body muted">Modelos predictivos, segmentación y pronóstico para decidir con evidencia, no con intuición.</p>
+          <span class="svc__more">Python · SQL · scikit-learn <i class="ph-light ph-arrow-right"></i></span>
+        </a>
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-squares-four"></i></span>
+          <h3 class="h3">Dashboards y tableros</h3>
+          <p class="body muted">Indicadores en tiempo real con la fuente de cada número documentada y accesos por rol.</p>
+          <span class="svc__more">Supabase · web dashboards <i class="ph-light ph-arrow-right"></i></span>
+        </a>
+        <a class="card svc" href="servicios.html">
+          <span class="icon-circle"><i class="ph-light ph-file-magnifying-glass"></i></span>
+          <h3 class="h3">Extracción de datos</h3>
+          <p class="body muted">Información estructurada desde documentos, sitios web y bases de datos, lista para usar.</p>
+          <span class="svc__more">OCR · scraping · ETL <i class="ph-light ph-arrow-right"></i></span>
+        </a>
       </div>
     </section>
 
-    <!-- Ruta: la línea se llena al hacer scroll -->
+    <!-- Apps propias -->
+    <section class="container section">
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Apps de Diwilo</span></div>
+        <h2 class="h2" data-reveal>Software listo para tu negocio, desde hoy</h2>
+        <p class="sub" data-reveal>Apps en la nube que administramos por ti: tu equipo entra con su correo y tú te enfocas en atender.</p>
+      </div>
+      <div class="apps-show" data-stagger="100">
+        <article class="app-show">
+          <span class="app-card__icon"><i class="ph-light ph-storefront"></i></span>
+          <h3 class="h3">CD Pedidos</h3>
+          <p class="app-show__for">Restaurantes, bares y mostrador</p>
+          <ul class="app-show__list"><li>Plano de mesas y comandas</li><li>Inventario que baja al vender</li><li>Cuentas por cobrar por cliente</li></ul>
+          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Pedidos">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-para-restaurantes">Guía</a></div>
+        </article>
+        <article class="app-show">
+          <span class="app-card__icon"><i class="ph-light ph-heartbeat"></i></span>
+          <h3 class="h3">CD Nutrición</h3>
+          <p class="app-show__for">Consultorios de nutrición</p>
+          <ul class="app-show__list"><li>Ficha y medidas del paciente</li><li>Plan e informe en PDF</li><li>Seguimiento del paciente con QR</li></ul>
+          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Nutrición">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-para-nutricionistas">Guía</a></div>
+        </article>
+        <article class="app-show">
+          <span class="app-card__icon"><i class="ph-light ph-calendar-check"></i></span>
+          <h3 class="h3">CD Citas</h3>
+          <p class="app-show__for">Negocios que trabajan con reservas</p>
+          <ul class="app-show__list"><li>Página de reservas propia</li><li>Especialistas, espacios y bloqueos</li><li>Recordatorios y avisos por WhatsApp</li></ul>
+          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Citas">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-de-citas-y-reservas">Guía</a></div>
+        </article>
+        <article class="app-show">
+          <span class="app-card__icon"><i class="ph-light ph-buildings"></i></span>
+          <h3 class="h3">CD Residentes</h3>
+          <p class="app-show__for">Propiedad horizontal</p>
+          <ul class="app-show__list"><li>Cartera y cuenta de cobro en PDF</li><li>PQRS, portería y reservas</li><li>Portal de propietarios y asistente IA</li></ul>
+          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Residentes">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-propiedad-horizontal">Guía</a></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Ruta + flujo en vivo -->
     <section class="container section">
       <div class="center">
         <div class="eyebrow-rule" data-reveal><span class="eyebrow">Nuestra ruta</span></div>
         <h2 class="h2" data-reveal>Cómo pasamos de la tarea repetida al proceso automático</h2>
         <p class="sub" data-reveal>Cuatro etapas, siempre en el mismo orden. Ninguna automatización se construye antes de entender la operación.</p>
       </div>
-      <div class="route">
-        <div class="route__track"></div>
-        <div class="route__fill"></div>
-        <div class="route__step" data-reveal="left">
-          <span class="route__dot">01</span>
-          <h3 class="h3">Análisis</h3>
-          <p class="body">Visualizamos las repeticiones y oportunidades en la operación: qué se hace a mano, cuántas veces y con qué costo.</p>
+      <div class="route-split">
+        <div class="route">
+          <div class="route__track"></div>
+          <div class="route__fill"></div>
+          <div class="route__step" data-reveal="left">
+            <span class="route__dot">01</span>
+            <h3 class="h3">Análisis</h3>
+            <p class="body">Visualizamos las repeticiones y oportunidades en la operación: qué se hace a mano, cuántas veces y con qué costo.</p>
+          </div>
+          <div class="route__step" data-reveal="left">
+            <span class="route__dot">02</span>
+            <h3 class="h3">Integración</h3>
+            <p class="body">Aplicaciones y fuentes de datos conectadas sin fisuras: CRM, ERP, hojas de cálculo, correo y WhatsApp.</p>
+          </div>
+          <div class="route__step" data-reveal="left">
+            <span class="route__dot">03</span>
+            <h3 class="h3">Inteligencia</h3>
+            <p class="body">IA para tomar decisiones y resolver tareas complejas, con un umbral de confianza que deriva a una persona cuando hace falta.</p>
+          </div>
+          <div class="route__step" data-reveal="left">
+            <span class="route__dot">04</span>
+            <h3 class="h3">Optimización</h3>
+            <p class="body">Monitoreo continuo, alertas y mejoras para que el sistema escale con el negocio, no contra él.</p>
+          </div>
         </div>
-        <div class="route__step" data-reveal="left">
-          <span class="route__dot">02</span>
-          <h3 class="h3">Integración</h3>
-          <p class="body">Aplicaciones y fuentes de datos conectadas sin fisuras: CRM, ERP, hojas de cálculo, correo y WhatsApp.</p>
-        </div>
-        <div class="route__step" data-reveal="left">
-          <span class="route__dot">03</span>
-          <h3 class="h3">Inteligencia</h3>
-          <p class="body">IA para tomar decisiones y resolver tareas complejas, con un umbral de confianza que deriva a una persona cuando hace falta.</p>
-        </div>
-        <div class="route__step" data-reveal="left">
-          <span class="route__dot">04</span>
-          <h3 class="h3">Optimización</h3>
-          <p class="body">Monitoreo continuo, alertas y mejoras para que el sistema escale con el negocio, no contra él.</p>
+        <div class="route-split__demo" data-reveal="right">
+          <div class="demo" data-demo="flow"></div>
+          <p class="note center">Ejecuta el flujo y mira el recorrido de punta a punta.</p>
         </div>
       </div>
     </section>
@@ -84,6 +186,63 @@
       </div>
     </section>
 
+    <!-- Por qué Diwilo -->
+    <section class="container section">
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Por qué Diwilo</span></div>
+        <h2 class="h2" data-reveal>Del diagnóstico a la operación, con el mismo equipo</h2>
+        <p class="sub" data-reveal>No entregamos un documento y nos vamos: construimos, ponemos a correr y nos quedamos para que siga funcionando.</p>
+      </div>
+      <div class="grid why-grid" style="--min:290px" data-stagger="120">
+        <div class="card why">
+          <div class="why__art" aria-hidden="true">
+            <span class="why__node"><i class="ph-light ph-magnifying-glass"></i></span><span class="why__line"></span>
+            <span class="why__node why__node--on"><i class="ph-light ph-code"></i></span><span class="why__line"></span>
+            <span class="why__node"><i class="ph-light ph-pulse"></i></span>
+          </div>
+          <h3 class="h3">Diagnóstico, construcción y soporte en un solo lugar</h3>
+          <p class="body muted">Quien entiende tu proceso es quien lo construye y lo mantiene. Sin traspasos ni requisitos que se pierden en el camino.</p>
+        </div>
+        <div class="card why">
+          <div class="why__art" aria-hidden="true">
+            <span class="why__sprint">S1</span><span class="why__sprint">S2</span><span class="why__sprint why__sprint--on">Demo</span><span class="why__sprint">S3</span>
+          </div>
+          <h3 class="h3">Ves avances cada dos semanas</h3>
+          <p class="body muted">Trabajamos en sprints con demo al cierre de cada uno. El alcance se ajusta sobre lo que ya funciona, no sobre supuestos.</p>
+        </div>
+        <div class="card why">
+          <div class="why__art" aria-hidden="true">
+            <span class="why__node why__node--on"><i class="ph-light ph-robot"></i></span><span class="why__line why__line--dash"></span>
+            <span class="why__node"><i class="ph-light ph-user"></i></span>
+          </div>
+          <h3 class="h3">IA donde genera valor, con una persona al lado</h3>
+          <p class="body muted">Usamos IA cuando resuelve el problema. Si la confianza baja, el caso pasa a una persona y queda registrado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparación -->
+    <section class="container section">
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Antes de contratar</span></div>
+        <h2 class="h2" data-reveal>Misma pregunta, distintas respuestas</h2>
+        <p class="sub" data-reveal>Seis preguntas que vale la pena hacer antes de elegir con quién automatizar.</p>
+      </div>
+      <div class="compare-wrap" data-reveal="scale">
+        <table class="compare">
+          <thead><tr><th>Pregunta</th><th>Freelancer</th><th>Agencia tradicional</th><th>Software genérico</th><th class="is-us">Diwilo</th></tr></thead>
+          <tbody>
+            <tr><td>¿Entienden mi proceso antes de construir?</td><td><span class="cmp cmp--mid">Depende</span></td><td><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span></td><td><span class="cmp cmp--no">—</span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>Diagnóstico sin costo</small></td></tr>
+            <tr><td>¿Se adapta a mi operación (y no al revés)?</td><td><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span></td><td><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span></td><td><span class="cmp cmp--no">—</span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>Hecho a tu medida</small></td></tr>
+            <tr><td>¿Automatización e IA en el proyecto?</td><td><span class="cmp cmp--mid">Depende</span></td><td><span class="cmp cmp--mid">A veces</span></td><td><span class="cmp cmp--mid">Limitada</span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>n8n, agentes y modelos</small></td></tr>
+            <tr><td>¿Veo avances con frecuencia?</td><td><span class="cmp cmp--mid">Depende</span></td><td><span class="cmp cmp--mid">Depende</span></td><td><span class="cmp cmp--no">—</span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>Demo cada 2 semanas</small></td></tr>
+            <tr><td>¿Se quedan operando y dando soporte?</td><td><span class="cmp cmp--no">—</span></td><td><span class="cmp cmp--mid">Depende</span></td><td><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>Soporte mensual</small></td></tr>
+            <tr><td>¿Puedo empezar hoy con algo listo?</td><td><span class="cmp cmp--no">—</span></td><td><span class="cmp cmp--no">—</span></td><td><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span></td><td class="is-us"><span class="cmp cmp--yes"><i class="ph-light ph-check"></i></span><small>4 apps propias</small></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Cifras -->
     <section class="container section">
       <div class="grid" style="--min:200px" data-stagger="120" data-reveal-type="scale">
@@ -98,6 +257,10 @@
         <div class="card stat">
           <p class="stat__value gradient-text" data-count="3" data-suffix="X">3X</p>
           <p class="stat__label">Mayor escalabilidad</p>
+        </div>
+        <div class="card stat">
+          <p class="stat__value gradient-text" data-count="4">4</p>
+          <p class="stat__label">Apps propias en producción</p>
         </div>
       </div>
     </section>
@@ -141,8 +304,18 @@
       </div>
     </section>
 
-    <!-- Quién está detrás + CTA -->
-    <section class="container section section--last center">
+    <!-- Del blog (se llena solo con las últimas entradas publicadas) -->
+    <section class="container section" data-latest hidden>
+      <div class="latest__head">
+        <div><div class="eyebrow-rule" style="justify-content:flex-start" data-reveal><span class="eyebrow">Del blog</span></div>
+        <h2 class="h2" style="margin:0" data-reveal>Ideas para operar con datos e IA</h2></div>
+        <a class="btn" href="/blog" data-reveal>Ver todo el blog <i class="ph-light ph-arrow-right"></i></a>
+      </div>
+      <div class="post-grid post-grid--3" data-latest-list></div>
+    </section>
+
+    <!-- Quién está detrás -->
+    <section class="container section center">
       <div class="eyebrow-rule eyebrow-rule--lg" data-reveal><span class="eyebrow">Quién está detrás</span></div>
       <div class="founder" data-reveal>
         <img class="founder__avatar" src="assets/img/alejandro.jpg" alt="Y. Alejandro Echavarría, fundador de Diwilo" width="132" height="132" loading="lazy">
@@ -151,10 +324,59 @@
           <p class="body muted"><strong style="color:var(--hi);font-weight:500">Y. Alejandro Echavarría</strong> · Especialista en IA, ciencia de datos y web dashboards. Enfocado en automatización, análisis y desarrollo de soluciones digitales.</p>
         </div>
       </div>
-      <div style="margin-top:96px">
-        <h2 class="h2" data-reveal>¿Tienes un proceso que consume horas cada semana?</h2>
-        <p class="sub" style="margin-bottom:28px" data-reveal>Escríbenos y te decimos qué se puede automatizar, con qué esfuerzo y en qué orden. Sin costo.</p>
-        <div data-reveal><a class="btn btn--primary btn--lg" href="contacto.html">Agendar diagnóstico</a></div>
+    </section>
+
+    <!-- Preguntas frecuentes -->
+    <section class="container section">
+      <div class="center">
+        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Preguntas</span></div>
+        <h2 class="h2" data-reveal>Lo que nos preguntan antes de empezar</h2>
+      </div>
+      <div class="faq" data-stagger="60">
+        <details class="faq__item" open>
+          <summary>¿Qué hace Diwilo?</summary>
+          <p>Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Además tenemos cuatro apps propias listas para usar: Pedidos, Nutrición, Citas y Residentes.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Cuánto cuesta un proyecto?</summary>
+          <p>Depende del alcance. Por eso empezamos con un diagnóstico de 1 a 2 semanas, cuya primera sesión de 45 minutos no tiene costo. Después te entregamos una propuesta por escrito con alcance, metodología, tiempos e inversión. Las apps se pagan con una suscripción mensual.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Cuánto tarda?</summary>
+          <p>Un proyecto cerrado toma entre 4 y 12 semanas según el alcance. Trabajamos en sprints de dos semanas y al cierre de cada uno te mostramos lo construido funcionando.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Qué pasa después de entregar?</summary>
+          <p>Con el plan de operación y soporte monitoreamos los flujos y modelos, corregimos incidentes y hacemos mejoras continuas con horas mensuales renovables.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Mis datos están seguros?</summary>
+          <p>Tratamos los datos conforme a la Ley 1581 de 2012, con accesos por rol, cifrado en tránsito y en reposo y registro de accesos. Firmamos un acuerdo de confidencialidad (NDA) si lo necesitas.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Con qué herramientas trabajan?</summary>
+          <p>n8n para orquestar automatizaciones, Python para datos y modelos, Supabase para bases de datos y accesos, Chatwoot y WhatsApp Business para atención, y servidores GNU/Linux o Cloudflare para desplegar. Elegimos según tu caso, no al revés.</p>
+        </details>
+        <details class="faq__item">
+          <summary>¿Por dónde empiezo?</summary>
+          <p>Cuéntanos qué tarea repite tu equipo cada semana: <a href="contacto.html">agenda el diagnóstico</a>, escríbenos por <a href="https://wa.me/573053840193" target="_blank" rel="noopener">WhatsApp</a> o pregúntale al asistente de arriba.</p>
+        </details>
       </div>
     </section>
+
+    <!-- CTA final -->
+    <section class="container section section--last center final-cta">
+      <div class="eyebrow-rule" data-reveal><span class="eyebrow">¿Listo?</span></div>
+      <h2 class="h2" data-reveal>Habla con alguien que entiende tu negocio y puede construir la solución</h2>
+      <p class="sub" style="margin-bottom:28px" data-reveal>Escríbenos y te decimos qué se puede automatizar, con qué esfuerzo y en qué orden. Sin costo.</p>
+      <div class="row row--center" data-reveal><a class="btn btn--primary btn--lg" href="contacto.html">Agendar diagnóstico</a><button type="button" class="btn btn--lg" data-open-apps>Ver apps de Diwilo</button></div>
+    </section>
+
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+      {"@type":"Question","name":"¿Qué hace Diwilo?","acceptedAnswer":{"@type":"Answer","text":"Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Además tenemos cuatro apps propias: Pedidos, Nutrición, Citas y Residentes."}},
+      {"@type":"Question","name":"¿Cuánto cuesta un proyecto?","acceptedAnswer":{"@type":"Answer","text":"Depende del alcance. Empezamos con un diagnóstico de 1 a 2 semanas cuya primera sesión de 45 minutos no tiene costo, y entregamos una propuesta por escrito. Las apps se pagan con suscripción mensual."}},
+      {"@type":"Question","name":"¿Cuánto tarda?","acceptedAnswer":{"@type":"Answer","text":"Un proyecto cerrado toma entre 4 y 12 semanas, en sprints de dos semanas con demo al cierre de cada uno."}},
+      {"@type":"Question","name":"¿Qué pasa después de entregar?","acceptedAnswer":{"@type":"Answer","text":"Con el plan de operación y soporte monitoreamos flujos y modelos, corregimos incidentes y hacemos mejoras continuas con horas mensuales."}},
+      {"@type":"Question","name":"¿Mis datos están seguros?","acceptedAnswer":{"@type":"Answer","text":"Tratamos los datos conforme a la Ley 1581 de 2012, con accesos por rol, cifrado y registro de accesos. Firmamos NDA si lo necesitas."}}
+    ]}</script>
   </main>

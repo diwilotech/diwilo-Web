@@ -203,8 +203,14 @@ class ToMarkdown(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.out, self.skip, self.href, self.hidden = [], 0, [], []
 
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "area", "col", "embed", "wbr"}
+
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
+        if tag in self.VOID:  # sin etiqueta de cierre: no deben abrir un bloque que nunca se cierra
+            if tag == "br" and not self.skip:
+                self.out.append("  \n")
+            return
         hidden = a.get("aria-hidden") == "true" or "hidden" in a
         self.hidden.append(hidden)
         if hidden or tag in self.SKIP:
