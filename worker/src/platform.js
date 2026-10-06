@@ -14,6 +14,7 @@
  *   GET    /admin/api/platform/:app/businesses/:id/payments
  *   POST   /admin/api/platform/:app/businesses/:id/payments      { months, amount, note? }
  *   POST   /admin/api/platform/:app/businesses/:id/users         { email, name?, role }
+ *   PATCH  /admin/api/platform/:app/businesses/:id/users/:userId { role, email }   cambia permisos
  *   DELETE /admin/api/platform/:app/businesses/:id/users/:userId
  */
 export const APPS = {
@@ -187,6 +188,22 @@ async function route(req, env, path, url, adminEmail) {
     const role = APPS[app].roles.includes(b.role) ? b.role : 'staff';
     const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email: clip(b.email, 254), name: clip(b.name, 100) || undefined, role });
     return json({ ...r, invite_url: inviteUrl(env, app, r.invite_path) }, 201);
+  }
+
+  // Cambiar el rol (permisos) de un usuario. Las apps con PATCH …/users/:userId solo cambian el rol;
+  // las que aún no lo tienen reciben el POST de siempre (que además genera un link nuevo).
+  if (sub === 'users' && subId && M === 'PATCH') {
+    const b = await req.json().catch(() => ({}));
+    if (!APPS[app].roles.includes(b.role)) return json({ error: 'Rol no válido' }, 400);
+    const path = `/businesses/${bid}/users/${encodeURIComponent(subId)}`;
+    try {
+      await callApp(env, app, 'PATCH', path, { role: b.role });
+      return json({ ok: true, role: b.role });
+    } catch (e) {
+      if (!(e instanceof AppError) || ![404, 405].includes(e.status) || !b.email || /usuario no pertenece/i.test(e.message)) throw e;
+      const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email: clip(b.email, 254), role: b.role });
+      return json({ ok: true, role: b.role, invite_url: inviteUrl(env, app, r.invite_path), relinked: true });
+    }
   }
 
   if (sub === 'users' && subId && M === 'DELETE') {

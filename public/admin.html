@@ -192,6 +192,25 @@ tr.sel td{background:var(--on)}
 .urow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:8px 0;box-shadow:inset 0 -1px 0 rgba(186,215,247,.06)}
 .urow .e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #bizUsers .urow{grid-template-columns:1fr;gap:6px}
+/* Negocios: usuarios en la tabla, "Ver más", permisos y bloqueo */
+.uchips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.uchip{display:inline-flex;align-items:center;gap:5px;max-width:170px;padding:2px 8px;border-radius:999px;background:rgba(199,211,234,.08);font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uchip i{font-size:12px;color:var(--lilac)}
+.more{display:inline-flex;align-items:center;gap:4px;border:0;background:none;color:var(--sky);font-size:12px;cursor:pointer;padding:2px 4px;white-space:nowrap}
+.more:hover{color:#fff}.more i{transition:transform .2s}.more[aria-expanded="true"] i{transform:rotate(180deg)}
+tr.xrow>td{padding:0 10px 14px;background:rgba(168,85,247,.04);box-shadow:inset 0 -1px 0 var(--edge)}
+tr.xrow:hover td{background:rgba(168,85,247,.04)}
+.xbox{display:grid;gap:14px;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);padding-top:4px}
+@media (max-width:1100px){.xbox{grid-template-columns:1fr}}
+.utbl td,.utbl th{padding:8px}
+.utbl select.in{width:auto;min-width:150px;padding:6px 10px}
+.perm{display:block;margin-top:4px;font-size:12px;line-height:1.4;color:var(--ink3);max-width:340px;white-space:normal}
+.lock{display:grid;gap:10px;align-content:start}
+.lock .chips{display:flex;flex-wrap:wrap;gap:6px}
+.lock .when{font-size:13px;color:var(--ink2)}
+.lock .when b{color:#fff;font-weight:500}
+.lock label.nolock{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);cursor:pointer}
+.lock input[type=date]:disabled{opacity:.4}
 @media (max-width:980px){.editor{grid-template-columns:1fr}.stage{position:static}}
 
 @media (max-width:860px){
@@ -283,7 +302,7 @@ tr.sel td{background:var(--on)}
       </form>
       <div id="inviteBox" style="margin-bottom:14px" hidden></div>
 
-      <div class="card tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th class="num">Usuarios</th><th>Pagado hasta</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
+      <div class="card tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th>Usuarios y permisos</th><th>Activa hasta</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
       <div class="card" id="bizDetail" style="margin-top:14px" hidden></div>
 
       <form class="card" id="priceForm" style="margin-top:14px">
@@ -911,13 +930,111 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   });
   $('#resetPrompt').addEventListener('click', () => { $('#setForm').elements.chat_prompt.value = defaultPrompt; });
 
-  /* ---------- NEGOCIOS (Pedidos, Nutrición, Citas) ---------- */
+  /* ---------- NEGOCIOS (Pedidos, Nutrición, Citas, Residentes) ---------- */
   const ROLE = { owner: 'Dueño', admin: 'Administrador', staff: 'Personal' };
   const USTATUS = { active: 'Activo', invited: 'Invitación pendiente', inactive: 'Inactivo' };
   const fmtCOP = (n) => '$' + fmtN(n);
   const fmtDay = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
   let plat = null, bizApp = 'pedidos', biz = [], bizToday = '', bizSel = null;
+  const bizOpen = new Set(); // negocios con "Ver más" abierto
+  let lastMonthIncome = 0;
+
+  // Qué puede hacer cada rol (permisos). Residentes tiene el detalle; las demás apps usan el general.
+  const PERMS = {
+    residentes: {
+      owner: 'Todo: configuración, equipo, cobros y cartera, propiedades, unidades y borrar registros. Es el titular de la cuenta.',
+      admin: 'Igual que el dueño (configuración, equipo, cobros, borrar), sin ser el titular de la cuenta.',
+      staff: 'Operación diaria: unidades, pagos, solicitudes, PQRS, reservas, mascotas y comunicados. No configura, no maneja el equipo, no genera ni anula cobros y no borra.',
+    },
+    _: {
+      owner: 'Todo, incluida la configuración y el equipo. Es el titular de la cuenta.',
+      admin: 'Administra el negocio y el equipo, sin ser el titular.',
+      staff: 'Uso diario de la app, sin configuración ni manejo del equipo.',
+    },
+  };
+  const permText = (role) => (PERMS[bizApp] || PERMS._)[role] || PERMS._[role] || '';
+  const ICON = { owner: 'ph-crown-simple', admin: 'ph-shield-check', staff: 'ph-user' };
+
+  // Editor de bloqueo: fecha hasta la que la app funciona (inclusive) o "No bloquear".
+  function lockHtml(b) {
+    const free = !b.paid_until;
+    return `<form class="lock" data-lock="${esc(b.id)}">
+      <h3 style="margin:0">Bloqueo de la app</h3>
+      <label class="nolock"><input type="checkbox" name="nolock" ${free ? 'checked' : ''}> No bloquear (sin fecha límite, no se cobra)</label>
+      <label class="f">Activa hasta (incluido)<input class="in" type="date" name="paid_until" value="${esc(b.paid_until || '')}" ${free ? 'disabled' : ''}></label>
+      <div class="chips">
+        <button class="btn sm" type="button" data-add="1">+1 mes</button><button class="btn sm" type="button" data-add="3">+3 meses</button>
+        <button class="btn sm" type="button" data-add="12">+1 año</button><button class="btn sm danger" type="button" data-lockNow>Bloquear ya</button>
+      </div>
+      <p class="when" data-when></p>
+      <div class="row"><button class="btn pri sm" type="submit"><i class="ph-light ph-check"></i>Guardar bloqueo</button><span class="err" data-err></span></div>
+    </form>`;
+  }
+  function addMonthsIso(iso, n) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const f = new Date(Date.UTC(y, m - 1 + n, 1));
+    const last = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + 1, 0)).getUTCDate();
+    f.setUTCDate(Math.min(d, last));
+    return f.toISOString().slice(0, 10);
+  }
+  const nextDay = (iso) => new Date(Date.parse(iso + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+  function lockWhen(f) {
+    const free = f.elements.nolock.checked, d = f.elements.paid_until.value;
+    f.elements.paid_until.disabled = free;
+    $('[data-when]', f).innerHTML = free ? 'La app <b>no se bloquea</b>.'
+      : !d ? 'Elige una fecha o marca “No bloquear”.'
+      : d < bizToday ? `<b>Bloqueada</b> desde el ${fmtDay(nextDay(d))}: está en solo lectura.`
+      : `Funciona normal hasta el <b>${fmtDay(d)}</b> y se bloquea (solo lectura) el <b>${fmtDay(nextDay(d))}</b>.`;
+  }
+  function wireLock(root) {
+    $$('form[data-lock]', root).forEach((f) => {
+      lockWhen(f);
+      f.addEventListener('input', () => lockWhen(f));
+      f.addEventListener('click', (e) => {
+        const add = e.target.closest('[data-add]');
+        if (add) {
+          const cur = f.elements.paid_until.value;
+          f.elements.nolock.checked = false;
+          f.elements.paid_until.value = addMonthsIso(cur && cur >= bizToday ? cur : bizToday, +add.dataset.add);
+          lockWhen(f);
+        }
+        if (e.target.closest('[data-locknow]')) {
+          f.elements.nolock.checked = false;
+          f.elements.paid_until.value = new Date(Date.parse(bizToday + 'T12:00:00Z') - 86400000).toISOString().slice(0, 10);
+          lockWhen(f);
+        }
+      });
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const err = $('[data-err]', f); err.textContent = '';
+        const value = f.elements.nolock.checked ? null : f.elements.paid_until.value;
+        if (!f.elements.nolock.checked && !value) { err.textContent = 'Elige una fecha o marca “No bloquear”.'; return; }
+        const b = biz.find((x) => x.id === f.dataset.lock);
+        if (value && value < bizToday && !confirm(`${b.name} quedará bloqueado (solo lectura) desde ya. ¿Continuar?`)) return;
+        try {
+          await api(bizPath(b.id), { method: 'PATCH', body: { paid_until: value } });
+          toast(value ? `Activa hasta ${fmtDay(value)}` : 'Sin bloqueo');
+          loadBiz();
+        } catch (x) { err.textContent = x.message; }
+      });
+    });
+  }
+
+  // Tabla de usuarios con sus permisos (rol editable).
+  function usersHtml(b) {
+    const app = appCfg();
+    if (!b.users.length) return '<p class="muted" style="margin:0">Sin usuarios.</p>';
+    return `<div class="tbl-wrap"><table class="utbl"><thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th></th></tr></thead><tbody>
+      ${b.users.map((u) => `<tr>
+        <td><b style="font-weight:500;color:var(--hi)">${esc(u.name || u.email.split('@')[0])}</b><br><span class="muted" style="font-size:12px">${esc(u.email)}</span></td>
+        <td><select class="in" data-role="${esc(u.id)}" data-biz-id="${esc(b.id)}" ${u.role === 'owner' ? 'disabled title="Para cambiar al dueño, asigna a otra persona como Dueño"' : ''}>
+            ${app.roles.map((r) => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${ROLE[r]}</option>`).join('')}</select>
+          <span class="perm">${esc(permText(u.role))}</span></td>
+        <td><span class="st ${u.status === 'active' ? 'ok' : u.status === 'invited' ? 'soon' : 'free'}">${USTATUS[u.status] || esc(u.status)}</span></td>
+        <td style="white-space:nowrap">${linkBtn(u, 'data-xlink')}${u.role !== 'owner' ? ` <button class="btn sm danger" data-xdel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button>` : ''}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }
 
   function subState(b) {
     if (!b.paid_until) return { k: 'free', t: 'Sin límite' };
@@ -982,7 +1099,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     }
     try {
       const d = await api(`platform/${bizApp}/businesses`);
-      biz = d.businesses; bizToday = d.today;
+      biz = d.businesses; bizToday = d.today; lastMonthIncome = d.month_income;
       renderBiz(d.month_income);
     } catch (e) {
       biz = []; renderBiz();
@@ -998,15 +1115,23 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     $('#bizKpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
     $('#bizBody').innerHTML = biz.length ? biz.map((b, i) => {
       const owner = b.users.find((u) => u.role === 'owner');
+      const open = bizOpen.has(b.id);
+      const shown = b.users.slice(0, 2);
       return `<tr data-biz="${esc(b.id)}" class="${b.id === bizSel ? 'sel' : ''}" style="cursor:pointer">
         <td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="muted mono">/${esc(b.slug)}</span>` : ''}</td>
         <td>${owner ? esc(owner.email) : '<span class="muted">—</span>'}</td>
-        <td class="num">${b.users.length}</td>
-        <td>${fmtDay(b.paid_until)}</td>
+        <td><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="ph-light ${ICON[u.role] || 'ph-user'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
+          ${b.users.length > 2 ? `<span class="muted" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
+          <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="ph-light ph-caret-down"></i></button></div></td>
+        <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="muted">No se bloquea</span>'}</td>
         <td><span class="st ${st[i].k}">${st[i].t}</span></td>
         <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
-        <td>${owner ? linkBtn(owner, 'data-olink') : '<span class="muted">—</span>'}</td></tr>`;
+        <td>${owner ? linkBtn(owner, 'data-olink') : '<span class="muted">—</span>'}</td></tr>
+        ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td colspan="7"><div class="xbox">
+          <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="muted" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
+          <div class="sub" style="margin-top:8px">${lockHtml(b)}</div></div></td></tr>` : ''}`;
     }).join('') : `<tr><td colspan="7" class="empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
+    wireLock($('#bizBody'));
     if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
   }
 
@@ -1027,17 +1152,11 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
             <label class="f full">Nota<input class="in" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
             <div class="row full"><button class="btn pri" type="submit"><i class="ph-light ph-currency-circle-dollar"></i>Registrar pago</button><span class="err" data-err></span></div>
           </form>
-          <form class="row" id="dateForm" style="flex-wrap:nowrap">
-            <input class="in" type="date" name="paid_until" value="${esc(b.paid_until || '')}" aria-label="Pagado hasta">
-            <button class="btn sm" type="submit">Cambiar fecha</button>
-          </form>
-          <p class="muted" style="margin:0;font-size:12px">Dejar la fecha vacía = sin límite (no se cobra). Al vencer, la app queda en solo lectura.</p>
+          ${lockHtml(b)}
         </div>
         <div class="sub">
           <h3>Usuarios</h3>
-          <div id="bizUsers">${b.users.map((u) => `<div class="urow">
-            <span class="e" title="${esc(u.email)}">${esc(u.name || u.email)}<br><span class="muted" style="font-size:12px">${esc(u.email)} · ${ROLE[u.role] || esc(u.role)} · ${USTATUS[u.status] || esc(u.status)}</span></span>
-            <span class="row" style="gap:4px;flex-wrap:nowrap">${linkBtn(u, 'data-uinvite')}<button class="btn sm danger" data-udel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button></span></div>`).join('') || '<p class="muted" style="margin:0">Sin usuarios.</p>'}</div>
+          <div id="bizUsers">${usersHtml(b)}</div>
           <div id="userInvite"></div>
           <form class="form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
             <label class="f">Correo<input class="in" type="email" name="email" required></label>
@@ -1054,6 +1173,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
           <div id="payHist" class="muted">Cargando…</div>
         </div>
       </div>`;
+    wireLock(el);
     const pay = $('#payForm', el);
     pay.elements.months.addEventListener('input', () => { pay.elements.amount.value = price * (parseInt(pay.elements.months.value, 10) || 0); });
     try {
@@ -1092,7 +1212,16 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
       bizSel = r.id; await loadBiz();
     } catch (x) { err.textContent = x.message; }
   });
+  // "Ver más" / "Ver menos": usuarios, permisos y bloqueo dentro de la tabla.
   $('#bizBody').addEventListener('click', (e) => {
+    const m = e.target.closest('[data-more]'); if (!m) return;
+    e.stopImmediatePropagation();
+    const id = m.dataset.more;
+    if (bizOpen.has(id)) bizOpen.delete(id); else bizOpen.add(id);
+    renderBiz(lastMonthIncome);
+  }, true);
+  $('#bizBody').addEventListener('click', (e) => {
+    if (e.target.closest('tr.xrow')) return;
     const tr = e.target.closest('[data-biz]'); if (!tr) return;
     bizSel = tr.dataset.biz; $$('#bizBody tr').forEach((x) => x.classList.toggle('sel', x === tr));
     renderDetail(); $('#bizDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1110,30 +1239,28 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
     const b = biz.find((x) => x.id === bizSel);
     if (e.target.closest('[data-loginlink]')) { const el = $('#userInvite'); el.innerHTML = inviteHtml(loginUrl(b), b.name, 'ingreso'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
-    const inv = e.target.closest('[data-uinvite]');
+    const inv = e.target.closest('[data-uinvite], [data-xlink]');
     if (inv) {
-      const u = b.users.find((x) => x.id === inv.dataset.uinvite);
+      const u = b.users.find((x) => x.id === (inv.dataset.uinvite || inv.dataset.xlink));
       inv.disabled = true;
       try { await issueLink(b, u, '#userInvite'); } catch (x) { toast(x.message); } finally { inv.disabled = false; }
       return;
     }
-    const del = e.target.closest('[data-udel]');
+    const del = e.target.closest('[data-udel], [data-xdel]');
     if (del) {
-      const u = b.users.find((x) => x.id === del.dataset.udel);
+      const u = b.users.find((x) => x.id === (del.dataset.udel || del.dataset.xdel));
       if (!confirm(`¿Quitar a ${u.email} de ${b.name}? Perderá el acceso.`)) return;
       try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'DELETE' }); toast('Usuario quitado'); loadBiz(); } catch (x) { toast(x.message); }
     }
   });
   $('#bizDetail').addEventListener('submit', async (e) => {
+    if (e.target.matches('form[data-lock]')) return;
     e.preventDefault(); const f = e.target, b = biz.find((x) => x.id === bizSel), err = $('[data-err]', f);
     if (err) err.textContent = '';
     try {
       if (f.id === 'payForm') {
         const r = await api(bizPath(b.id, '/payments'), { method: 'POST', body: formData(f) });
         toast('Pago registrado: hasta ' + fmtDay(r.paid_until));
-      } else if (f.id === 'dateForm') {
-        await api(bizPath(b.id), { method: 'PATCH', body: { paid_until: f.elements.paid_until.value || null } });
-        toast('Fecha actualizada');
       } else if (f.id === 'renameForm') {
         await api(bizPath(b.id), { method: 'PATCH', body: { name: f.elements.name.value.trim() } });
         toast('Nombre actualizado');
@@ -1147,7 +1274,49 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
       loadBiz();
     } catch (x) { if (err) err.textContent = x.message; else toast(x.message); }
   });
-  document.addEventListener('click', (e) => { const c = e.target.closest('#inviteBox [data-copy], #userInvite [data-copy]'); if (c) copy(c.dataset.copy); });
+  document.addEventListener('click', (e) => { const c = e.target.closest('#inviteBox [data-copy], #userInvite [data-copy], [data-xinvite] [data-copy]'); if (c) copy(c.dataset.copy); });
+
+  // Permisos: cambiar el rol de un usuario
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest('select[data-role]'); if (!sel) return;
+    const b = biz.find((x) => x.id === sel.dataset.bizId), u = b?.users.find((x) => x.id === sel.dataset.role);
+    if (!u) return;
+    const role = sel.value;
+    if (role === 'owner') {
+      const cur = b.users.find((x) => x.role === 'owner');
+      if (!confirm(`¿Pasar la propiedad de ${b.name} a ${u.email}?${cur ? ` ${cur.email} quedará como Administrador.` : ''}`)) { sel.value = u.role; return; }
+    }
+    sel.disabled = true;
+    try {
+      const r = await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'PATCH', body: { role, email: u.email } });
+      toast(`${u.email}: ahora es ${ROLE[role]}`);
+      await loadBiz();
+      if (r.relinked && r.invite_url) {
+        const box = $(`tr.xrow[data-xbiz="${CSS.escape(b.id)}"] [data-xinvite]`) || $('#userInvite');
+        if (box) box.innerHTML = inviteHtml(r.invite_url, u.email, linkKind(u));
+      }
+    } catch (x) { toast(x.message); sel.value = u.role; sel.disabled = false; }
+  });
+  $('#bizBody').addEventListener('click', async (e) => {
+    const row = e.target.closest('tr.xrow'); if (!row) return;
+    const b = biz.find((x) => x.id === row.dataset.xbiz);
+    const lk = e.target.closest('[data-xlink]');
+    if (lk) {
+      const u = b.users.find((x) => x.id === lk.dataset.xlink);
+      lk.disabled = true;
+      try {
+        const r = await api(bizPath(b.id, '/users'), { method: 'POST', body: { email: u.email, role: u.role } });
+        $('[data-xinvite]', row).innerHTML = inviteHtml(r.invite_url, u.email, linkKind(u));
+      } catch (x) { toast(x.message); } finally { lk.disabled = false; }
+      return;
+    }
+    const del = e.target.closest('[data-xdel]');
+    if (del) {
+      const u = b.users.find((x) => x.id === del.dataset.xdel);
+      if (!confirm(`¿Quitar a ${u.email} de ${b.name}? Perderá el acceso.`)) return;
+      try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'DELETE' }); toast('Usuario quitado'); loadBiz(); } catch (x) { toast(x.message); }
+    }
+  });
   $('#priceForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const r = await api('platform/config', { method: 'POST', body: formData(e.target) });
