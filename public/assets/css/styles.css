@@ -481,7 +481,8 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bo
 .post-card__title a { color: inherit; } .post-card__title a:hover { color: var(--white); }
 .post-card__excerpt { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink3); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .post-card--big { display: grid; grid-template-columns: 1.15fr 1fr; }
-.post-card--big .post-card__media { aspect-ratio: auto; min-height: 320px; }
+.post-card--big { align-items: center; }
+.post-card--big .post-card__media { aspect-ratio: 16 / 9; align-self: center; margin: 14px 0 14px 14px; border-radius: 12px; }
 .post-card--big .post-card__body { padding: 32px; align-content: center; gap: 14px; }
 .post-card--big .post-card__title { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.2; }
 .post-card--big .post-card__excerpt { -webkit-line-clamp: 4; font-size: 15px; }
@@ -502,7 +503,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bo
 .side-posts a { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 6px; margin: 0 -6px; border-radius: 10px; transition: background 160ms ease; }
 .side-posts a:hover { background: var(--fill); }
 .side-thumb { display: block; width: 64px; height: 48px; border-radius: 8px; overflow: hidden; }
-.side-thumb .post-cover { width: 100%; height: 100%; object-fit: cover; }
+.side-thumb .post-cover { width: 100%; height: 100%; object-fit: cover; object-position: 78% 50%; }
 .post-cover--sm { font-size: 20px; }
 .side-post-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; line-height: 1.35; color: var(--ink); }
 .side-post-meta { display: block; margin-top: 3px; font-size: 11px; color: var(--ink3); }
@@ -586,7 +587,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; bo
   .blog-side { position: static; max-height: none; overflow: visible; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
   .post-side .toc { display: none; }
   .post-card--big { grid-template-columns: 1fr; }
-  .post-card--big .post-card__media { min-height: 0; aspect-ratio: 16 / 9; }
+  .post-card--big .post-card__media { min-height: 0; aspect-ratio: 16 / 9; margin: 0; border-radius: 0; }
 }
 @media (max-width: 600px) {
   .post-body { font-size: 16.5px; }
