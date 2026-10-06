@@ -291,6 +291,15 @@ async function apiChat(req, env, ctx) {
     ON CONFLICT(id) DO UPDATE SET last_at = excluded.last_at`).bind(sid, now(), now(), clip(b.page, 300), g.country, g.city, g.device).run();
   await env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'user',?)").bind(sid, now(), text).run();
 
+  // Respuesta predeterminada del chat de inicio: solo se guarda, sin llamar a la IA
+  if (typeof b.canned === 'string' && b.canned.trim()) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'assistant',?)").bind(sid, now() + 1, clip(b.canned.trim(), 1500)),
+      env.DB.prepare('UPDATE chats SET msg_count = msg_count + 2, last_at = ? WHERE id = ?').bind(now(), sid)
+    ]);
+    return json({ ok: true, canned: true });
+  }
+
   const { results } = await env.DB.prepare('SELECT role, content FROM messages WHERE chat_id = ? ORDER BY ts DESC, id DESC LIMIT 16').bind(sid).all();
   const history = results.reverse();
 

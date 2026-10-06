@@ -1013,7 +1013,80 @@
     const log = $('.hero-chat__log', root), sugg = $('.hero-chat__sugg', root), form = $('.hero-chat__form', root), input = form.q;
     const INTRO_Q = '¿Qué hace Diwilo?';
     const INTRO_A = 'Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas en Colombia. También tenemos apps listas para usar: Pedidos, Nutrición, Citas y Residentes. ¿Qué proceso te gustaría automatizar?';
+    /* Respuestas predeterminadas: las sugerencias (y lo que se escriba parecido) se responden aquí sin gastar IA.
+       k: palabras que reconocen la pregunta escrita · a: respuesta · next: siguientes sugerencias · wa: ofrecer WhatsApp */
+    const CANNED = [
+      { q: '¿Cuánto cuesta una app?', k: /(cuest|vale|valor|precio|cobra|tarifa|mensualidad|suscrip|prueba).*(app|aplicacion|pedidos|nutricion|citas|residentes)|(app|aplicacion|pedidos|nutricion|citas|residentes).*(cuest|vale|valor|precio|cobra|tarifa|mensualidad|suscrip|prueba)/,
+        a: 'Las apps se pagan con una suscripción mensual por negocio y tienen un periodo de prueba gratis. El valor depende del plan y de cuántas sedes o usuarios necesites; te lo confirmamos en la demo. Si quieres, sigue por WhatsApp y te pasamos la propuesta.',
+        next: ['¿Cómo empiezo con una app?', '¿Qué apps tienen?'], wa: true },
+      { q: '¿Cómo empiezo con una app?', k: /(empie|empez|inici|activ|crear|registr|demo|probar).*(app|aplicacion|pedidos|nutricion|citas|residentes|cuenta)/,
+        a: 'Pides una demo, nosotros creamos la cuenta de tu negocio con tus datos y empiezas el periodo de prueba. Al terminar sigues con la suscripción mensual; si no renuevas, la información queda en solo lectura, no se pierde.',
+        next: ['¿Cuánto cuesta una app?', '¿Qué apps tienen?'], wa: true },
+      { q: '¿Qué hace CD Pedidos?', k: /pedidos|restaurante|\bbar(es)?\b|comanda|mesas?\b/,
+        a: 'CD Pedidos es para restaurantes, bares y negocios de mostrador: plano de mesas por pisos, comandas y cuentas por mesa, inventario que se descuenta al vender, cuentas por cobrar y ventas del día por persona. Se instala en el celular y funciona sin conexión. Míralo en https://diwilo.com/apps',
+        next: ['¿Cuánto cuesta una app?', '¿Cómo empiezo con una app?', '¿Qué hace CD Citas?'] },
+      { q: '¿Qué hace CD Nutrición?', k: /nutrici|nutricionista|paciente|consultorio/,
+        a: 'CD Nutrición es para consultorios de nutrición: ficha del paciente, consultas con medidas, la vista Cuerpo Vivo con su evolución, plan de alimentación, informe en PDF y un seguimiento que el paciente abre con un QR, sin contraseña. Míralo en https://diwilo.com/apps',
+        next: ['¿Cuánto cuesta una app?', '¿Cómo empiezo con una app?', '¿Qué hace CD Citas?'] },
+      { q: '¿Qué hace CD Citas?', k: /\bcitas?\b|reserva|agenda|peluquer|barber|estetica|spa\b/,
+        a: 'CD Citas es para negocios que trabajan con reservas: tu propia página donde el cliente elige servicio, especialista y hora, recordatorios automáticos y avisos por WhatsApp con el número de tu negocio. Tú manejas especialistas, espacios y bloqueos de horario. Míralo en https://diwilo.com/apps',
+        next: ['¿Cuánto cuesta una app?', '¿Cómo empiezo con una app?', '¿Qué hace CD Residentes?'] },
+      { q: '¿Qué hace CD Residentes?', k: /residente|propiedad horizontal|conjunto|edificio|copropiedad|administrador/,
+        a: 'CD Residentes es para administrar uno o varios conjuntos: cartera y cuenta de cobro en PDF, PQRS con respuesta asistida por IA, portería, reservas de zonas comunes, comunicados por WhatsApp y correo, y un portal donde cada propietario consulta lo suyo. Míralo en https://diwilo.com/apps',
+        next: ['¿Cuánto cuesta una app?', '¿Cómo empiezo con una app?', '¿Qué hace CD Pedidos?'] },
+      { q: '¿Qué apps tienen?', k: /\bapps?\b|aplicacion|software listo|programa/,
+        a: 'Tenemos cuatro apps en la nube, listas para usar: CD Pedidos (restaurantes y bares), CD Nutrición (consultorios de nutrición), CD Citas (negocios con reservas) y CD Residentes (propiedad horizontal). Las ves todas en https://diwilo.com/apps',
+        next: ['¿Qué hace CD Pedidos?', '¿Qué hace CD Nutrición?', '¿Qué hace CD Citas?', '¿Qué hace CD Residentes?', '¿Cuánto cuesta una app?'] },
+      { q: '¿Cuánto cuesta un proyecto?', k: /cuest|cuanto vale|valor|precio|cobran|tarifa|presupuesto|cotiza|costo/,
+        a: 'Depende del alcance: no es lo mismo conectar dos sistemas que montar un agente de IA con varios canales. Por eso empezamos con un diagnóstico de 1 a 2 semanas, con una primera sesión de 45 minutos sin costo, y ahí te damos un valor cerrado.',
+        next: ['¿Cuánto tarda un proyecto?', '¿Cómo empezamos?', 'Agendar diagnóstico'], wa: true },
+      { q: '¿Cuánto tarda un proyecto?', k: /tarda|demora|tiempo|semanas|cuando estaria|plazo/,
+        a: 'El diagnóstico toma de 1 a 2 semanas. Un proyecto cerrado va de 4 a 12 semanas, en sprints de dos semanas con una demo al final de cada uno, así ves avances desde el principio. Después podemos quedarnos con la operación y el soporte mensual.',
+        next: ['¿Cuánto cuesta un proyecto?', '¿Cómo empezamos?', 'Agendar diagnóstico'] },
+      { q: 'Quiero automatizar WhatsApp', k: /whats ?app|chatbot|\bbot\b|atencion al cliente|responder mensajes/,
+        a: 'Montamos agentes de IA en WhatsApp Business que responden 24/7, consultan tus datos (inventario, citas, pedidos) y pasan la conversación a una persona cuando hace falta, con todo el historial en Chatwoot. Cuéntame qué preguntas te hacen más tus clientes.',
+        next: ['¿Qué es un agente de IA?', '¿Cuánto cuesta un proyecto?', '¿Con qué herramientas trabajan?'], wa: true },
+      { q: '¿Qué es un agente de IA?', k: /agente|inteligencia artificial|\bia\b|\bai\b|llm|chatgpt|gemini/,
+        a: 'Es un asistente con IA que no solo conversa: también hace tareas, como consultar una base de datos, agendar, crear un pedido o enviar un correo, siguiendo las reglas de tu negocio. Lo conectamos a tus sistemas y a canales como WhatsApp.',
+        next: ['Quiero automatizar WhatsApp', '¿Qué más automatizan?', '¿Cuánto cuesta un proyecto?'] },
+      { q: '¿Protegen mis datos?', k: /dato.*(proteg|segur|privac)|segur|privacidad|confidencial|nda|1581|habeas/,
+        a: 'Sí. Tratamos los datos conforme a la Ley 1581 de 2012, damos accesos por rol y firmamos un acuerdo de confidencialidad (NDA) si lo necesitas. Puedes ver la política en https://diwilo.com/privacidad',
+        next: ['¿Cómo empezamos?', '¿Dónde están ubicados?'] },
+      { q: '¿Qué más automatizan?', k: /automatiz|que hacen|servicios|ofrecen|dashboard|tablero|datos|reporte|excel|scraping|ocr/,
+        a: 'Además de agentes y chatbots: automatización de flujos entre sistemas (CRM, correo, hojas, ERP), extracción de datos de documentos y sitios web, dashboards con indicadores en tiempo real, analítica y modelos predictivos, y sitios y apps web.',
+        next: ['¿Con qué herramientas trabajan?', '¿Qué proyectos han hecho?', '¿Cuánto cuesta un proyecto?'] },
+      { q: '¿Con qué herramientas trabajan?', k: /herramienta|tecnolog|stack|n8n|python|supabase|cloudflare|lenguaje/,
+        a: 'n8n para orquestar flujos, Python y SQL para datos y modelos, LLMs para los agentes, Supabase y Cloudflare para las apps y dashboards, y Chatwoot con WhatsApp Business para la atención. Elegimos según lo que ya usas. Más detalle en https://diwilo.com/arquitectura',
+        next: ['¿Qué proyectos han hecho?', '¿Protegen mis datos?', '¿Cómo empezamos?'] },
+      { q: '¿Qué proyectos han hecho?', k: /proyecto|caso|clientes|portafolio|han hecho|experiencia|ejemplo/,
+        a: 'Dashboards PMO para construcción, automatizaciones con n8n, la plataforma de Becas del Centenario Rotario y sitios para Madetableros, Fundación Amor por Medellín, Rotary Club Medellín y Fundación Jardín de Amor, este último creado y gestionado con IA. Los ves en https://diwilo.com/apps',
+        next: ['¿Cómo empezamos?', '¿Qué apps tienen?', '¿Protegen mis datos?'] },
+      { q: '¿Dónde están ubicados?', k: /donde|ubica|ciudad|medellin|oficina|presencial|remoto/,
+        a: 'Estamos en Medellín y trabajamos en horario de Colombia, de forma remota o presencial según el proyecto. Respondemos en menos de 24 horas hábiles.',
+        next: ['¿Cómo empezamos?', '¿Qué hace Diwilo?'] },
+      { q: '¿Cómo empezamos?', k: /empez|empie|inici|arranc|siguiente paso|contrat|reunion|llamada|hablar con/,
+        a: 'Con una sesión de 45 minutos sin costo: nos cuentas el proceso que más te duele y te decimos si se resuelve con una de nuestras apps o con algo a la medida. Puedes agendarla en https://diwilo.com/contacto o seguir por WhatsApp.',
+        next: ['Agendar diagnóstico', '¿Cuánto tarda un proyecto?'], wa: true },
+      { q: '¿Qué hace Diwilo?', k: /que (hace|es) diwilo|quienes son|a que se dedican|^hola\b|^buen/,
+        a: INTRO_A, next: ['¿Cuánto cuesta un proyecto?', '¿Qué apps tienen?', 'Quiero automatizar WhatsApp', '¿Cuánto tarda un proyecto?'] },
+    ];
+    const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[¿?¡!.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    // Pregunta escrita: solo si es corta y se reconoce; lo demás va a la IA
+    // Tras hablar de las apps, "¿cuánto cuesta?" o "¿cómo empezamos?" se refieren a la app
+    const APP_Q = /CD |apps?\b/;
+    const ABOUT_APP = { '¿Cuánto cuesta un proyecto?': '¿Cuánto cuesta una app?', '¿Cómo empezamos?': '¿Cómo empiezo con una app?' };
+    let lastQ = '';
+    function findCanned(q) {
+      const exact = CANNED.find((c) => c.q === q);
+      if (exact) return exact;
+      const t = norm(q);
+      if (t.length > 70) return null;
+      const c = CANNED.find((x) => x.k.test(t));
+      if (c && ABOUT_APP[c.q] && APP_Q.test(lastQ) && !/proyecto|automatiz|a la medida/.test(t)) return CANNED.find((x) => x.q === ABOUT_APP[c.q]);
+      return c || null;
+    }
     let options = ['¿Cuánto cuesta un proyecto?', '¿Qué apps tienen?', 'Quiero automatizar WhatsApp', '¿Cuánto tarda un proyecto?', 'Agendar diagnóstico'];
+    const asked = new Set([INTRO_Q]);
     let busy = false, used = false;
     const wait = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
     const linkify = chatLinkify;
@@ -1051,11 +1124,28 @@
       bubble('me').textContent = q;
       const t = typing();
       let reply, handoff = false;
+      const c = findCanned(q);
+      if (c) {
+        asked.add(c.q); lastQ = c.q;
+        await wait(700);
+        t.classList.remove('msg--typing');
+        await typeText(t, c.a, 14);
+        if (c.wa) { $$('.wa-handoff', log).forEach((b) => b.remove()); log.insertAdjacentHTML('beforeend', HANDOFF_BTN); scroll(); }
+        // Se guarda en la conversación (sin IA) para que el resumen de WhatsApp y el panel lo tengan
+        fetch(API_BASE + '/api/chat', { method: 'POST', keepalive: true, headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: q, canned: c.a, page: location.pathname }) }).catch(() => {});
+        const pool = [...(c.next || []), ...options];
+        options = [...new Set(pool)].filter((o) => !asked.has(o) || o === 'Agendar diagnóstico');
+        if (!options.includes('Agendar diagnóstico')) options.push('Agendar diagnóstico');
+        showSugg();
+        busy = false;
+        return;
+      }
       try {
         const r = await fetch(API_BASE + '/api/chat', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: q, page: location.pathname }) });
         const d = await r.json();
         reply = d.reply; handoff = !!d.handoff;
       } catch (_) { /* respuesta de respaldo */ }
+      lastQ = '';
       t.classList.remove('msg--typing');
       await typeText(t, reply || 'No pude conectarme ahora. Toca «Seguir por WhatsApp» y te respondemos allá.', 14);
       if (handoff || !reply) { $$('.wa-handoff', log).forEach((b) => b.remove()); log.insertAdjacentHTML('beforeend', HANDOFF_BTN); scroll(); }
