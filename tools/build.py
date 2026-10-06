@@ -24,6 +24,8 @@ PAGES = {
                    "Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto en Colombia.", "1.0"),
     "servicios.html": ("/servicios", "servicios", "Servicios · Diwilo",
                        "Analítica, automatización de flujos, agentes de IA, chatbots, extracción de datos y dashboards. Prueba las demostraciones en vivo.", "0.9"),
+    "apps.html": ("/apps", "apps", "Apps de Diwilo · Pedidos, Nutrición, Citas y Residentes",
+                  "Apps de Diwilo listas para usar: Pedidos, Nutrición, Citas y Residentes, y los sitios y plataformas que construimos para nuestros clientes.", "0.9"),
     "arquitectura.html": ("/arquitectura", "arquitectura", "Arquitectura y método · Diwilo",
                           "Infraestructura desacoplada, orquestación con n8n y metodologías auditables: Scrum, Kanban, CRISP-DM, MLOps, PMI y Ley 1581.", "0.7"),
     "contacto.html": ("/contacto", "contacto", "Contacto · Diwilo",
@@ -119,7 +121,7 @@ def head(title, desc, canonical):
   <div class="page-bg" aria-hidden="true"><div class="page-bg__grid"></div><div class="page-bg__beam"></div></div>
 """
 
-NAV_ITEMS = [("inicio", "/", "Inicio"), ("servicios", "/servicios", "Servicios"),
+NAV_ITEMS = [("inicio", "/", "Inicio"), ("servicios", "/servicios", "Servicios"), ("apps", "/apps", "Apps"),
              ("arquitectura", "/arquitectura", "Arquitectura"), ("blog", "/blog", "Blog"), ("contacto", "/contacto", "Contacto")]
 
 
@@ -155,7 +157,7 @@ FOOTER = """
           <a href="/arquitectura">Arquitectura</a>
           <a href="/contacto">Contacto</a>
           <a href="/blog">Blog</a>
-          <a href="#" data-open-apps>Apps de Diwilo</a>
+          <a href="/apps">Apps de Diwilo</a>
           <a href="/docs/api">API para desarrolladores</a>
         </div>
       </div>

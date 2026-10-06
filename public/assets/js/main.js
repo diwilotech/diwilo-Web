@@ -1046,11 +1046,11 @@
   /* ---------------- Inicio: últimas entradas del blog ---------------- */
   async function initLatestPosts() {
     const sec = $('[data-latest]');
-    if (!sec && !$('.app-show')) return;
+    if (!sec && !$('.app-show, .app-row')) return;
     let d;
     try { d = await (await fetch('/blog/latest.json')).json(); } catch (_) { return; }
     // Botones "Guía" de las apps: solo si la guía ya está publicada
-    $$('.app-show a[href^="/blog/"]').forEach((a) => { a.hidden = !d.slugs.includes(a.getAttribute('href').slice(6)); });
+    $$('.app-show a[href^="/blog/"], .app-row a[href^="/blog/"]').forEach((a) => { a.hidden = !d.slugs.includes(a.getAttribute('href').slice(6)); });
     if (!sec || !d.posts.length) return;
     $('[data-latest-list]', sec).innerHTML = d.posts.map((p) => `
       <article class="post-card">

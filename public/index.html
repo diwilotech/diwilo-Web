@@ -40,6 +40,7 @@
       <div class="nav__links">
         <a class="nav__link" href="/" aria-current="page">Inicio</a>
         <a class="nav__link" href="/servicios">Servicios</a>
+        <a class="nav__link" href="/apps">Apps</a>
         <a class="nav__link" href="/arquitectura">Arquitectura</a>
         <a class="nav__link" href="/blog">Blog</a>
         <a class="nav__link" href="/contacto">Contacto</a>
@@ -133,43 +134,13 @@
       </div>
     </section>
 
-    <!-- Apps propias -->
+    <!-- Apps: franja hacia la página /apps -->
     <section class="container section">
-      <div class="center">
-        <div class="eyebrow-rule" data-reveal><span class="eyebrow">Apps de Diwilo</span></div>
-        <h2 class="h2" data-reveal>Software listo para tu negocio, desde hoy</h2>
-        <p class="sub" data-reveal>Apps en la nube que administramos por ti: tu equipo entra con su correo y tú te enfocas en atender.</p>
-      </div>
-      <div class="apps-show" data-stagger="100">
-        <article class="app-show">
-          <span class="app-card__icon"><i class="ph-light ph-storefront"></i></span>
-          <h3 class="h3">CD Pedidos</h3>
-          <p class="app-show__for">Restaurantes, bares y mostrador</p>
-          <ul class="app-show__list"><li>Plano de mesas y comandas</li><li>Inventario que baja al vender</li><li>Cuentas por cobrar por cliente</li></ul>
-          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Pedidos">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-para-restaurantes">Guía</a></div>
-        </article>
-        <article class="app-show">
-          <span class="app-card__icon"><i class="ph-light ph-heartbeat"></i></span>
-          <h3 class="h3">CD Nutrición</h3>
-          <p class="app-show__for">Consultorios de nutrición</p>
-          <ul class="app-show__list"><li>Ficha y medidas del paciente</li><li>Plan e informe en PDF</li><li>Seguimiento del paciente con QR</li></ul>
-          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Nutrición">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-para-nutricionistas">Guía</a></div>
-        </article>
-        <article class="app-show">
-          <span class="app-card__icon"><i class="ph-light ph-calendar-check"></i></span>
-          <h3 class="h3">CD Citas</h3>
-          <p class="app-show__for">Negocios que trabajan con reservas</p>
-          <ul class="app-show__list"><li>Página de reservas propia</li><li>Especialistas, espacios y bloqueos</li><li>Recordatorios y avisos por WhatsApp</li></ul>
-          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Citas">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-de-citas-y-reservas">Guía</a></div>
-        </article>
-        <article class="app-show">
-          <span class="app-card__icon"><i class="ph-light ph-buildings"></i></span>
-          <h3 class="h3">CD Residentes</h3>
-          <p class="app-show__for">Propiedad horizontal</p>
-          <ul class="app-show__list"><li>Cartera y cuenta de cobro en PDF</li><li>PQRS, portería y reservas</li><li>Portal de propietarios y asistente IA</li></ul>
-          <div class="app-show__foot"><button type="button" class="btn btn--primary btn--sm" data-open-apps="Residentes">Quiero una demo</button><a class="btn btn--sm" href="/blog/como-elegir-software-propiedad-horizontal">Guía</a></div>
-        </article>
-      </div>
+      <a class="apps-strip" href="/apps" data-reveal>
+        <span class="apps-strip__icons" aria-hidden="true"><i class="ph-light ph-storefront"></i><i class="ph-light ph-heartbeat"></i><i class="ph-light ph-calendar-check"></i><i class="ph-light ph-buildings"></i></span>
+        <span class="apps-strip__text"><b>Apps de Diwilo listas para usar</b><span>Pedidos, Nutrición, Citas y Residentes, más los sitios que hemos construido.</span></span>
+        <span class="btn btn--primary apps-strip__btn">Ver todas las apps <i class="ph-light ph-arrow-right"></i></span>
+      </a>
     </section>
 
     <!-- Ruta + flujo en vivo -->
@@ -334,21 +305,26 @@
       </div>
     </section>
 
-    <!-- Clientes -->
-    <section class="section center">
-      <p class="eyebrow container" data-reveal style="margin-bottom:32px">Confían en nosotros</p>
-      <div class="marquee" data-reveal="fade">
-        <div class="marquee__track">
-          <span class="logo-tile">Madetableros</span>
-          <span class="logo-tile">Amor por Medellín</span>
-          <span class="logo-tile">Rotary Club Medellín</span>
-          <span class="logo-tile">Becas del Centenario Rotario</span>
-          <span class="logo-tile">Tu empresa</span>
-          <span class="logo-tile" aria-hidden="true">Madetableros</span>
-          <span class="logo-tile" aria-hidden="true">Amor por Medellín</span>
-          <span class="logo-tile" aria-hidden="true">Rotary Club Medellín</span>
-          <span class="logo-tile" aria-hidden="true">Becas del Centenario Rotario</span>
-          <span class="logo-tile" aria-hidden="true">Tu empresa</span>
+    <!-- Clientes: recuadro con título fijo y nombres que se desplazan -->
+    <section class="container section">
+      <div class="clients-box" data-reveal>
+        <div class="clients-box__label">
+          <p class="eyebrow" style="margin:0">Confían en nosotros</p>
+          <p class="clients-box__sub">Empresas y organizaciones que ya trabajan con Diwilo.</p>
+        </div>
+        <div class="marquee clients-box__marquee">
+          <div class="marquee__track">
+            <span class="logo-tile">Madetableros</span>
+            <span class="logo-tile">Amor por Medellín</span>
+            <span class="logo-tile">Rotary Club Medellín</span>
+            <span class="logo-tile">Becas del Centenario Rotario</span>
+            <span class="logo-tile">Tu empresa</span>
+            <span class="logo-tile" aria-hidden="true">Madetableros</span>
+            <span class="logo-tile" aria-hidden="true">Amor por Medellín</span>
+            <span class="logo-tile" aria-hidden="true">Rotary Club Medellín</span>
+            <span class="logo-tile" aria-hidden="true">Becas del Centenario Rotario</span>
+            <span class="logo-tile" aria-hidden="true">Tu empresa</span>
+          </div>
         </div>
       </div>
     </section>
@@ -444,7 +420,7 @@
           <a href="/arquitectura">Arquitectura</a>
           <a href="/contacto">Contacto</a>
           <a href="/blog">Blog</a>
-          <a href="#" data-open-apps>Apps de Diwilo</a>
+          <a href="/apps">Apps de Diwilo</a>
           <a href="/docs/api">API para desarrolladores</a>
         </div>
       </div>

@@ -14,6 +14,7 @@ const PAGES = {
   '/': '/index.md',
   '/contacto': '/contacto.md',
   '/servicios': '/servicios.md',
+  '/apps': '/apps.md',
   '/arquitectura': '/arquitectura.md',
   '/privacidad': '/privacidad.md',
   '/docs/api': '/docs/api.md',

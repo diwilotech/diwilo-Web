@@ -74,51 +74,7 @@ Información estructurada desde documentos, sitios web y bases de datos, lista p
 
 OCR · scraping · ETL  ](https://diwilo.com/servicios)
 
-Apps de Diwilo
-
-## Software listo para tu negocio, desde hoy
-
-Apps en la nube que administramos por ti: tu equipo entra con su correo y tú te enfocas en atender.
-
-### CD Pedidos
-
-Restaurantes, bares y mostrador
-
-- Plano de mesas y comandas
-- Inventario que baja al vender
-- Cuentas por cobrar por cliente
-
-[Guía](https://diwilo.com/blog/como-elegir-software-para-restaurantes)
-
-### CD Nutrición
-
-Consultorios de nutrición
-
-- Ficha y medidas del paciente
-- Plan e informe en PDF
-- Seguimiento del paciente con QR
-
-[Guía](https://diwilo.com/blog/como-elegir-software-para-nutricionistas)
-
-### CD Citas
-
-Negocios que trabajan con reservas
-
-- Página de reservas propia
-- Especialistas, espacios y bloqueos
-- Recordatorios y avisos por WhatsApp
-
-[Guía](https://diwilo.com/blog/como-elegir-software-de-citas-y-reservas)
-
-### CD Residentes
-
-Propiedad horizontal
-
-- Cartera y cuenta de cobro en PDF
-- PQRS, portería y reservas
-- Portal de propietarios y asistente IA
-
-[Guía](https://diwilo.com/blog/como-elegir-software-propiedad-horizontal)
+[  **Apps de Diwilo listas para usar**Pedidos, Nutrición, Citas y Residentes, más los sitios que hemos construido. Ver todas las apps  ](https://diwilo.com/apps)
 
 Nuestra ruta
 
@@ -219,6 +175,8 @@ Casos reales
 Elige un caso y mira qué se construyó y qué cambió después.
 
 Confían en nosotros
+
+Empresas y organizaciones que ya trabajan con Diwilo.
 
 Madetableros Amor por Medellín Rotary Club Medellín Becas del Centenario Rotario Tu empresa
 
