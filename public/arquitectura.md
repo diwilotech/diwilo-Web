@@ -92,6 +92,18 @@ OpenClaw
 
 Agentes autónomos
 
+Cloudflare
+
+Red, seguridad y DNS
+
+Cloudflare Workers
+
+Apps y APIs sin servidor
+
+Cloudflare R2
+
+Almacenamiento de archivos
+
 Pasa el cursor sobre una herramienta para ver su rol en la arquitectura.
 
 ## Auditoría técnica de tu operación
@@ -106,7 +118,7 @@ Revisamos tu infraestructura, integraciones y datos, y entregamos un informe con
 2. **Orquestación** — n8n, webhooks y cron, con reintentos, colas y alertas.
 3. **Datos y modelos** — Python, scikit-learn y LLMs, con versionado y revisión humana bajo umbral de confianza.
 4. **Aplicación** — Supabase, dashboards web y Chatwoot, con accesos por rol.
-5. **Infraestructura** — GNU/Linux, Docker y Dokploy, con ambientes separados y cifrado.
+5. **Infraestructura** — Cloudflare (Workers, R2), GNU/Linux, Docker y Dokploy, con ambientes separados y cifrado.
 
 ## Metodologías
 
