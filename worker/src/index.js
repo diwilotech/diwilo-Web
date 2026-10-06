@@ -26,7 +26,7 @@ const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Mede
 Servicios: analítica y ciencia de datos (Python, SQL, modelos predictivos); automatización de flujos (n8n, APIs, webhooks); agentes de IA y chatbots integrados a WhatsApp (Chatwoot, WhatsApp Business); extracción de datos (OCR, scraping, ETL); dashboards y tableros (Supabase, web dashboards); sitios y apps web.
 Formas de trabajo: diagnóstico de automatización (1 a 2 semanas, primera sesión de 45 minutos sin costo); proyecto cerrado (4 a 12 semanas, sprints de dos semanas con demo); operación y soporte mensual.
 Metodologías: Scrum, Kanban, CRISP-DM, MLOps, PMI. Datos tratados conforme a la Ley 1581 de 2012; se firma NDA si se necesita.
-Casos: Dashboards PMO para construcción, automatizaciones con n8n, plataforma de Becas del Centenario Rotario, sitios para Madetableros, Fundación Amor por Medellín y Rotary Club Medellín.
+Casos: Dashboards PMO para construcción, automatizaciones con n8n, plataforma de Becas del Centenario Rotario, sitios para Madetableros, Fundación Amor por Medellín, Rotary Club Medellín y Fundación Jardín de Amor (jardindeamor.org, creada, gestionada y optimizada con IA).
 Contacto: hola@diwilo.com · WhatsApp +57 305 384 0193 · formulario en https://diwilo.com/contacto
 
 Reglas: responde en español, breve (máximo 4 frases), cálido y concreto. No inventes precios: explica que dependen del alcance y ofrece el diagnóstico sin costo. Si la persona quiere avanzar, hablar con alguien o pedir una cotización, invítala a tocar el botón «Seguir por WhatsApp» que aparece en este chat: envía a Diwilo un resumen de esta conversación para no repetir todo. No escribas el número de teléfono salvo que te lo pidan. Si no sabes algo, dilo y ofrece contacto humano. No hables de temas ajenos a Diwilo y sus servicios.`;
@@ -178,7 +178,7 @@ const MCP_INFO = {
 - Dashboards y tableros: indicadores en tiempo real con accesos por rol (Supabase, web dashboards).
 - Sitios y apps web.
 Modalidades: diagnóstico de automatización (1 a 2 semanas, primera sesión de 45 min sin costo); proyecto cerrado (4 a 12 semanas, sprints de 2 semanas); operación y soporte mensual. Los precios dependen del alcance.`,
-  casos: `Casos: Dashboards PMO para construcción (avance, costo y cronograma en un tablero que se alimenta de hojas y ERP); automatizaciones con n8n (CRM, correo y base de datos con reintentos y alertas); plataforma de Becas del Centenario Rotario (postulación y seguimiento); sitios para Madetableros, Fundación Amor por Medellín y Rotary Club Medellín.`,
+  casos: `Casos: Dashboards PMO para construcción (avance, costo y cronograma en un tablero que se alimenta de hojas y ERP); automatizaciones con n8n (CRM, correo y base de datos con reintentos y alertas); plataforma de Becas del Centenario Rotario (postulación y seguimiento); sitios para Madetableros, Fundación Amor por Medellín, Rotary Club Medellín y Fundación Jardín de Amor (jardindeamor.org, creada, gestionada y optimizada con IA).`,
   metodologia: `Metodologías: Scrum, Kanban, CRISP-DM, MLOps/DevOps, PMI/PMBOK. Protección de datos conforme a la Ley 1581 de 2012 (Colombia); se firma NDA si se requiere. Arquitectura: fuentes de datos → orquestación (n8n) → datos y modelos (Python, LLMs) → aplicación (Supabase, dashboards, Chatwoot) → infraestructura (GNU/Linux, Docker, Dokploy).`,
   contacto: `Contacto: hola@diwilo.com · WhatsApp +57 305 384 0193 (https://wa.me/573053840193) · Medellín, Colombia · https://diwilo.com/contacto. Respuesta en menos de 24 horas hábiles.`
 };

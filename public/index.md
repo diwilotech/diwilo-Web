@@ -178,7 +178,7 @@ Confían en nosotros
 
 Empresas y organizaciones que ya trabajan con Diwilo.
 
-Madetableros Amor por Medellín Rotary Club Medellín Becas del Centenario Rotario Tu empresa
+Madetableros Amor por Medellín Fundación Jardín de Amor Rotary Club Medellín Becas del Centenario Rotario Tu empresa
 
 Quién está detrás
 

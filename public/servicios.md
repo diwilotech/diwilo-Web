@@ -102,6 +102,7 @@ Cuéntanos qué tarea repite tu equipo cada semana. Te respondemos con una propu
 
 ## Proyectos en producción
 
+- **Fundación Jardín de Amor** — sitio institucional creado, gestionado y optimizado con IA: https://www.jardindeamor.org/
 - **Madetableros** — sitio corporativo con catálogo y formulario de cotización: https://madetableros.com.co/
 - **Fundación Amor por Medellín** — portal institucional con programas y donaciones: https://fundacionamorpormedellin.com/
 - **Rotary Club Medellín** — web informativa con agenda y proyectos: https://www.rotaryclubmedellin.org/

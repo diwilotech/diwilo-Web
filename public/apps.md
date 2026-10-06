@@ -88,6 +88,16 @@ Proyectos
 
 Proyectos en producción para empresas y organizaciones. Visítalos.
 
+Sitio institucional
+
+### Fundación Jardín de Amor
+
+Creada, gestionada y optimizada con IA
+
+Sitio de la fundación que desde 2002 acompaña a niños, niñas y adolescentes en situación de vulnerabilidad: historia, programas, equipo y canal de donaciones. Lo construimos, lo administramos y lo mantenemos al día con inteligencia artificial.
+
+[Visitar sitio ](https://www.jardindeamor.org/)
+
 Sitio corporativo
 
 ### Madetableros
