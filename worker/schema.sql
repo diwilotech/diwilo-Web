@@ -106,3 +106,31 @@ CREATE TABLE IF NOT EXISTS sub_payments (
   by_email TEXT                      -- quién lo registró (correo de Cloudflare Access)
 );
 CREATE INDEX IF NOT EXISTS idx_sub_payments_biz ON sub_payments(app, business_id, ts);
+
+-- ---------- Blog ----------
+CREATE TABLE IF NOT EXISTS posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  excerpt TEXT,                  -- resumen corto (tarjetas, meta description por defecto)
+  content TEXT NOT NULL DEFAULT '',  -- Markdown
+  category TEXT,
+  tags TEXT,                     -- separadas por coma
+  author TEXT,
+  cover_data TEXT,               -- portada (data URL JPEG/WebP), se sirve en /blog/img/portada-<id>
+  status TEXT NOT NULL DEFAULT 'draft',  -- draft | published
+  featured INTEGER NOT NULL DEFAULT 0,
+  published_at INTEGER,          -- ms; si es futura, la entrada queda programada
+  seo_title TEXT, seo_desc TEXT,
+  views INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_posts_pub ON posts(status, published_at);
+
+CREATE TABLE IF NOT EXISTS blog_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER,
+  data TEXT NOT NULL,            -- data URL de la imagen (reducida en el navegador antes de subir)
+  created_at INTEGER NOT NULL
+);

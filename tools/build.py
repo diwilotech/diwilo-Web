@@ -120,7 +120,7 @@ def head(title, desc, canonical):
 """
 
 NAV_ITEMS = [("inicio", "/", "Inicio"), ("servicios", "/servicios", "Servicios"),
-             ("arquitectura", "/arquitectura", "Arquitectura"), ("contacto", "/contacto", "Contacto")]
+             ("arquitectura", "/arquitectura", "Arquitectura"), ("blog", "/blog", "Blog"), ("contacto", "/contacto", "Contacto")]
 
 
 def nav(current):
@@ -154,6 +154,8 @@ FOOTER = """
           <a href="/servicios">Servicios</a>
           <a href="/arquitectura">Arquitectura</a>
           <a href="/contacto">Contacto</a>
+          <a href="/blog">Blog</a>
+          <a href="#" data-open-apps>Apps de Diwilo</a>
           <a href="/docs/api">API para desarrolladores</a>
         </div>
       </div>
@@ -446,6 +448,7 @@ Disallow: /l/
 Disallow: /c/
 
 Sitemap: {SITE}/sitemap.xml
+Sitemap: {SITE}/blog/sitemap.xml
 """)
 
     urls = "\n".join(f"  <url>\n    <loc>{SITE}{r}</loc>\n    <lastmod>{TODAY}</lastmod>\n    <priority>{pr}</priority>\n  </url>" for r, _, _, pr in pages)
@@ -457,6 +460,9 @@ Sitemap: {SITE}/sitemap.xml
 
 ## Páginas
 """ + "\n".join(f"- [{t.split(' · ')[0]}]({SITE}{md_path(r)}): {d}" for r, t, d, _ in pages) + f"""
+
+## Blog
+- [Blog]({SITE}/blog.md): artículos sobre datos, automatización e IA (RSS: {SITE}/blog/rss.xml)
 
 ## Para agentes
 - [Servidor MCP]({SITE}/.well-known/mcp/server-card.json): consulta servicios y solicita un diagnóstico
@@ -519,7 +525,24 @@ Sitemap: {SITE}/sitemap.xml
     }, ensure_ascii=False, indent=2) + "\n")
 
 
+def build_shell():
+    """Cabecera, menú y pie del sitio para las páginas que arma el Worker (blog).
+    Marcadores: __TITLE__, __DESC__, __ROUTE__ (ruta canónica), __OGIMG__, __OGTYPE__ y __HEADEXTRA__."""
+    h = head("__TITLE__", "__DESC__", "/__ROUTE__")
+    h = h.replace(f"{SITE}/assets/img/og.png", "__OGIMG__").replace('content="website"', 'content="__OGTYPE__"')
+    h = h.replace("{SITE}//__ROUTE__".replace("{SITE}", SITE), f"{SITE}/__ROUTE__").replace('href="//__ROUTE__.md"', 'href="/__ROUTE__.md"')
+    h = h.replace("</head>", "__HEADEXTRA__\n</head>")
+    js = ("// Generado por tools/build.py: no editar a mano.\n"
+          f"export const HEAD = {json.dumps(h, ensure_ascii=False)};\n"
+          f"export const NAV = {json.dumps(nav('blog'), ensure_ascii=False)};\n"
+          f"export const FOOTER = {json.dumps(FOOTER, ensure_ascii=False)};\n")
+    path = ROOT / "worker" / "src" / "shell.js"
+    path.write_text(js, encoding="utf-8")
+    print("ok", path.relative_to(ROOT), len(js))
+
+
 if __name__ == "__main__":
     build_pages()
     build_docs()
     build_discovery()
+    build_shell()

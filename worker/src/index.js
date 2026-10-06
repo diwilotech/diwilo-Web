@@ -18,6 +18,7 @@
 import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
+import { blogAdmin } from './blog.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -443,6 +444,7 @@ async function adminApi(req, env, path, url) {
   if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
+  if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;
   const id = Number(url.searchParams.get('id') || 0);

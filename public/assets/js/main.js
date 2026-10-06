@@ -818,6 +818,158 @@
     tools.forEach((tool) => { try { Promise.resolve(mc.registerTool(tool)).catch(() => {}); } catch (_) { /* navegador sin soporte completo */ } });
   }
 
+  /* ---------------- Modal: ¿qué app te interesa? ---------------- */
+  const APPS = [
+    { key: 'Pedidos', icon: 'ph-storefront', text: 'Restaurantes, bares y mostrador: mesas, comandas, inventario y cuentas por cobrar.' },
+    { key: 'Nutrición', icon: 'ph-heartbeat', text: 'Consultorios de nutrición: pacientes, consultas, medidas, agenda y archivos.' },
+    { key: 'Citas', icon: 'ph-calendar-check', text: 'Reservas en línea para tu negocio: agenda, servicios, personal y recordatorios.' },
+    { key: 'Residentes', icon: 'ph-buildings', text: 'Propiedad horizontal: cartera, PQRS, reservas, portal de propietarios y asistente IA.' }
+  ];
+  function initAppsModal() {
+    const modal = document.createElement('div');
+    modal.className = 'apps-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'apps-title');
+    modal.innerHTML = `
+      <div class="apps-dialog">
+        <button type="button" class="apps-close" aria-label="Cerrar"><i class="ph-light ph-x"></i></button>
+        <div data-step="pick">
+          <h2 id="apps-title">¿Qué app te interesa?</h2>
+          <p>Elige una o varias. Te mostramos una demo y te ayudamos a empezar; las administramos por ti.</p>
+          <div class="apps-grid">${APPS.map((a) => `
+            <button type="button" class="app-card" data-app="${a.key}" aria-pressed="false">
+              <span class="app-card__check"><i class="ph-light ph-check"></i></span>
+              <span class="app-card__icon"><i class="ph-light ${a.icon}"></i></span>
+              <b>${a.key}</b><span>${a.text}</span>
+            </button>`).join('')}</div>
+          <form class="apps-form" novalidate>
+            <div class="row-2">
+              <div class="field"><label for="ap-name">Nombre y negocio</label><input class="input" id="ap-name" name="name" required autocomplete="name" placeholder="Ana · Restaurante La 70"></div>
+              <div class="field"><label for="ap-mail">Correo</label><input class="input" id="ap-mail" name="email" type="email" required autocomplete="email" placeholder="ana@negocio.com"></div>
+              <div class="field"><label for="ap-wa">WhatsApp (opcional)</label><input class="input" id="ap-wa" name="phone" type="tel" autocomplete="tel" placeholder="+57 300 000 0000"></div>
+              <div class="field"><label for="ap-msg">¿Algo que debamos saber? (opcional)</label><input class="input" id="ap-msg" name="message" placeholder="Tengo 2 sedes, 8 empleados…"></div>
+            </div>
+            <div class="apps-actions">
+              <span class="muted" style="font-size:12px" data-apps-hint>Elige al menos una app.</span>
+              <button type="submit" class="btn btn--primary">Quiero una demo <i class="ph-light ph-arrow-right"></i></button>
+            </div>
+          </form>
+        </div>
+        <div class="apps-done" data-step="done" hidden>
+          <i class="ph-light ph-check"></i>
+          <h2 style="margin:0">¡Listo!</h2>
+          <p class="muted" style="margin:0;max-width:44ch">Te escribimos en menos de 24 horas hábiles con la demo de <b data-apps-chosen style="color:var(--hi);font-weight:500"></b>.</p>
+          <a class="btn btn--sm" href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener"><i class="ph-light ph-whatsapp-logo"></i>¿Prefieres hablar ya? WhatsApp</a>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    const chosen = new Set();
+    const form = $('.apps-form', modal), hint = $('[data-apps-hint]', modal);
+    let lastFocus = null;
+
+    const open = (preset) => {
+      lastFocus = document.activeElement;
+      if (preset && APPS.some((a) => a.key === preset)) { chosen.clear(); chosen.add(preset); }
+      sync();
+      $('[data-step="pick"]', modal).hidden = false; $('[data-step="done"]', modal).hidden = true;
+      modal.classList.add('is-open');
+      document.documentElement.style.overflow = 'hidden';
+      setTimeout(() => $('.app-card', modal).focus({ preventScroll: true }), 50);
+      track('apps_open', { label: preset || '' });
+      hideNudge(true);
+    };
+    const close = () => {
+      modal.classList.remove('is-open');
+      document.documentElement.style.overflow = '';
+      if (lastFocus) lastFocus.focus({ preventScroll: true });
+    };
+    function sync() {
+      $$('.app-card', modal).forEach((c) => { const on = chosen.has(c.dataset.app); c.classList.toggle('is-on', on); c.setAttribute('aria-pressed', String(on)); });
+      hint.textContent = chosen.size ? `Seleccionaste: ${[...chosen].join(', ')}` : 'Elige al menos una app.';
+    }
+    $$('.app-card', modal).forEach((c) => c.addEventListener('click', () => {
+      chosen.has(c.dataset.app) ? chosen.delete(c.dataset.app) : chosen.add(c.dataset.app);
+      sync();
+    }));
+    $('.apps-close', modal).addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) close(); });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!chosen.size) { hint.textContent = 'Elige al menos una app arriba.'; hint.style.color = 'var(--lilac)'; return; }
+      const f = new FormData(form);
+      const email = String(f.get('email') || '').trim();
+      if (!String(f.get('name') || '').trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { hint.textContent = 'Escribe tu nombre y un correo válido.'; hint.style.color = 'var(--lilac)'; return; }
+      const btn = $('button[type="submit"]', form); btn.disabled = true;
+      const apps = [...chosen].join(', ');
+      try {
+        const r = await fetch(API_BASE + '/api/lead', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({
+          name: f.get('name'), email, phone: f.get('phone'), message: f.get('message') || `Interesado en: ${apps}`,
+          topics: `Apps: ${apps}`, page: location.pathname, sid, via: 'apps', ...utm }) });
+        if (!r.ok) throw new Error();
+        $('[data-apps-chosen]', modal).textContent = apps;
+        $('[data-step="pick"]', modal).hidden = true; $('[data-step="done"]', modal).hidden = false;
+        local.set('dwl_apps_done', 1);
+        form.reset(); chosen.clear();
+      } catch (_) {
+        hint.textContent = 'No pudimos enviarlo. Escríbenos por WhatsApp.'; hint.style.color = 'var(--lilac)';
+      }
+      btn.disabled = false;
+    });
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-open-apps]');
+      if (t) { e.preventDefault(); open(t.dataset.openApps); }
+    });
+    window.dwlOpenApps = open;
+  }
+
+  // Aviso discreto en los artículos: aparece una sola vez tras leer más de la mitad
+  let nudge = null;
+  function hideNudge(forever) { if (nudge) nudge.classList.remove('is-on'); if (forever) local.set('dwl_apps_nudge', 1); }
+  function initAppsNudge() {
+    const body = $('#post-body');
+    if (!body || local.get('dwl_apps_nudge') || local.get('dwl_apps_done')) return;
+    nudge = document.createElement('div');
+    nudge.className = 'apps-nudge';
+    nudge.setAttribute('role', 'status');
+    nudge.innerHTML = `<span class="icon-circle icon-circle--sm" style="width:40px;height:40px"><i class="ph-light ph-squares-four"></i></span>
+      <p><b>¿Te interesan nuestras apps?</b>Pedidos, Nutrición, Citas y Residentes.</p>
+      <button type="button" class="btn btn--primary btn--sm" data-open-apps>Ver</button>
+      <button type="button" class="x" aria-label="No mostrar más"><i class="ph-light ph-x"></i></button>`;
+    document.body.appendChild(nudge);
+    $('.x', nudge).addEventListener('click', () => hideNudge(true));
+    let shown = false;
+    addEventListener('scroll', () => {
+      if (shown) return;
+      const r = body.getBoundingClientRect();
+      if (r.top + r.height * 0.55 < innerHeight) { shown = true; setTimeout(() => nudge.classList.add('is-on'), 400); }
+    }, { passive: true });
+  }
+
+  /* ---------------- Artículos del blog: índice activo, avance y copiar enlace ---------------- */
+  function initPost() {
+    const body = $('#post-body');
+    if (!body) return;
+    const links = $$('.toc a');
+    const heads = links.map((a) => document.getElementById(decodeURIComponent(a.hash.slice(1)))).filter(Boolean);
+    const bar = $('.toc-progress i');
+    const update = () => {
+      const r = body.getBoundingClientRect();
+      if (bar) bar.style.width = Math.min(100, Math.max(0, ((innerHeight * 0.3 - r.top) / r.height) * 100)) + '%';
+      let cur = heads[0];
+      heads.forEach((h) => { if (h.getBoundingClientRect().top < innerHeight * 0.3) cur = h; });
+      links.forEach((a) => a.classList.toggle('is-active', cur && a.hash === '#' + cur.id));
+    };
+    addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+    update();
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-copy-link]'); if (!b) return;
+      try { await navigator.clipboard.writeText(b.dataset.copyLink); b.innerHTML = '<i class="ph-light ph-check"></i>'; setTimeout(() => { b.innerHTML = '<i class="ph-light ph-link-simple"></i>'; }, 1600); } catch (_) { prompt('Copia el enlace:', b.dataset.copyLink); }
+    });
+    track('post_read_start', { label: body.closest('[data-post]')?.dataset.post || '' });
+  }
+
   /* ---------------- Arranque ---------------- */
   document.addEventListener('DOMContentLoaded', () => {
     initHero();
@@ -840,6 +992,9 @@
     initFab();
     initTracking();
     initWebMCP();
+    initAppsModal();
+    initAppsNudge();
+    initPost();
     const y = $('[data-year]');
     if (y) y.textContent = new Date().getFullYear();
   });

@@ -39,3 +39,4 @@ Disallow: /l/
 Disallow: /c/
 
 Sitemap: https://diwilo.com/sitemap.xml
+Sitemap: https://diwilo.com/blog/sitemap.xml

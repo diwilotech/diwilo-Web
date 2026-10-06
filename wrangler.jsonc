@@ -21,7 +21,7 @@
     // Rutas que pasan primero por el Worker (lo demás se sirve directo como archivo).
     "run_worker_first": [
       "/", "/contacto", "/servicios", "/arquitectura", "/privacidad", "/docs/api",
-      "/api/*", "/admin/api/*", "/v1/*", "/l/*", "/c/*", "/mcp"
+      "/api/*", "/admin/api/*", "/v1/*", "/l/*", "/c/*", "/mcp", "/blog", "/blog.md", "/blog/*"
     ]
   },
   "d1_databases": [

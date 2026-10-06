@@ -80,6 +80,18 @@ Zero Trust → Access → Applications → **Self-hosted**:
 El Worker verifica el JWT de Access en cada llamada a `/admin/api/*`, así que la API queda cerrada aunque
 alguien llegue por otra ruta. Para salir: `/cdn-cgi/access/logout` (botón **Salir**).
 
+## Blog
+
+- **Público:** `/blog` (índice con buscador y categorías), `/blog/<slug>` (artículo con menú lateral: índice del
+  artículo, te puede interesar, apps y categorías), `/blog/rss.xml`, `/blog/sitemap.xml` y versión Markdown
+  (`/blog/<slug>.md` o `Accept: text/markdown`). Lo arma `worker/src/blog.js` con el mismo diseño del sitio
+  (`worker/src/shell.js`, generado por `tools/build.py`).
+- **Panel:** pestaña **Blog** en `/admin`. Editor con barra de formato, vista previa real, imágenes (se reducen en el
+  navegador y se guardan en D1), portada, categoría, etiquetas, autor, programación y SEO.
+  Los borradores se ven en el sitio con `?preview` estando dentro del panel.
+- **Markdown:** `public/assets/js/md.js` lo usan el Worker y el editor, así la vista previa es igual a lo publicado.
+- **Apps:** el modal «¿Qué app te interesa?» (`data-open-apps` en cualquier botón) guarda el lead con `topics: Apps: …`.
+
 ## Secretos
 
 ```bash

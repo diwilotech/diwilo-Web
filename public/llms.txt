@@ -10,6 +10,9 @@
 - [Política de privacidad](https://diwilo.com/privacidad.md): Política de tratamiento de datos personales de Diwilo conforme a la Ley 1581 de 2012.
 - [API de Diwilo](https://diwilo.com/docs/api.md): Servidor MCP, API pública e integraciones de Diwilo para sistemas y agentes de IA.
 
+## Blog
+- [Blog](https://diwilo.com/blog.md): artículos sobre datos, automatización e IA (RSS: https://diwilo.com/blog/rss.xml)
+
 ## Para agentes
 - [Servidor MCP](https://diwilo.com/.well-known/mcp/server-card.json): consulta servicios y solicita un diagnóstico
 - [API](https://diwilo.com/docs/api.md): documentación; especificación en https://diwilo.com/openapi.json

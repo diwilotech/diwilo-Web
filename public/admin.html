@@ -213,6 +213,53 @@ tr.xrow:hover td{background:rgba(168,85,247,.04)}
 .lock input[type=date]:disabled{opacity:.4}
 @media (max-width:980px){.editor{grid-template-columns:1fr}.stage{position:static}}
 
+/* ---------- Blog: lista y editor ---------- */
+.bfil{display:flex;gap:4px;flex-wrap:wrap}
+.bthumb{width:72px;height:44px;border-radius:8px;object-fit:cover;display:block;background:linear-gradient(135deg,#1c0f3a,#070812)}
+.bthumb-ph{display:grid;place-items:center;color:var(--lilac);font-size:18px}
+.st.draft{color:var(--ink3)}.st.pub{color:var(--good)}.st.sched{color:var(--sky)}
+.ed{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media (max-width:1180px){.ed{grid-template-columns:1fr}}
+.ed-main{display:grid;gap:12px;min-width:0}
+.ed-title{width:100%;border:0;background:none;outline:none;font:500 clamp(26px,3vw,34px)/1.2 var(--f-dis);color:var(--hi);padding:4px 0}
+.ed-title::placeholder{color:rgba(157,167,186,.45)}
+.ed-slug{display:flex;align-items:center;gap:2px;font:12px var(--f-mono);color:var(--ink3)}
+.ed-slug input{flex:1;min-width:80px;border:0;background:none;outline:none;color:var(--sky);font:inherit;padding:3px 0;border-bottom:1px dashed transparent}
+.ed-slug input:focus{border-bottom-color:var(--line)}
+.ed-excerpt{min-height:64px;font-size:15px;line-height:1.5}
+.ed-box{border-radius:14px;box-shadow:var(--hair);background:rgba(199,211,234,.03);overflow:hidden}
+.ed-bar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:6px;box-shadow:inset 0 -1px 0 var(--edge);background:rgba(5,6,15,.6);position:sticky;top:0;z-index:2}
+.ed-bar button{display:grid;place-items:center;min-width:34px;height:32px;padding:0 8px;border:0;border-radius:8px;background:none;color:var(--ink2);font-size:17px;cursor:pointer}
+.ed-bar button:hover{background:var(--fill);color:#fff}
+.ed-bar .sep{width:1px;height:20px;background:var(--edge);margin:0 4px}
+.ed-bar .grow{flex:1}
+.ed-bar .seg .btn{padding:5px 10px}
+.ed-panes{display:grid;grid-template-columns:1fr 1fr;min-height:560px}
+.ed-panes.write{grid-template-columns:1fr}.ed-panes.write .ed-prev{display:none}
+.ed-panes.read{grid-template-columns:1fr}.ed-panes.read .ed-text{display:none}
+@media (max-width:900px){.ed-panes{grid-template-columns:1fr}.ed-panes:not(.read) .ed-prev{display:none}}
+.ed-text{width:100%;min-height:560px;resize:vertical;border:0;outline:none;background:none;padding:20px 22px;color:#dbe6f6;font:15px/1.75 var(--f-ui);tab-size:2}
+.ed-text.drag{box-shadow:inset 0 0 0 2px var(--lilac);background:rgba(168,85,247,.06)}
+.ed-prev{box-shadow:inset 1px 0 0 var(--edge);min-height:560px;background:#05060f}
+.ed-prev iframe{display:block;width:100%;height:100%;min-height:560px;border:0}
+.ed-foot{display:flex;justify-content:space-between;gap:10px;padding:8px 14px;font-size:12px;color:var(--ink3);box-shadow:inset 0 1px 0 var(--edge)}
+.ed-side{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;scrollbar-width:thin}
+.ed-side .card{min-width:0}
+.ed-side .card h2{font-size:15px;margin-bottom:10px}
+.ed-side .f{margin-bottom:10px}
+.cover-drop{position:relative;display:grid;place-items:center;gap:6px;aspect-ratio:16/9;border-radius:12px;border:1px dashed rgba(186,215,247,.25);color:var(--ink3);font-size:13px;text-align:center;cursor:pointer;overflow:hidden;transition:all .2s}
+.cover-drop:hover,.cover-drop.drag{border-color:var(--lilac);color:#fff;background:var(--on)}
+.cover-drop i{font-size:26px;color:var(--lilac)}
+.cover-drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.radio-row{display:flex;gap:6px}
+.radio-row label{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:999px;box-shadow:var(--hair);font-size:13px;cursor:pointer;color:var(--ink2)}
+.radio-row input{display:none}
+.radio-row label:has(input:checked){background:var(--on);box-shadow:inset 0 0 0 1px var(--line);color:#fff}
+.cnt{float:right;font-variant-numeric:tabular-nums}.cnt.over{color:var(--warn)}
+.serp{padding:12px;border-radius:10px;background:#fff;font-family:Arial,sans-serif}
+.serp .u{font-size:12px;color:#202124}.serp .t{font-size:18px;color:#1a0dab;line-height:1.3;margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.serp .d{font-size:13px;color:#4d5156;line-height:1.45}
+.ed-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.ed-stats b{display:block;font:500 20px var(--f-dis);color:var(--hi)}.ed-stats span{font-size:11px;color:var(--ink3)}
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
   .side{position:fixed;inset:0 auto 0 0;width:240px;z-index:10;transform:translateX(-100%);transition:transform .3s}
@@ -241,6 +288,7 @@ tr.xrow:hover td{background:rgba(168,85,247,.04)}
     <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo</div>
     <button class="tab" data-view="resumen"><i class="ph-light ph-pulse"></i>En vivo</button>
     <button class="tab" data-view="negocios"><i class="ph-light ph-buildings"></i>Negocios<span class="badge" id="bizBadge" hidden></span></button>
+    <button class="tab" data-view="blog"><i class="ph-light ph-article"></i>Blog</button>
     <button class="tab" data-view="leads"><i class="ph-light ph-user-plus"></i>Leads<span class="badge" id="leadBadge" hidden></span></button>
     <button class="tab" data-view="chats"><i class="ph-light ph-chats-circle"></i>Chats IA</button>
     <button class="tab" data-view="links"><i class="ph-light ph-link-simple"></i>Links de rastreo</button>
@@ -311,6 +359,99 @@ tr.xrow:hover td{background:rgba(168,85,247,.04)}
         <div class="form" style="margin-top:12px" id="priceFields"></div>
         <div class="row" style="margin-top:14px"><button class="btn pri" type="submit">Guardar</button></div>
       </form>
+    </section>
+
+    <!-- BLOG -->
+    <section data-section="blog" hidden>
+      <div id="blogList">
+        <div class="head">
+          <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Blog</h1></div>
+          <div class="row"><a class="btn" href="/blog" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver blog</a><button class="btn pri" id="postNew"><i class="ph-light ph-plus"></i>Nueva entrada</button></div>
+        </div>
+        <div class="grid" style="--min:150px;margin-bottom:14px" id="blogKpis"></div>
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <div class="bfil seg" id="blogFilter"><button class="btn sm on" data-f="">Todas</button><button class="btn sm" data-f="pub">Publicadas</button><button class="btn sm" data-f="sched">Programadas</button><button class="btn sm" data-f="draft">Borradores</button></div>
+          <input class="in" id="blogSearch" placeholder="Buscar por título…" style="max-width:260px">
+        </div>
+        <div class="card tbl-wrap"><table><thead><tr><th></th><th>Entrada</th><th>Categoría</th><th>Estado</th><th>Fecha</th><th class="num">Lecturas</th><th></th></tr></thead><tbody id="blogBody"></tbody></table></div>
+      </div>
+
+      <div id="blogEditor" hidden>
+        <div class="head">
+          <div class="row"><button class="btn" id="edBack2"><i class="ph-light ph-arrow-left"></i>Entradas</button><h1 id="pTitleHead">Nueva entrada</h1><span class="dirty" id="pDirty" hidden>Cambios sin guardar</span></div>
+          <div class="row">
+            <a class="btn" id="pView" target="_blank" rel="noopener" hidden><i class="ph-light ph-eye"></i>Ver en el sitio</a>
+            <button class="btn" id="pSaveDraft"><i class="ph-light ph-floppy-disk"></i>Guardar borrador</button>
+            <button class="btn pri" id="pPublish"><i class="ph-light ph-paper-plane-tilt"></i>Publicar</button>
+          </div>
+        </div>
+        <p class="err" id="pErr"></p>
+        <div class="ed">
+          <div class="ed-main">
+            <input class="ed-title" id="pTitle" placeholder="Título de la entrada" maxlength="200" autocomplete="off">
+            <div class="ed-slug">diwilo.com/blog/<input id="pSlug" spellcheck="false" aria-label="Dirección de la entrada" placeholder="se-genera-con-el-titulo"></div>
+            <textarea class="in ed-excerpt" id="pExcerpt" maxlength="400" placeholder="Resumen: una o dos frases que invitan a leer (aparece en las tarjetas y en Google)."></textarea>
+            <div class="ed-box">
+              <div class="ed-bar" id="pBar">
+                <button type="button" data-md="b" title="Negrita (⌘B)"><i class="ph-light ph-text-b"></i></button>
+                <button type="button" data-md="i" title="Cursiva (⌘I)"><i class="ph-light ph-text-italic"></i></button>
+                <span class="sep"></span>
+                <button type="button" data-md="h2" title="Título de sección"><i class="ph-light ph-text-h-two"></i></button>
+                <button type="button" data-md="h3" title="Subtítulo"><i class="ph-light ph-text-h-three"></i></button>
+                <span class="sep"></span>
+                <button type="button" data-md="link" title="Enlace (⌘K)"><i class="ph-light ph-link-simple"></i></button>
+                <button type="button" data-md="quote" title="Cita o destacado"><i class="ph-light ph-quotes"></i></button>
+                <button type="button" data-md="ul" title="Lista"><i class="ph-light ph-list-bullets"></i></button>
+                <button type="button" data-md="ol" title="Lista numerada"><i class="ph-light ph-list-numbers"></i></button>
+                <button type="button" data-md="code" title="Bloque de código"><i class="ph-light ph-code"></i></button>
+                <button type="button" data-md="table" title="Tabla"><i class="ph-light ph-table"></i></button>
+                <button type="button" data-md="hr" title="Separador"><i class="ph-light ph-minus"></i></button>
+                <button type="button" data-md="img" title="Subir imagen"><i class="ph-light ph-image"></i></button>
+                <input type="file" id="pImgFile" accept="image/*" hidden>
+                <span class="grow"></span>
+                <span class="seg" id="pMode"><button class="btn sm" data-mode="write">Escribir</button><button class="btn sm on" data-mode="split">Dividido</button><button class="btn sm" data-mode="read">Vista previa</button></span>
+              </div>
+              <div class="ed-panes" id="pPanes">
+                <textarea class="ed-text" id="pContent" spellcheck="true" placeholder="Escribe aquí. Usa la barra para dar formato o Markdown directamente: ## Título, **negrita**, - lista…  Arrastra o pega imágenes."></textarea>
+                <div class="ed-prev"><iframe id="pPrev" title="Vista previa"></iframe></div>
+              </div>
+              <div class="ed-foot"><span id="pWords">0 palabras · 1 min de lectura</span><span>Markdown · ⌘S guarda</span></div>
+            </div>
+          </div>
+
+          <aside class="ed-side">
+            <div class="card">
+              <h2>Publicación</h2>
+              <div class="radio-row" style="margin-bottom:12px"><label><input type="radio" name="pStatus" value="draft" checked>Borrador</label><label><input type="radio" name="pStatus" value="published">Publicada</label></div>
+              <label class="f">Fecha de publicación<input class="in" type="datetime-local" id="pDate"></label>
+              <p class="muted" style="margin:-4px 0 10px;font-size:12px" id="pDateHint">Si eliges una fecha futura, se publica sola ese día.</p>
+              <label class="row" style="gap:8px;font-size:13px;color:var(--ink2)"><input type="checkbox" id="pFeatured"> Destacar en el blog</label>
+            </div>
+            <div class="card">
+              <h2>Portada</h2>
+              <div class="cover-drop" id="pCover" tabindex="0" role="button" aria-label="Subir portada"><i class="ph-light ph-image-square"></i><span>Arrastra una imagen o haz clic<br><small>Horizontal, 1600 × 900 ideal</small></span></div>
+              <input type="file" id="pCoverFile" accept="image/*" hidden>
+              <button class="btn sm danger" id="pCoverDel" style="margin-top:8px" hidden><i class="ph-light ph-trash"></i>Quitar portada</button>
+            </div>
+            <div class="card">
+              <h2>Organización</h2>
+              <label class="f">Categoría<input class="in" id="pCategory" list="pCats" maxlength="60" placeholder="Automatización"></label>
+              <datalist id="pCats"></datalist>
+              <label class="f">Etiquetas<input class="in" id="pTags" maxlength="300" placeholder="n8n, whatsapp, pymes"></label>
+              <label class="f">Autor<input class="in" id="pAuthor" list="pAuthors" maxlength="100"></label>
+              <datalist id="pAuthors"></datalist>
+            </div>
+            <div class="card">
+              <h2>SEO</h2>
+              <label class="f">Título para Google <span class="cnt" id="pSeoTc">0/60</span><input class="in" id="pSeoTitle" maxlength="70" placeholder="Por defecto, el título"></label>
+              <label class="f">Descripción <span class="cnt" id="pSeoDc">0/160</span><textarea class="in" id="pSeoDesc" rows="3" maxlength="170" placeholder="Por defecto, el resumen"></textarea></label>
+              <div class="serp" aria-label="Así se vería en Google"><div class="u">diwilo.com › blog › <span id="serpSlug"></span></div><div class="t" id="serpT"></div><div class="d" id="serpD"></div></div>
+            </div>
+            <div class="card ed-stats" id="pStats"></div>
+            <button class="btn sm danger" id="pDelete" hidden><i class="ph-light ph-trash"></i>Borrar esta entrada</button>
+          </aside>
+        </div>
+      </div>
     </section>
 
     <!-- LEADS -->
@@ -1322,6 +1463,236 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     const r = await api('platform/config', { method: 'POST', body: formData(e.target) });
     plat.prices = r.prices; plat.trial_days = r.trial_days; toast('Precios guardados');
   });
+
+  /* ---------- BLOG ---------- */
+  let posts = [], post = null, postSaved = '', postFilter = '', md = null, blogMeta = { categories: [], authors: [], defaultAuthor: '' };
+  const mdLib = () => md || import('/assets/js/md.js').then((m) => (md = m));
+  const nowMs = () => Date.now();
+  const postState = (p) => p.status !== 'published' ? ['draft', 'Borrador'] : p.published_at > nowMs() ? ['sched', 'Programada'] : ['pub', 'Publicada'];
+  const toLocalInput = (ms) => { if (!ms) return ''; const d = new Date(ms - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
+
+  loaders.blog = async () => {
+    if (!$('#blogEditor').hidden) return;
+    try { posts = await api('blog'); } catch (e) { $('#blogBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`; return; }
+    const st = posts.map(postState);
+    const tiles = [['Entradas', posts.length], ['Publicadas', st.filter((s) => s[0] === 'pub').length], ['Programadas', st.filter((s) => s[0] === 'sched').length],
+      ['Borradores', st.filter((s) => s[0] === 'draft').length], ['Lecturas totales', posts.reduce((n, p) => n + p.views, 0)]];
+    $('#blogKpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
+    renderPosts();
+  };
+  function renderPosts() {
+    const q = $('#blogSearch').value.trim().toLowerCase();
+    const list = posts.filter((p) => (!postFilter || postState(p)[0] === postFilter) && (!q || p.title.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q)));
+    $('#blogBody').innerHTML = list.length ? list.map((p) => {
+      const [k, t] = postState(p);
+      return `<tr data-post="${p.id}" style="cursor:pointer">
+        <td style="width:84px">${p.cover_url ? `<img class="bthumb" src="${esc(p.cover_url)}" alt="">` : '<span class="bthumb bthumb-ph"><i class="ph-light ph-article"></i></span>'}</td>
+        <td><b style="font-weight:500;color:var(--hi)">${esc(p.title)}</b>${p.featured ? ' <i class="ph-light ph-star" title="Destacada" style="color:var(--warn)"></i>' : ''}<br><span class="muted mono">/blog/${esc(p.slug)}</span></td>
+        <td>${p.category ? `<span class="tag">${esc(p.category)}</span>` : '<span class="muted">—</span>'}</td>
+        <td><span class="st ${k}">${t}</span></td>
+        <td class="muted" style="white-space:nowrap">${p.published_at ? fmtDate(p.published_at) : 'Editada ' + fmtDate(p.updated_at)}</td>
+        <td class="num">${fmtN(p.views)}</td>
+        <td style="white-space:nowrap"><a class="btn sm" href="/blog/${esc(p.slug)}${k === 'pub' ? '' : '?preview'}" target="_blank" rel="noopener" data-stop title="Ver"><i class="ph-light ph-eye"></i></a></td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">${posts.length ? 'Ninguna entrada coincide.' : 'Aún no hay entradas. Escribe la primera con “Nueva entrada”.'}</td></tr>`;
+  }
+  $('#blogFilter').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; postFilter = b.dataset.f; $$('#blogFilter .btn').forEach((x) => x.classList.toggle('on', x === b)); renderPosts(); });
+  $('#blogSearch').addEventListener('input', renderPosts);
+  $('#blogBody').addEventListener('click', (e) => { if (e.target.closest('[data-stop]')) return; const tr = e.target.closest('[data-post]'); if (tr) openPost(+tr.dataset.post); });
+  $('#postNew').addEventListener('click', () => openPost(null));
+
+  // --- editor ---
+  const pf = { title: '#pTitle', slug: '#pSlug', excerpt: '#pExcerpt', content: '#pContent', category: '#pCategory', tags: '#pTags', author: '#pAuthor', seo_title: '#pSeoTitle', seo_desc: '#pSeoDesc' };
+  let slugTouchedP = false, prevReady = false, prevTimer = null;
+  const snapP = () => JSON.stringify({ ...post, cover: post.cover === undefined ? undefined : String(post.cover).length });
+
+  async function openPost(id) {
+    await mdLib();
+    try { blogMeta = await api('blog/meta'); } catch {}
+    $('#pCats').innerHTML = blogMeta.categories.map((c) => `<option value="${esc(c)}">`).join('');
+    $('#pAuthors').innerHTML = blogMeta.authors.map((c) => `<option value="${esc(c)}">`).join('');
+    if (id) {
+      try { post = await api('blog/' + id); } catch (e) { toast(e.message); return; }
+    } else {
+      post = { title: '', slug: '', excerpt: '', content: '', category: '', tags: '', author: blogMeta.defaultAuthor, status: 'draft', published_at: null, featured: 0, seo_title: '', seo_desc: '', views: 0 };
+    }
+    post.cover = undefined;
+    slugTouchedP = !!id;
+    Object.entries(pf).forEach(([k, sel]) => { $(sel).value = post[k] || ''; });
+    $(`input[name=pStatus][value=${post.status === 'published' ? 'published' : 'draft'}]`).checked = true;
+    $('#pDate').value = toLocalInput(post.published_at);
+    $('#pFeatured').checked = !!post.featured;
+    setCover(post.cover_url || '');
+    $('#pTitleHead').textContent = id ? 'Editar entrada' : 'Nueva entrada';
+    $('#pDelete').hidden = !id; $('#pErr').textContent = '';
+    $('#blogList').hidden = true; $('#blogEditor').hidden = false;
+    refresh();
+    postSaved = snapP(); // después de leer el formulario: así abrir sin tocar nada no cuenta como cambio
+    $('#pDirty').hidden = true;
+    window.scrollTo({ top: 0 });
+    if (!id) setTimeout(() => $('#pTitle').focus(), 30);
+  }
+  function readForm() {
+    Object.entries(pf).forEach(([k, sel]) => { post[k] = $(sel).value; });
+    post.status = $('input[name=pStatus]:checked').value;
+    post.published_at = $('#pDate').value ? new Date($('#pDate').value).getTime() : null;
+    post.featured = $('#pFeatured').checked ? 1 : 0;
+  }
+  function refresh() {
+    readForm();
+    if (!slugTouchedP) { post.slug = md.slugify(post.title); $('#pSlug').value = post.slug; }
+    const r = md.renderMarkdown(post.content);
+    $('#pWords').textContent = `${fmtN(r.words)} palabras · ${r.minutes} min de lectura · ${r.toc.length} secciones`;
+    $('#pStats').innerHTML = `<div><b>${fmtN(r.words)}</b><span>palabras</span></div><div><b>${r.minutes}</b><span>min lectura</span></div><div><b>${fmtN(post.views || 0)}</b><span>lecturas</span></div>`;
+    const st = post.status === 'published' ? (post.published_at && post.published_at > nowMs() ? 'sched' : 'pub') : 'draft';
+    $('#pPublish').innerHTML = st === 'sched' ? '<i class="ph-light ph-clock"></i>Programar' : post.id && postState(post)[0] === 'pub' ? '<i class="ph-light ph-check"></i>Actualizar' : '<i class="ph-light ph-paper-plane-tilt"></i>Publicar';
+    $('#pDateHint').textContent = post.published_at && post.published_at > nowMs() ? `Se publicará sola el ${fmtDate(post.published_at)}.` : 'Si eliges una fecha futura, se publica sola ese día.';
+    const v = $('#pView'); v.hidden = !post.id; v.href = `/blog/${post.slug}${st === 'pub' && postState(post)[0] === 'pub' ? '' : '?preview'}`;
+    // SEO
+    const tt = post.seo_title || post.title, dd = post.seo_desc || post.excerpt || md.plainText(post.content).slice(0, 155);
+    $('#pSeoTc').textContent = `${(post.seo_title || '').length}/60`; $('#pSeoTc').classList.toggle('over', (post.seo_title || '').length > 60);
+    $('#pSeoDc').textContent = `${(post.seo_desc || '').length}/160`; $('#pSeoDc').classList.toggle('over', (post.seo_desc || '').length > 160);
+    $('#serpSlug').textContent = post.slug || '…'; $('#serpT').textContent = (tt || 'Título de la entrada') + ' · Blog de Diwilo'; $('#serpD').textContent = dd || 'Descripción de la entrada.';
+    $('#pDirty').hidden = snapP() === postSaved;
+    clearTimeout(prevTimer); prevTimer = setTimeout(() => renderPreview(r), 120);
+  }
+  // Vista previa en un iframe con los estilos reales del sitio
+  function renderPreview(r) {
+    const fr = $('#pPrev');
+    const html = `<header class="post-head" style="padding-top:28px;max-width:none"><h1 class="post-title">${esc(post.title || 'Título de la entrada')}</h1>${post.excerpt ? `<p class="post-lead">${esc(post.excerpt)}</p>` : ''}</header>
+      ${post.cover_url || post.cover ? `<div class="post-hero-img" style="margin:0 0 28px"><img src="${esc(post.cover || post.cover_url)}" alt=""></div>` : ''}
+      <article class="prose post-body">${r.html || '<p style="color:#9da7ba">La vista previa aparece aquí mientras escribes.</p>'}</article>`;
+    const doc = fr.contentDocument;
+    if (!prevReady || !doc || !doc.getElementById('root')) {
+      fr.srcdoc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet"><link rel="stylesheet" href="/assets/css/styles.css"><style>body{background:#05060f;padding:0 26px 40px}</style></head><body><main class="blog" id="root">${html}</main></body></html>`;
+      fr.onload = () => { prevReady = true; };
+      return;
+    }
+    doc.getElementById('root').innerHTML = html;
+  }
+  ['#pTitle', '#pExcerpt', '#pContent', '#pCategory', '#pTags', '#pAuthor', '#pSeoTitle', '#pSeoDesc', '#pDate'].forEach((sel) => $(sel).addEventListener('input', refresh));
+  $('#pSlug').addEventListener('input', () => { slugTouchedP = true; refresh(); });
+  $('#pSlug').addEventListener('blur', () => { $('#pSlug').value = md.slugify($('#pSlug').value); refresh(); });
+  $$('input[name=pStatus]').forEach((r) => r.addEventListener('change', refresh));
+  $('#pFeatured').addEventListener('change', refresh);
+  $('#pMode').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (!b) return; $$('#pMode .btn').forEach((x) => x.classList.toggle('on', x === b)); $('#pPanes').className = 'ed-panes ' + (b.dataset.mode === 'split' ? '' : b.dataset.mode); });
+
+  // Barra de formato
+  const ta = () => $('#pContent');
+  function wrap(before, after = before, ph = 'texto') {
+    const t = ta(), s0 = t.selectionStart, s1 = t.selectionEnd, sel = t.value.slice(s0, s1) || ph;
+    t.setRangeText(before + sel + after, s0, s1, 'end');
+    t.selectionStart = s0 + before.length; t.selectionEnd = s0 + before.length + sel.length;
+    t.focus(); refresh();
+  }
+  function linePrefix(prefix, numbered) {
+    const t = ta(), v = t.value, s0 = v.lastIndexOf('\n', t.selectionStart - 1) + 1, s1 = t.selectionEnd;
+    const lines = v.slice(s0, s1).split('\n').map((l, i) => (numbered ? `${i + 1}. ` : prefix) + l.replace(/^(#{1,4}\s|>\s?|[-*]\s|\d+\.\s)/, ''));
+    t.setRangeText(lines.join('\n'), s0, s1, 'end'); t.focus(); refresh();
+  }
+  function insertBlock(text) {
+    const t = ta(), v = t.value, pos = t.selectionStart;
+    const pre = pos && v[pos - 1] !== '\n' ? '\n\n' : (pos && v[pos - 2] !== '\n' ? '\n' : '');
+    t.setRangeText(pre + text + '\n\n', pos, t.selectionEnd, 'end'); t.focus(); refresh();
+  }
+  $('#pBar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-md]'); if (!b) return;
+    const a = b.dataset.md;
+    if (a === 'b') wrap('**'); else if (a === 'i') wrap('*');
+    else if (a === 'h2') linePrefix('## '); else if (a === 'h3') linePrefix('### ');
+    else if (a === 'quote') linePrefix('> '); else if (a === 'ul') linePrefix('- '); else if (a === 'ol') linePrefix('', true);
+    else if (a === 'link') { const url = prompt('Dirección del enlace (https://… o /contacto):', 'https://'); if (url) wrap('[', `](${url.trim()})`, 'texto del enlace'); }
+    else if (a === 'code') wrap('\n```\n', '\n```\n', 'código');
+    else if (a === 'table') insertBlock('| Columna 1 | Columna 2 |\n|---|---|\n| Dato | Dato |');
+    else if (a === 'hr') insertBlock('---');
+    else if (a === 'img') $('#pImgFile').click();
+  });
+  $('#pContent').addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'b') { e.preventDefault(); wrap('**'); } else if (k === 'i') { e.preventDefault(); wrap('*'); }
+    else if (k === 'k') { e.preventDefault(); $('#pBar [data-md=link]').click(); }
+  });
+
+  // Imágenes: se reducen en el navegador antes de subir
+  async function shrink(file, maxW = 1600, quality = 0.82) {
+    const img = new Image(); img.src = URL.createObjectURL(file);
+    try { await img.decode(); } catch { throw new Error('No se pudo leer esa imagen'); }
+    const k = Math.min(1, maxW / img.naturalWidth), cv = document.createElement('canvas');
+    cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(img.src);
+    return cv.toDataURL('image/jpeg', quality);
+  }
+  async function uploadInline(file) {
+    if (!file?.type.startsWith('image/')) return;
+    const mark = `![Subiendo ${file.name}…]()`;
+    const t = ta(); t.setRangeText(`\n${mark}\n`, t.selectionStart, t.selectionEnd, 'end'); refresh();
+    try {
+      const r = await api('blog/images', { method: 'POST', body: { data: await shrink(file), post_id: post.id || null } });
+      const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+      t.value = t.value.replace(mark, `![${alt}](${r.url} "")`);
+    } catch (x) { t.value = t.value.replace(mark, ''); toast(x.message); }
+    refresh();
+  }
+  $('#pImgFile').addEventListener('change', (e) => { uploadInline(e.target.files[0]); e.target.value = ''; });
+  $('#pContent').addEventListener('paste', (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/')); if (f) { e.preventDefault(); uploadInline(f); } });
+  ['dragover', 'dragleave', 'drop'].forEach((ev) => $('#pContent').addEventListener(ev, (e) => {
+    if (![...(e.dataTransfer?.types || [])].includes('Files')) return;
+    e.preventDefault(); $('#pContent').classList.toggle('drag', ev === 'dragover');
+    if (ev === 'drop') uploadInline(e.dataTransfer.files[0]);
+  }));
+
+  // Portada
+  function setCover(src) {
+    const el = $('#pCover');
+    el.querySelector('img')?.remove();
+    if (src) { const i = document.createElement('img'); i.src = src; i.alt = ''; el.appendChild(i); }
+    $('#pCoverDel').hidden = !src;
+  }
+  async function takeCover(file) {
+    if (!file?.type.startsWith('image/')) return;
+    try { post.cover = await shrink(file, 1600, 0.84); setCover(post.cover); refresh(); } catch (x) { toast(x.message); }
+  }
+  $('#pCover').addEventListener('click', () => $('#pCoverFile').click());
+  $('#pCover').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#pCoverFile').click(); } });
+  $('#pCoverFile').addEventListener('change', (e) => { takeCover(e.target.files[0]); e.target.value = ''; });
+  ['dragover', 'dragleave', 'drop'].forEach((ev) => $('#pCover').addEventListener(ev, (e) => { e.preventDefault(); $('#pCover').classList.toggle('drag', ev === 'dragover'); if (ev === 'drop') takeCover(e.dataTransfer.files[0]); }));
+  $('#pCoverDel').addEventListener('click', () => { post.cover = ''; post.cover_url = null; setCover(''); refresh(); });
+
+  async function savePost(publish) {
+    readForm();
+    $('#pErr').textContent = '';
+    if (!post.title.trim()) { $('#pErr').textContent = 'Escribe un título.'; $('#pTitle').focus(); return; }
+    if (publish) { post.status = 'published'; $('input[name=pStatus][value=published]').checked = true; }
+    else if (publish === false) { post.status = 'draft'; $('input[name=pStatus][value=draft]').checked = true; }
+    const body = { id: post.id, title: post.title, slug: post.slug, excerpt: post.excerpt, content: post.content, category: post.category, tags: post.tags, author: post.author,
+      status: post.status, published_at: post.published_at, featured: post.featured, seo_title: post.seo_title, seo_desc: post.seo_desc };
+    if (post.cover !== undefined) body.cover = post.cover;
+    $$('#pSaveDraft, #pPublish').forEach((b) => { b.disabled = true; });
+    try {
+      const r = await api('blog', { method: 'POST', body });
+      Object.assign(post, { id: r.id, slug: r.slug, status: r.status, published_at: r.published_at });
+      if (post.cover) post.cover_url = post.cover; post.cover = undefined;
+      $('#pDate').value = toLocalInput(post.published_at); $('#pSlug').value = post.slug; slugTouchedP = true;
+      $('#pTitleHead').textContent = 'Editar entrada'; $('#pDelete').hidden = false;
+      postSaved = snapP(); refresh();
+      const st = postState(post)[0];
+      toast(st === 'pub' ? 'Publicada en el blog' : st === 'sched' ? `Programada para el ${fmtDate(post.published_at)}` : 'Borrador guardado');
+    } catch (x) { $('#pErr').textContent = x.message; }
+    $$('#pSaveDraft, #pPublish').forEach((b) => { b.disabled = false; });
+  }
+  $('#pSaveDraft').addEventListener('click', () => savePost(false));
+  $('#pPublish').addEventListener('click', () => savePost(true));
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#blogEditor').hidden) { e.preventDefault(); savePost(null); } });
+  function closePost() {
+    if (post && snapP() !== postSaved && !confirm('Hay cambios sin guardar. ¿Salir de todos modos?')) return;
+    post = null; $('#blogEditor').hidden = true; $('#blogList').hidden = false; loaders.blog();
+  }
+  $('#edBack2').addEventListener('click', closePost);
+  $('#pDelete').addEventListener('click', async () => {
+    if (!post?.id || !confirm(`¿Borrar “${post.title}”? No se puede deshacer.`)) return;
+    await api('blog/' + post.id, { method: 'DELETE' }); postSaved = snapP(); closePost(); toast('Entrada borrada');
+  });
+  window.addEventListener('beforeunload', (e) => { if (post && snapP() !== postSaved) e.preventDefault(); });
 
   /* ---------- arranque ---------- */
   async function start() {
