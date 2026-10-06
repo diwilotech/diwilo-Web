@@ -57,7 +57,7 @@
       const a = e.target.closest('a, button');
       if (!a) return;
       const label = (a.textContent || a.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 80);
-      if (a.href && a.href.includes('wa.me')) track('click_whatsapp', { label });
+      if (a.href && a.href.includes('wa.me') && !a.closest('[data-wa-handoff]')) track('click_whatsapp', { label });
       else if (a.classList.contains('btn--primary')) track('cta', { label });
     }, { capture: true });
   }
@@ -674,6 +674,44 @@
     onceVisible(root, update, 0.4);
   }
 
+  /* ---------------- WhatsApp con el resumen de la conversación ---------------- */
+  // En las respuestas del chat, los links de WhatsApp y el número abren WhatsApp con un resumen
+  // de lo hablado (lo genera la IA en /api/chat/handoff), para no tener que repetir todo.
+  const chatLinkify = (t) => esc(t)
+    .replace(/https?:\/\/(?:api\.)?wa\.me\/[^\s<]*/g, '\u0001')
+    .replace(/(?:\+?57[\s-]?)?305[\s-]?384[\s-]?0193/g, '\u0002')
+    .replace(/(https?:\/\/[^\s<\u0001\u0002]+[^\s<.,;:!?)\u0001\u0002])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>')
+    .replace(/\u0001/g, `<a href="https://wa.me/${WHATSAPP}" data-wa-handoff>abrir WhatsApp</a>`)
+    .replace(/\u0002/g, `<a href="https://wa.me/${WHATSAPP}" data-wa-handoff>+57 305 384 0193</a>`);
+  const HANDOFF_BTN = `<button type="button" class="wa-handoff" data-wa-handoff><i class="ph-light ph-whatsapp-logo"></i><span><b>Seguir por WhatsApp</b><small>Enviamos el resumen de esta conversación</small></span></button>`;
+
+  async function openHandoff(el) {
+    if (el.dataset.busy) return;
+    el.dataset.busy = '1';
+    const label = el.querySelector('b');
+    const before = label ? label.textContent : '';
+    if (label) label.textContent = 'Preparando WhatsApp…';
+    // La ventana se abre en el clic (si no, el navegador la bloquea) y luego se lleva a WhatsApp
+    const w = window.open('', '_blank');
+    if (w) { try { w.document.write('<p style="font:16px system-ui;padding:24px;color:#555">Preparando WhatsApp con el resumen de tu conversación…</p>'); } catch (_) { /* sin acceso */ } }
+    let url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola Diwilo, vengo del chat de diwilo.com. Quiero información sobre sus servicios.')}`;
+    try {
+      const r = await fetch(API_BASE + '/api/chat/handoff', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, page: location.pathname }) });
+      const d = await r.json();
+      if (d.url) url = d.url;
+    } catch (_) { /* se usa el mensaje general */ }
+    if (w && !w.closed) w.location.href = url; else location.href = url;
+    if (label) label.textContent = before;
+    delete el.dataset.busy;
+  }
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-wa-handoff]');
+    if (!el) return;
+    e.preventDefault();
+    openHandoff(el);
+  });
+
   /* ---------------- Botones flotantes: WhatsApp + chat IA ---------------- */
   function initFab() {
     const HELLO = '¡Hola! Soy el asistente de Diwilo. Te cuento sobre automatización, datos y agentes de IA, o te ayudo a agendar un diagnóstico sin costo. ¿En qué te ayudo?';
@@ -696,10 +734,10 @@
             <input id="fab-q" class="input" name="q" placeholder="Escribe tu pregunta…" autocomplete="off" maxlength="1000">
             <button type="submit" class="btn btn--solid" aria-label="Enviar"><i class="ph-light ph-paper-plane-tilt"></i></button>
           </form>
-          <p class="chatbox__note">Asistente con IA · <a href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener">hablar con una persona</a></p>
+          <p class="chatbox__note">Asistente con IA · <a href="https://wa.me/${WHATSAPP}" data-wa-handoff>hablar con una persona</a></p>
         </div>
       </section>
-      <a class="fab__btn fab__btn--wa" href="https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola, quiero información sobre sus servicios')}" target="_blank" rel="noopener" aria-label="Escribir por WhatsApp">
+      <a class="fab__btn fab__btn--wa" href="https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola, quiero información sobre sus servicios')}" data-wa-handoff aria-label="Escribir por WhatsApp">
         <i class="ph-light ph-whatsapp-logo"></i><span class="fab__label">WhatsApp</span>
       </a>
       <button type="button" class="fab__btn fab__btn--ai" aria-label="Abrir chat con IA" aria-expanded="false">
@@ -712,22 +750,19 @@
     let history = session.get('dwl_chat') || [];
     let busy = false, opened = false;
 
-    // Texto plano con enlaces y correos clicables
-    const linkify = (t) => esc(t)
-      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-      .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>');
-    function add(role, text, save = true) {
+    function add(role, text, save = true, handoff = false) {
       const m = document.createElement('div');
       m.className = `msg msg--${role === 'user' ? 'me' : 'bot'}`;
-      m.innerHTML = linkify(text);
+      m.innerHTML = chatLinkify(text);
       log.appendChild(m);
+      if (handoff) { $$('.wa-handoff', log).forEach((b) => b.remove()); log.insertAdjacentHTML('beforeend', HANDOFF_BTN); }
       log.scrollTop = log.scrollHeight;
-      if (save) { history.push({ role, text }); session.set('dwl_chat', history.slice(-40)); }
+      if (save) { history.push({ role, text, handoff }); session.set('dwl_chat', history.slice(-40)); }
     }
     function render() {
       log.innerHTML = '';
       add('assistant', HELLO, false);
-      history.forEach((m) => add(m.role, m.text, false));
+      history.forEach((m) => add(m.role, m.text, false, m.handoff));
     }
     function setOpen(open) {
       wrap.classList.toggle('is-open', open);
@@ -751,13 +786,14 @@
       typing.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
       log.appendChild(typing);
       log.scrollTop = log.scrollHeight;
-      let reply;
+      let reply, handoff = false;
       try {
         const r = await fetch(API_BASE + '/api/chat', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: text, page: location.pathname }) });
-        reply = (await r.json()).reply;
+        const d = await r.json();
+        reply = d.reply; handoff = !!d.handoff;
       } catch (_) { /* respuesta de respaldo abajo */ }
       typing.remove();
-      add('assistant', reply || `No pude conectarme ahora. Escríbenos por WhatsApp: https://wa.me/${WHATSAPP} o a ${CONTACT_EMAIL}`);
+      add('assistant', reply || `No pude conectarme ahora. Toca «Seguir por WhatsApp» o escríbenos a ${CONTACT_EMAIL}.`, true, handoff || !reply);
       busy = false;
     }
 
@@ -980,9 +1016,7 @@
     let options = ['¿Cuánto cuesta un proyecto?', '¿Qué apps tienen?', 'Quiero automatizar WhatsApp', '¿Cuánto tarda un proyecto?', 'Agendar diagnóstico'];
     let busy = false, used = false;
     const wait = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
-    const linkify = (s) => esc(s)
-      .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-      .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>');
+    const linkify = chatLinkify;
     const scroll = () => { log.scrollTop = log.scrollHeight; };
     function bubble(who) {
       const m = document.createElement('div');
@@ -1016,13 +1050,15 @@
       if (/agendar diagn/i.test(q)) { location.href = '/contacto'; return; }
       bubble('me').textContent = q;
       const t = typing();
-      let reply;
+      let reply, handoff = false;
       try {
         const r = await fetch(API_BASE + '/api/chat', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ sid, message: q, page: location.pathname }) });
-        reply = (await r.json()).reply;
+        const d = await r.json();
+        reply = d.reply; handoff = !!d.handoff;
       } catch (_) { /* respuesta de respaldo */ }
       t.classList.remove('msg--typing');
-      await typeText(t, reply || `No pude conectarme ahora. Escríbenos por WhatsApp: https://wa.me/${WHATSAPP}`, 14);
+      await typeText(t, reply || 'No pude conectarme ahora. Toca «Seguir por WhatsApp» y te respondemos allá.', 14);
+      if (handoff || !reply) { $$('.wa-handoff', log).forEach((b) => b.remove()); log.insertAdjacentHTML('beforeend', HANDOFF_BTN); scroll(); }
       options = options.filter((o) => o !== q);
       showSugg();
       busy = false;

@@ -27,9 +27,42 @@ Servicios: analítica y ciencia de datos (Python, SQL, modelos predictivos); aut
 Formas de trabajo: diagnóstico de automatización (1 a 2 semanas, primera sesión de 45 minutos sin costo); proyecto cerrado (4 a 12 semanas, sprints de dos semanas con demo); operación y soporte mensual.
 Metodologías: Scrum, Kanban, CRISP-DM, MLOps, PMI. Datos tratados conforme a la Ley 1581 de 2012; se firma NDA si se necesita.
 Casos: Dashboards PMO para construcción, automatizaciones con n8n, plataforma de Becas del Centenario Rotario, sitios para Madetableros, Fundación Amor por Medellín y Rotary Club Medellín.
-Contacto: hola@diwilo.com · WhatsApp +57 305 384 0193 · https://wa.me/573053840193
+Contacto: hola@diwilo.com · WhatsApp +57 305 384 0193 · formulario en https://diwilo.com/contacto
 
-Reglas: responde en español, breve (máximo 4 frases), cálido y concreto. No inventes precios: explica que dependen del alcance y ofrece el diagnóstico sin costo. Si la persona quiere avanzar, pídele nombre, empresa y correo o invítala a escribir por WhatsApp. Si no sabes algo, dilo y ofrece contacto humano. No hables de temas ajenos a Diwilo y sus servicios.`;
+Reglas: responde en español, breve (máximo 4 frases), cálido y concreto. No inventes precios: explica que dependen del alcance y ofrece el diagnóstico sin costo. Si la persona quiere avanzar, hablar con alguien o pedir una cotización, invítala a tocar el botón «Seguir por WhatsApp» que aparece en este chat: envía a Diwilo un resumen de esta conversación para no repetir todo. No escribas el número de teléfono salvo que te lo pidan. Si no sabes algo, dilo y ofrece contacto humano. No hables de temas ajenos a Diwilo y sus servicios.`;
+
+/* Lo que el asistente sabe de las apps propias. Se agrega siempre al prompt (también si se editó en el panel),
+   con los días de prueba y precios que estén configurados en Negocios. */
+const APPS_INFO = [
+  { name: 'CD Pedidos', url: 'https://cdpedidos.diwilo.com', guide: 'https://diwilo.com/blog/como-elegir-software-para-restaurantes', key: 'pedidos',
+    for: 'restaurantes, bares y negocios de mostrador',
+    does: 'plano interactivo de mesas por pisos, comandas y cuentas por mesa, guardar la cuenta para pagar después a nombre de un cliente, inventario que se descuenta al vender con reposición e historial, cuentas por cobrar (cargos, abonos y saldo), catálogo editable, tablero con ventas del día por persona y por categoría, usuario por cada persona del equipo; se instala en el celular y funciona sin conexión' },
+  { name: 'CD Nutrición', url: 'https://cdnutricion.diwilo.com', guide: 'https://diwilo.com/blog/como-elegir-software-para-nutricionistas', key: 'nutricion',
+    for: 'consultorios de nutrición y nutricionistas',
+    does: 'pacientes con su historial, consultas con antropometría, vista Cuerpo Vivo (figura animada con medidas, salud, evolución y plan de alimentación), exámenes y archivos del paciente, agenda de citas, informe de la consulta en PDF con QR, seguimiento del paciente por enlace privado sin contraseña (marca comidas, agua y metas), página pública del consultorio con mapa y horario, equipo con usuarios, avisos por WhatsApp' },
+  { name: 'CD Citas', url: 'https://cdcitas.diwilo.com', guide: 'https://diwilo.com/blog/como-elegir-software-de-citas-y-reservas', key: 'citas',
+    for: 'negocios que trabajan con citas o reservas (peluquerías, barberías, estética, consultorios, estudios)',
+    does: 'página de reservas propia del negocio donde el cliente elige servicio, especialista y hora, servicios con duración, especialistas, espacios, clientes, bloqueos de horario, cancelar/reagendar/mover/reabrir citas, confirmaciones y recordatorios automáticos, avisos por WhatsApp con el número del negocio, página para que el cliente vea sus citas' },
+  { name: 'CD Residentes', url: 'https://cdresidentes.diwilo.com', guide: 'https://diwilo.com/blog/como-elegir-software-propiedad-horizontal', key: 'residentes',
+    for: 'administraciones de propiedad horizontal (conjuntos residenciales, edificios), una o varias copropiedades',
+    does: 'propietarios y unidades con coeficiente, cartera por unidad (cuota de administración, intereses de mora, cobro jurídico, retroactivos, extraordinarias, parqueadero) con antigüedad de la deuda y recaudo, cuenta de cobro en PDF, portería (visitas, mudanzas, domicilios, mantenimiento, alarmas), PQRS con respuesta asistida por IA, reservas de zonas comunes con tarifa y calendario, censo de mascotas, comunicados por WhatsApp y correo con redacción por IA, asistente Diwilo AI que responde con los datos en vivo, y portal de propietarios (entran con apartamento y cédula para ver su cartera, cuenta de cobro, comunicados, mascotas y reservas)' },
+];
+
+async function appsKnowledge(env) {
+  const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'platform_%'").all();
+  const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
+  const trial = Number(s.platform_trial_days ?? 15);
+  const lines = APPS_INFO.map((a) => {
+    const price = Number(s[`platform_price_${a.key}`] || 0);
+    return `- ${a.name} (${a.url}) — para ${a.for}. Qué hace: ${a.does}. ${price ? `Precio de referencia: $${price.toLocaleString('es-CO')} COP al mes por negocio.` : 'Precio: depende del plan; se confirma en la demo.'} Guía: ${a.guide}`;
+  });
+  return `
+
+APPS DE DIWILO (son productos propios de Diwilo, en la nube, que Diwilo administra; nunca digas que no existen):
+${lines.join('\n')}
+Cómo empezar con una app: la persona pide una demo (botón «Pedir demo» en https://diwilo.com/apps o por este chat); Diwilo crea la cuenta del negocio y envía al dueño un link para crear su contraseña; cada persona del equipo entra con su correo.${trial > 0 ? ` Los negocios nuevos tienen ${trial} días de prueba.` : ''} Se paga una suscripción mensual; si vence, la app queda en solo lectura (no se pierde nada). Todas las apps están en https://diwilo.com/apps.
+Si preguntan por una app, explica para quién es y 2 o 3 funciones que encajen con lo que preguntó, comparte su guía o https://diwilo.com/apps y ofrece una demo. Si piden precio y no hay precio de referencia, di que depende del plan y ofrece la demo.`;
+}
 
 /* ---------------- utilidades ---------------- */
 const now = () => Date.now();
@@ -135,6 +168,7 @@ async function apiLead(req, env, ctx) {
 
 /* ================= SERVIDOR MCP (Streamable HTTP, sin estado) ================= */
 const MCP_INFO = {
+  apps: 'Apps propias de Diwilo (https://diwilo.com/apps):\n' + APPS_INFO.map((a) => `- ${a.name} (${a.url}): para ${a.for}. ${a.does}.`).join('\n') + '\nSe empieza con una demo; Diwilo crea la cuenta y se paga una suscripción mensual.',
   servicios: `Servicios de Diwilo (Medellín, Colombia):
 - Analítica y ciencia de datos: modelos predictivos, segmentación y pronóstico (Python, SQL, scikit-learn).
 - Automatización de flujos: conectar sistemas y eliminar trabajo repetitivo (n8n, APIs, webhooks).
@@ -152,8 +186,8 @@ const MCP_TOOLS = [
   {
     name: 'diwilo_info',
     title: 'Información de Diwilo',
-    description: 'Devuelve información de Diwilo: servicios y modalidades, casos, metodologías o datos de contacto.',
-    inputSchema: { type: 'object', properties: { tema: { type: 'string', enum: ['servicios', 'casos', 'metodologia', 'contacto', 'todo'], description: 'Tema a consultar' } }, required: ['tema'] },
+    description: 'Devuelve información de Diwilo: servicios y modalidades, apps propias (Pedidos, Nutrición, Citas, Residentes), casos, metodologías o datos de contacto.',
+    inputSchema: { type: 'object', properties: { tema: { type: 'string', enum: ['servicios', 'apps', 'casos', 'metodologia', 'contacto', 'todo'], description: 'Tema a consultar' } }, required: ['tema'] },
     annotations: { readOnlyHint: true }
   },
   {
@@ -243,14 +277,14 @@ async function callAI(env, system, history) {
 async function apiChat(req, env, ctx) {
   const b = await readJson(req, 30000);
   const settings = await getSettings(env);
-  if (!settings.chat_enabled) return json({ reply: 'El chat está en pausa. Escríbenos por WhatsApp al +57 305 384 0193 y te respondemos enseguida.' });
+  if (!settings.chat_enabled) return json({ reply: 'El chat está en pausa. Toca «Seguir por WhatsApp» y te respondemos enseguida.', handoff: true });
   const sid = clip(b.sid, 64);
   const text = clip((b.message || '').trim(), 1000);
   if (!sid || !text) return json({ error: 'mensaje vacío' }, 400);
 
   // límite: 20 mensajes por conversación cada 10 minutos
   const recent = await env.DB.prepare("SELECT COUNT(*) n FROM messages WHERE chat_id = ? AND role = 'user' AND ts > ?").bind(sid, now() - 10 * 60000).first();
-  if (recent.n >= 20) return json({ reply: 'Has enviado muchos mensajes seguidos. Para seguir, escríbenos por WhatsApp: https://wa.me/573053840193' });
+  if (recent.n >= 20) return json({ reply: 'Has enviado muchos mensajes seguidos. Para seguir, toca «Seguir por WhatsApp»: le enviamos a Diwilo el resumen de esta conversación.', handoff: true });
 
   const g = geo(req);
   await env.DB.prepare(`INSERT INTO chats (id, started_at, last_at, page, country, city, device, msg_count) VALUES (?,?,?,?,?,?,?,0)
@@ -262,17 +296,47 @@ async function apiChat(req, env, ctx) {
 
   let reply;
   try {
-    reply = await callAI(env, settings.chat_prompt, history);
+    reply = await callAI(env, settings.chat_prompt + (await appsKnowledge(env)), history);
   } catch (e) {
     console.error('chat error', e);
   }
-  if (!reply) reply = 'Ahora mismo no puedo responder. Escríbenos por WhatsApp al +57 305 384 0193 o a hola@diwilo.com.';
+  if (!reply) reply = 'Ahora mismo no puedo responder. Toca «Seguir por WhatsApp» o escríbenos a hola@diwilo.com.';
   await env.DB.batch([
     env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'assistant',?)").bind(sid, now() + 1, reply),
     env.DB.prepare('UPDATE chats SET msg_count = msg_count + 2, last_at = ? WHERE id = ?').bind(now(), sid)
   ]);
   if (history.length <= 1) ctx.waitUntil(fireWebhook(env, 'chat_started', { chat_id: sid, first_message: text, page: b.page, country: g.country }));
-  return json({ reply });
+  return json({ reply, handoff: HANDOFF_HINT.test(reply) });
+}
+
+/* Pasar a WhatsApp con un resumen de la conversación (lo escribe la IA, en primera persona del visitante) */
+const WA_NUMBER = '573053840193';
+const HANDOFF_HINT = /whats\s?app|asesor|una persona|alguien del equipo|agendar|demo|cotiza|contact/i;
+
+async function apiHandoff(req, env, ctx) {
+  const b = await readJson(req, 4000);
+  const sid = clip(b.sid, 64);
+  const intro = 'Hola Diwilo, vengo del chat de diwilo.com.';
+  let summary = '';
+  if (sid) {
+    const { results } = await env.DB.prepare('SELECT role, content FROM messages WHERE chat_id = ? ORDER BY ts DESC, id DESC LIMIT 20').bind(sid).all();
+    const convo = results.reverse();
+    if (convo.some((m) => m.role === 'user')) {
+      try {
+        const text = convo.map((m) => `${m.role === 'user' ? 'Visitante' : 'Asistente'}: ${m.content}`).join('\n').slice(-6000);
+        summary = await callAI(env,
+          'Escribe en español, en primera persona del visitante, un resumen de máximo 3 frases cortas con lo que el VISITANTE dijo y preguntó: su tipo de negocio o tamaño (solo si lo mencionó), la app o servicio que le interesa y sus preguntas. Usa solo lo que dijo el visitante: no agregues pedidos, datos ni intenciones que no escribió, y no repitas lo que respondió el asistente. Sin saludo ni despedida.',
+          [{ role: 'user', content: text }]);
+      } catch (e) { console.error('handoff', e); }
+      if (!summary) summary = 'Me interesa: ' + convo.filter((m) => m.role === 'user').map((m) => m.content).slice(-3).join(' / ');
+    }
+  }
+  summary = String(summary || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  const message = summary ? `${intro}\n\n${summary}${sid ? `\n\n(Chat ${sid.slice(0, 6)})` : ''}` : `${intro} Quiero información sobre sus servicios.`;
+  const g = geo(req);
+  ctx.waitUntil(env.DB.prepare('INSERT INTO events (ts, type, path, label, sid, country, city, device) VALUES (?,?,?,?,?,?,?,?)')
+    .bind(now(), 'click_whatsapp', clip(b.page, 300), 'Seguir por WhatsApp (con resumen)', sid, g.country, g.city, g.device).run());
+  return json({ url: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`, summary });
 }
 
 /* ---------------- links y tarjetas ---------------- */
@@ -543,6 +607,7 @@ export default {
         if (path === '/api/track') res = await apiTrack(req, env);
         else if (path === '/api/lead') res = await apiLead(req, env, ctx);
         else if (path === '/api/chat') res = await apiChat(req, env, ctx);
+        else if (path === '/api/chat/handoff') res = await apiHandoff(req, env, ctx);
         else res = json({ error: 'no encontrado' }, 404);
         return cors(env, req, res);
       }
