@@ -1,7 +1,8 @@
 /**
  * Plataforma Diwilo: desde /admin se crean los negocios de cada app, se invita a sus usuarios y se
- * manejan las suscripciones. Cada app expone el mismo contrato en /api/platform/* (Bearer
- * PLATFORM_KEY); Diwilo la llama por service binding (o por su URL pública si no hay binding).
+ * manejan las suscripciones. Cada app expone el mismo contrato en /api/platform/* y lo publica solo
+ * por RPC: `export class Platform` con call(method, path, body, origin). Diwilo la llama por un service
+ * binding con "entrypoint": "Platform"; desde internet esas rutas dan 401, y no hay clave compartida.
  *
  * La app guarda solo `paid_until` ('YYYY-MM-DD', inclusive; null = sin límite) y queda en solo
  * lectura cuando vence. El historial de pagos vive aquí, en la tabla sub_payments.
@@ -51,24 +52,18 @@ function addMonths(iso, n) {
 
 async function callApp(env, app, method, path, body) {
   const cfg = APPS[app];
-  const base = (env[cfg.url] || 'https://app.internal').replace(/\/+$/, '');
   const svc = env[cfg.binding];
-  if (!env.PLATFORM_KEY) throw new AppError(503, 'Falta el secreto PLATFORM_KEY en Diwilo Web');
-  if (!svc && !env[cfg.url]) throw new AppError(503, `${cfg.name} no está conectada (falta el service binding ${cfg.binding} o ${cfg.url})`);
-  const init = {
-    method,
-    headers: { authorization: `Bearer ${env.PLATFORM_KEY}`, 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  };
+  if (!svc) throw new AppError(503, `${cfg.name} no está conectada (falta el service binding ${cfg.binding})`);
   let res;
   try {
-    res = svc ? await svc.fetch(`${base}/api/platform${path}`, init) : await fetch(`${base}/api/platform${path}`, init);
+    // origin: la URL pública de la app, con la que arma los links que devuelve (admin_url, logo_url...)
+    res = await svc.call(method, path, body, env[cfg.url]);
   } catch (e) {
     throw new AppError(502, `${cfg.name} no responde: ${e.message}`);
   }
-  const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
-  if (res.status === 401) throw new AppError(502, `${cfg.name} rechazó la clave: revisa que PLATFORM_KEY sea igual en los dos proyectos`);
-  if (!res.ok) throw new AppError(res.status >= 500 ? 502 : res.status, data.error || `${cfg.name} respondió ${res.status}`);
+  const { status, data = {} } = res || {};
+  if (status === 401) throw new AppError(502, `${cfg.name} rechazó la llamada: revisa que su Worker exporte "Platform" y que el binding ${cfg.binding} tenga "entrypoint": "Platform"`);
+  if (!(status >= 200 && status < 300)) throw new AppError(status >= 500 ? 502 : status || 502, data.error || `${cfg.name} respondió ${status}`);
   return data;
 }
 

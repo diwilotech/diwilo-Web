@@ -29,12 +29,13 @@
   ],
   "ai": { "binding": "AI" },
   // Apps de Diwilo que se administran desde /admin → Negocios (llamadas internas, sin pasar por internet).
+  // Cada app exporta "Platform" (RPC): Diwilo la administra sin clave compartida y sin URL pública.
   "services": [
-    { "binding": "PEDIDOS", "service": "cdpedidos" },
-    { "binding": "NUTRICION", "service": "cdnutricion" },
-    { "binding": "CITAS", "service": "cdcitas" },
-    { "binding": "RESIDENTES", "service": "cdresidentes" },
-    { "binding": "ACADEMIA", "service": "cdacademia" }
+    { "binding": "PEDIDOS", "service": "cdpedidos", "entrypoint": "Platform" },
+    { "binding": "NUTRICION", "service": "cdnutricion", "entrypoint": "Platform" },
+    { "binding": "CITAS", "service": "cdcitas", "entrypoint": "Platform" },
+    { "binding": "RESIDENTES", "service": "cdresidentes", "entrypoint": "Platform" },
+    { "binding": "ACADEMIA", "service": "cdacademia", "entrypoint": "Platform" }
   ],
   "vars": {
     "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com",
@@ -49,7 +50,6 @@
     "ACCESS_AUD": "8aff5757625de9f788990028811bd004a1e93adac714772bc786ce263e4af6dc"
   }
   // Secretos (no van en este archivo):
-  //   npx wrangler secret put PLATFORM_KEY      la misma clave en cdpedidos, cdnutricion, cdcitas, cdresidentes y cdacademia
   //   npx wrangler secret put ADMIN_EMAILS      (opcional) correos que pueden entrar, separados por coma
   //   npx wrangler secret put GEMINI_API_KEY    (opcional) Gemini en el chat; sin ella usa Workers AI
 }

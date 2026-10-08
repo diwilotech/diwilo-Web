@@ -58,7 +58,9 @@ de IA y entrenar (`ai-train=yes`). Para impedir el entrenamiento cambia a `ai-tr
 Diwilo Web es el **único** lugar donde se crean negocios, se invita a sus dueños y se cobran las
 suscripciones de las apps **Pedidos** (`cdpedidos`), **Nutrición** (`cdnutricion`) y **Citas** (`cdcitas`).
 
-- Cada app expone `/api/platform/*` (mismo contrato en las tres) protegido con `Authorization: Bearer PLATFORM_KEY`.
+- Cada app expone el mismo contrato `/api/platform/*` solo por RPC: `export class Platform` con `call(method, path, body, origin)`.
+  Diwilo la llama por un service binding con `"entrypoint": "Platform"`. No hay clave compartida y desde internet esas rutas dan 401.
+- Para crear una app nueva parte de la carpeta `Plantilla App Diwilo` (trae el contrato, el login y la guía para registrarla aquí).
 - Diwilo las llama por *service binding* (`services` en `wrangler.jsonc`), sin pasar por internet.
 - La app guarda solo `paid_until` (`YYYY-MM-DD`). Al vencer, queda en **solo lectura** (402 en escrituras).
 - **Registrar pago** extiende `paid_until` N meses desde la fecha vigente (o desde hoy si ya venció) y
@@ -95,7 +97,6 @@ alguien llegue por otra ruta. Para salir: `/cdn-cgi/access/logout` (botón **Sal
 ## Secretos
 
 ```bash
-npx wrangler secret put PLATFORM_KEY        # la misma clave en las 3 apps
 npx wrangler secret put ADMIN_EMAILS        # opcional: correos permitidos
 npx wrangler secret put GEMINI_API_KEY      # opcional: Gemini en el chat
 ```
@@ -111,8 +112,8 @@ Sin `GEMINI_API_KEY` el chat usa Workers AI de Cloudflare.
 npx wrangler dev            # sitio + rutas dinámicas con datos locales
 ```
 
-En local no hay Access: crea `.dev.vars` con `DEV_ADMIN_EMAIL=tu@correo.com` y `PLATFORM_KEY=…`. Si las apps
-corren con `wrangler dev` en otra terminal, los service bindings se conectan solos.
+En local no hay Access: crea `.dev.vars` con `DEV_ADMIN_EMAIL=tu@correo.com`. Para probar Negocios con una app, levántalas
+juntas: `npx wrangler dev -c wrangler.jsonc -c "../Control de Residentes/wrangler.jsonc"`.
 
 ## Animaciones del sitio
 
