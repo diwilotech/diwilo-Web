@@ -245,6 +245,10 @@ Admin.tab('negocios', (A) => {
         <div class="sub">
           <h3>Datos</h3>
           <form class="row" id="renameForm" style="flex-wrap:nowrap"><input class="in" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn sm" type="submit">Renombrar</button></form>
+          ${b.slug ? `<form id="slugForm" style="display:grid;gap:6px">
+            <label class="muted" for="slugIn" style="font-size:12px">Dirección del negocio · <span class="mono">${esc((app.url || '').replace(/^https?:\/\//, ''))}/…</span></label>
+            <div class="row" style="flex-wrap:nowrap"><input class="in mono" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn sm" type="submit">Cambiar</button></div>
+            <span class="muted" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
           <p class="muted" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
           <h3 style="margin-top:6px">Historial de pagos</h3>
           <div id="payHist" class="muted">Cargando…</div>
@@ -336,6 +340,13 @@ Admin.tab('negocios', (A) => {
       if (f.id === 'payForm') {
         const r = await api(bizPath(b.id, '/payments'), { method: 'POST', body: formData(f) });
         toast('Pago registrado: hasta ' + fmtDay(r.paid_until));
+      } else if (f.id === 'slugForm') {
+        const slug = f.elements.slug.value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+        if (slug === b.slug) return;
+        const ok = await ask({ title: 'Cambiar la dirección', text: `${b.name} pasará de /${b.slug} a /${slug}. La dirección vieja redirige a la nueva, así que los links y QR que ya compartieron siguen funcionando.`, ok: 'Cambiar dirección' });
+        if (ok === null) return;
+        await api(bizPath(b.id), { method: 'PATCH', body: { slug } });
+        toast(`Dirección cambiada: /${slug}`);
       } else if (f.id === 'renameForm') {
         await api(bizPath(b.id), { method: 'PATCH', body: { name: f.elements.name.value.trim() } });
         toast('Nombre actualizado');

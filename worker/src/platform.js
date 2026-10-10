@@ -11,7 +11,7 @@
  *   POST   /admin/api/platform/config                            { trial_days, price_<app> }
  *   GET    /admin/api/platform/:app/businesses
  *   POST   /admin/api/platform/:app/businesses                   { name, slug?, owner_email, owner_name?, trial_days? }
- *   PATCH  /admin/api/platform/:app/businesses/:id               { name?, paid_until? }
+ *   PATCH  /admin/api/platform/:app/businesses/:id               { name?, slug?, paid_until? }  slug = dirección (la vieja redirige)
  *   GET    /admin/api/platform/:app/businesses/:id/payments
  *   POST   /admin/api/platform/:app/businesses/:id/payments      { months, amount, note? }
  *   POST   /admin/api/platform/:app/businesses/:id/users         { email, name?, role }
@@ -185,7 +185,9 @@ async function route(req, env, path, url, adminEmail) {
     const body = {};
     if (b.name !== undefined) body.name = clip(b.name, 120);
     if (b.paid_until !== undefined) body.paid_until = b.paid_until || null;
+    if (b.slug !== undefined) body.slug = clip(b.slug, 50);
     await callApp(env, app, 'PATCH', `/businesses/${bid}`, body);
+    if (body.slug) await audit(env, adminEmail, `cambió la dirección de un negocio de ${APPS[app].name} a /${body.slug}`);
     return json({ ok: true });
   }
 

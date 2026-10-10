@@ -273,3 +273,6 @@ dialog.ask h2{margin:0 0 8px}
 dialog.ask p{margin:0 0 12px;font-size:13px;line-height:1.55}
 dialog.ask .in{width:100%}
 dialog.ask .btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* Negocios: dirección del negocio (prefijo de la URL + campo) */
+#slugForm .in{min-width:0;flex:1}
