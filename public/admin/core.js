@@ -143,7 +143,7 @@
   }
 
   // Pestañas que ahora viven dentro de otra (enlaces viejos y última pestaña recordada).
-  const MOVED = { links: ['marketing', 'campanas'], cards: ['marketing', 'tarjetas'], leads: ['marketing', 'formulario'] };
+  const MOVED = { links: ['marketing', 'campanas'], cards: ['marketing', 'tarjetas'], leads: ['marketing', 'contactos'] };
   async function go(id) {
     if (MOVED[id]) { try { sessionStorage.setItem('dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
     if (!$(`[data-section="${id}"]`)) id = 'resumen';
@@ -167,6 +167,7 @@
   }
 
   /* ---------- avisos del menú (sin abrir las pestañas) ---------- */
+  const refreshLeadBadge = () => api('leads').then((l) => setBadge('leadBadge', l.filter((x) => x.status === 'nuevo').length)).catch(() => {});
   async function refreshBizBadge() {
     try {
       const plat = await api('platform');
@@ -183,7 +184,7 @@
   }
 
   window.Admin = {
-    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask, sure, mount, unmount,
+    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, refreshLeadBadge, ask, sure, mount, unmount,
     tab(id, factory) { factories[id] = factory; },
   };
 
@@ -195,7 +196,7 @@
     try { me = await api('me'); } catch { return showLogin(); }
     $('#whoami').textContent = me.email;
     $('#login').hidden = true; $('#app').hidden = false;
-    api('leads').then((l) => setBadge('leadBadge', l.filter((x) => x.status === 'nuevo').length)).catch(() => {});
+    refreshLeadBadge();
     refreshBizBadge();
     // Enlaces viejos con #pestaña siguen funcionando; la URL queda limpia.
     const fromHash = location.hash.slice(1);

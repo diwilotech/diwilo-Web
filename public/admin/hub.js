@@ -118,6 +118,7 @@
       } catch (x) { $('[data-body]', cfg.el).innerHTML = `<tr><td class="empty" colspan="99">${esc(x.message)}</td></tr>`; }
     }
     async function edit(row) {
+      if (cfg.onEdit) return cfg.onEdit(row, changed);
       const vals = row ? { ...row } : { ...(cfg.defaults?.() || {}) };
       const out = await form({ title: row ? `Editar ${cfg.title}` : (cfg.newText || 'Nuevo'), fields: cfg.fields, values: vals, org: cfg.org(),
         onDelete: row && !cfg.noDelete ? () => api(`${base()}/${row.id}`, { method: 'DELETE' }) : null });

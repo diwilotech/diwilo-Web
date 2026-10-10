@@ -56,9 +56,9 @@ export const ENTITIES = {
   spend: { table: 'mk_spend', search: ['note'], order: 'date DESC',
     fields: { campaign_id: 'int!', date: 'date!', amount: 'money!', leads: 'int', clicks: 'int', impressions: 'int', note: 'text' } },
   tasks: { table: 'mk_tasks', search: ['title', 'notes', 'assignee'], order: 'done, COALESCE(due_date, \'9999\'), created_at DESC',
-    fields: { title: 'text!', due_date: 'date', done: 'bool', contact_id: 'int', deal_id: 'int', assignee: 'text', notes: 'long' } },
+    fields: { title: 'text!', due_date: 'date', done: 'bool', contact_id: 'int', deal_id: 'int', assignee: 'text', notes: 'long', source: ['manual', 'plantilla'] } },
   automations: { table: 'mk_automations', search: ['name'], order: 'created_at DESC',
-    fields: { name: 'text!', trigger: ['lead_nuevo', 'sin_contacto', 'presupuesto_campana', 'factura_vencida', 'semanal'], action: ['crear_tarea', 'crear_oportunidad', 'informe_ia'], days: 'int', percent: 'int', task_title: 'text', active: 'bool+' } },
+    fields: { name: 'text!', trigger: ['lead_nuevo', 'sin_contacto', 'presupuesto_campana', 'factura_vencida', 'semanal'], action: ['crear_tarea', 'crear_oportunidad', 'informe_ia'], days: 'int', percent: 'int', task_title: 'long', active: 'bool+' } },
   tools: { table: 'org_tools', search: ['name', 'vendor', 'account_email'], order: "CASE status WHEN 'cancelada' THEN 1 ELSE 0 END, name",
     fields: { name: 'text!', category: ['marketing', 'crm', 'infraestructura', 'software', 'api', 'ia', 'otro'], vendor: 'text', plan: 'text', cost: 'money', cycle: ['mensual', 'anual', 'por uso'], renews_on: 'date', url: 'url', account_email: 'email', status: ['activa', 'prueba', 'cancelada'], cost_center_id: 'int', notes: 'long' } },
   reports: { table: 'hub_reports', search: ['title', 'content'], order: 'created_at DESC', readOnly: true, fields: {} },
@@ -139,12 +139,24 @@ async function list(env, org, def, url) {
   const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get('limit')) || 500));
   const where = ['org_id = ?'], args = [org];
   if (q) { where.push('(' + def.search.map((c) => `${c} LIKE ?`).join(' OR ') + ')'); def.search.forEach(() => args.push(`%${q}%`)); }
+  // contactos: origen (formulario del sitio o agregados a mano)
+  const origin = url.searchParams.get('f_origin');
+  if (def.table === 'mk_contacts' && origin === 'form') where.push("ref LIKE 'lead:%'");
+  if (def.table === 'mk_contacts' && origin === 'manual') where.push('ref IS NULL');
   // filtros simples por columna: ?f_stage=lead
   for (const [k, v] of url.searchParams) {
     const col = k.startsWith('f_') ? k.slice(2) : null;
     if (col && (col in def.fields || col === 'id') && v !== '') { where.push(`${col} = ?`); args.push(v); }
   }
   const { results } = await env.DB.prepare(`SELECT * FROM ${def.table} WHERE ${where.join(' AND ')} ORDER BY ${def.order} LIMIT ${limit}`).bind(...args).all();
+  if (def.table === 'mk_contacts') {
+    // Estado del lead del formulario (nuevo, contactado, propuesta…) junto al contacto
+    const ids = results.map((r) => /^lead:(\d+)$/.exec(r.ref || '')?.[1]).filter(Boolean);
+    if (ids.length) {
+      const st = Object.fromEntries((await all(env, `SELECT id, status FROM leads WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids)).map((l) => [`lead:${l.id}`, l.status]));
+      results.forEach((r) => { if (r.ref) r.lead_status = st[r.ref] || null; });
+    }
+  }
   return results;
 }
 async function getRow(env, def, org, id) {
@@ -179,6 +191,12 @@ async function update(env, org, entity, def, id, body) {
   if (cols.length) {
     await env.DB.prepare(`UPDATE ${def.table} SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND org_id = ?`)
       .bind(...cols.map((c) => row[c]), now(), id, org).run();
+  }
+  if (entity === 'contacts' && /^lead:\d+$/.test(before.ref || '')) {
+    const leadId = Number(before.ref.slice(5));
+    const stage = row.stage || before.stage;
+    const status = stage === 'cliente' ? 'ganado' : stage === 'perdido' ? 'perdido' : row.last_contact_at ? 'contactado' : null;
+    if (status) await env.DB.prepare(`UPDATE leads SET status = ? WHERE id = ? AND (? <> 'contactado' OR status = 'nuevo')`).bind(status, leadId, status).run().catch(() => {});
   }
   if (entity === 'tasks' && 'done' in row) await env.DB.prepare('UPDATE mk_tasks SET done_at = ? WHERE id = ?').bind(row.done ? now() : null, id).run();
   if (entity === 'movements') for (const inv of new Set([before.invoice_id, row.invoice_id].filter(Boolean))) await recomputeInvoice(env, org, inv);
@@ -550,6 +568,19 @@ async function importPayments(env) {
 
 /* ---------------- automatizaciones y agente ---------------- */
 const fill = (tpl, vars) => String(tpl || '').replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+// Pasos de una automatización: varias tareas, cada una a N días. task_title = JSON [{ t, d }] o un título suelto.
+function stepsOf(a, fallback) {
+  try { const v = JSON.parse(a.task_title); if (Array.isArray(v) && v.length) return v.slice(0, 20).map((x) => ({ t: String(x.t || '').slice(0, 300), d: Math.max(0, Math.min(365, Number(x.d) || 0)) })).filter((x) => x.t); } catch {}
+  return [{ t: a.task_title || fallback, d: a.trigger === 'lead_nuevo' ? a.days || 0 : 0 }];
+}
+// Crea las tareas de todos los pasos (sin repetir las que siguen abiertas).
+async function addSteps(env, a, fallback, vars, link, key) {
+  let did = false;
+  for (const [i, st] of stepsOf(a, fallback).entries()) {
+    did = (await addTask(env, a.org_id, fill(st.t, vars), { due: addDays(today(), st.d), ...link, source: `auto:${a.id}:${key}:${i}` })) || did;
+  }
+  return did;
+}
 async function addTask(env, org, title, { due, contact_id = null, deal_id = null, source }) {
   if (source && await one(env, 'SELECT 1 FROM mk_tasks WHERE org_id = ? AND source = ? AND done = 0', org, source)) return false; // no duplicar
   const t = now();
@@ -566,9 +597,9 @@ async function onNewContact(env, org, contact, callAI) {
     if (a.action === 'crear_oportunidad') {
       const t = now();
       await env.DB.prepare("INSERT INTO mk_deals (org_id, title, contact_id, campaign_id, value, stage, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 'nuevo', ?, ?)")
-        .bind(org, fill(a.task_title || 'Oportunidad: {nombre}', vars).slice(0, 300), contact.id, contact.campaign_id || null, t, t).run();
+        .bind(org, fill(stepsOf(a, 'Oportunidad: {nombre}')[0].t, vars).slice(0, 300), contact.id, contact.campaign_id || null, t, t).run();
     } else if (a.action === 'crear_tarea') {
-      await addTask(env, org, fill(a.task_title || 'Contactar a {nombre}', vars), { due: addDays(today(), a.days || 0), contact_id: contact.id, source: `auto:${a.id}:c${contact.id}` });
+      await addSteps(env, a, 'Contactar a {nombre}', vars, { contact_id: contact.id }, `c${contact.id}`);
     }
     await bump(env, a);
   }
@@ -583,15 +614,15 @@ async function runAutomations(env, callAI) {
       const days = a.days || 3, limitMs = now() - days * 86400000;
       const rows = await all(env, `SELECT id, name FROM mk_contacts WHERE org_id = ? AND stage = 'lead' AND created_at < ?
         AND (last_contact_at IS NULL OR last_contact_at < ?) LIMIT 50`, a.org_id, limitMs, addDays(t, -days));
-      for (const c of rows) did = (await addTask(env, a.org_id, fill(a.task_title || 'Hacer seguimiento a {nombre}', { nombre: c.name }), { contact_id: c.id, source: `auto:${a.id}:c${c.id}` })) || did;
+      for (const c of rows) did = (await addSteps(env, a, 'Hacer seguimiento a {nombre}', { nombre: c.name }, { contact_id: c.id }, `c${c.id}`)) || did;
     } else if (a.trigger === 'presupuesto_campana') {
       const pct = a.percent || 80;
       const rows = await all(env, `SELECT c.id, c.name, c.budget, COALESCE(SUM(s.amount), 0) spend FROM mk_campaigns c LEFT JOIN mk_spend s ON s.campaign_id = c.id
         WHERE c.org_id = ? AND c.status = 'activa' AND c.budget > 0 GROUP BY c.id HAVING spend * 100 >= c.budget * ?`, a.org_id, pct);
-      for (const c of rows) did = (await addTask(env, a.org_id, fill(a.task_title || 'La campaña {campana} va en {porcentaje}% del presupuesto', { campana: c.name, porcentaje: Math.round(c.spend * 100 / c.budget) }), { source: `auto:${a.id}:k${c.id}` })) || did;
+      for (const c of rows) did = (await addSteps(env, a, 'La campaña {campana} va en {porcentaje}% del presupuesto', { campana: c.name, porcentaje: Math.round(c.spend * 100 / c.budget) }, {}, `k${c.id}`)) || did;
     } else if (a.trigger === 'factura_vencida') {
       const rows = await all(env, "SELECT id, number, counterparty, kind FROM fin_invoices WHERE org_id = ? AND status = 'pendiente' AND due_date < ? LIMIT 50", a.org_id, t);
-      for (const i of rows) did = (await addTask(env, a.org_id, fill(a.task_title || (i.kind === 'emitida' ? 'Cobrar factura {factura} a {tercero}' : 'Pagar factura {factura} de {tercero}'), { factura: i.number || '#' + i.id, tercero: i.counterparty }), { source: `auto:${a.id}:f${i.id}` })) || did;
+      for (const i of rows) did = (await addSteps(env, a, i.kind === 'emitida' ? 'Cobrar factura {factura} a {tercero}' : 'Pagar factura {factura} de {tercero}', { factura: i.number || '#' + i.id, tercero: i.counterparty }, {}, `f${i.id}`)) || did;
     } else if (a.trigger === 'semanal' && isMonday && a.action === 'informe_ia') {
       const last = a.last_run_at ? new Date(a.last_run_at - 5 * 3600000).toISOString().slice(0, 10) : null;
       if (last !== t) { await writeReport(env, a.org_id, 'marketing', callAI); did = true; }

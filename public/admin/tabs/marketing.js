@@ -16,14 +16,28 @@ Admin.tab('marketing', (A) => {
   const chip = (cls, t) => `<span class="st ${cls}">${esc(t)}</span>`;
   const refName = (R, ent, id, key = 'name') => (id ? esc(R[ent]?.find((x) => x.id === id)?.[key] || `#${id}`) : '<span class="muted">—</span>');
 
-  const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['formulario', 'Formulario del sitio', 'ph-user-plus'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
-    ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas', 'ph-check-square'], ['automatizaciones', 'Automatizaciones y agentes', 'ph-robot'],
+  const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
+    ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas y automatizaciones', 'ph-check-square'],
     ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
     ['tarjetas', 'Tarjetas', 'ph-identification-card']];
   // Las tarjetas de presentación son de Diwilo (las de cada negocio viven en su app). Los links de rastreo están en Campañas.
-  const DIWILO_ONLY = new Set(['tarjetas', 'formulario']);
-  const EMBED = { tarjetas: 'cards', formulario: 'leads' };
-  const EMBEDDED = ['links', 'cards', 'leads'];
+  const DIWILO_ONLY = new Set(['tarjetas']);
+  const EMBED = { tarjetas: 'cards' };
+  const EMBEDDED = ['links', 'cards'];
+  const LEAD_ST = { nuevo: ['soon', 'Nuevo'], contactado: ['ok', 'Contactado'], propuesta: ['ok', 'Propuesta'], ganado: ['ok', 'Ganado'], perdido: ['free', 'Perdido'] };
+
+  // Plantillas de tareas prediseñadas: varias tareas en secuencia (título, días después de empezar).
+  // Variables: {nombre} cliente o lead · {campana} · {porcentaje} · {factura} · {tercero}
+  const PLAYBOOKS = {
+    lead: ['Nuevo lead', [['Escribir o llamar a {nombre} (WhatsApp)', 0], ['Enviar información o propuesta a {nombre}', 1], ['Seguimiento a {nombre}', 3], ['Último intento con {nombre}', 7]]],
+    propuesta: ['Propuesta comercial', [['Preparar la propuesta para {nombre}', 0], ['Enviar la propuesta a {nombre}', 1], ['Llamar a {nombre} para resolver dudas', 3], ['Cerrar o descartar con {nombre}', 7]]],
+    onboarding: ['Cliente nuevo (arranque)', [['Bienvenida a {nombre}', 0], ['Reunión de arranque con {nombre}', 2], ['Configurar la cuenta y los accesos de {nombre}', 3], ['Revisión de los primeros 15 días con {nombre}', 15]]],
+    seguimiento: ['Seguimiento sin respuesta', [['Hacer seguimiento a {nombre}', 0]]],
+    campana: ['Campaña nueva', [['Definir público, mensaje y presupuesto de {campana}', 0], ['Crear las piezas y los links de rastreo de {campana}', 1], ['Lanzar {campana}', 2], ['Revisar resultados de {campana}', 7], ['Informe final de {campana}', 30]]],
+    presupuesto: ['Alerta de presupuesto', [['Revisar la campaña {campana}: va en {porcentaje}% del presupuesto', 0]]],
+    cobro: ['Cobro de factura', [['Recordatorio amable de la factura {factura} a {tercero}', 0], ['Llamar a {tercero} por la factura {factura}', 3], ['Escalar el cobro de la factura {factura}', 10]]],
+  };
+  const stepsOf = (a) => { try { const v = JSON.parse(a.task_title); if (Array.isArray(v)) return v; } catch {} return a.task_title ? [{ t: a.task_title, d: a.trigger === 'lead_nuevo' ? a.days || 0 : 0 }] : []; };
 
   const F = {
     contacts: [
@@ -49,12 +63,6 @@ Admin.tab('marketing', (A) => {
       { k: 'title', label: 'Tarea', required: true, full: true }, { k: 'due_date', label: 'Para', type: 'date' }, { k: 'assignee', label: 'Responsable' },
       { k: 'contact_id', label: 'Cliente o lead', ref: 'contacts' }, { k: 'deal_id', label: 'Oportunidad', ref: 'deals' }, { k: 'done', label: 'Estado', type: 'bool', check: 'Hecha' },
       { k: 'notes', label: 'Notas', type: 'long' }],
-    automations: [
-      { k: 'name', label: 'Nombre', required: true, full: true }, { k: 'trigger', label: 'Cuando…', type: 'select', options: Object.entries(TRIGGER) },
-      { k: 'action', label: 'Entonces…', type: 'select', options: Object.entries(ACTION) }, { k: 'days', label: 'Días (N)', type: 'int', hint: 'sin contacto / plazo de la tarea' },
-      { k: 'percent', label: 'Porcentaje (X)', type: 'int', hint: 'presupuesto usado' },
-      { k: 'task_title', label: 'Título de la tarea u oportunidad', full: true, placeholder: 'Contactar a {nombre}', hint: 'usa {nombre}, {campana}, {porcentaje}, {factura}, {tercero}' },
-      { k: 'active', label: 'Estado', type: 'bool', check: 'Activa', default: true }],
     tools: [
       { k: 'name', label: 'Herramienta', required: true, placeholder: 'Meta Business, Google Ads, Chatwoot…' }, { k: 'category', label: 'Tipo', type: 'select', options: Object.entries(TOOL_CAT) },
       { k: 'vendor', label: 'Proveedor' }, { k: 'plan', label: 'Plan' }, { k: 'cost', label: 'Costo (COP)', type: 'money' },
@@ -74,61 +82,76 @@ Admin.tab('marketing', (A) => {
     if (EMBED[view]) { try { await A.mount(EMBED[view], el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="err">${esc(x.message)}</p>`; } return; }
     if (view === 'resumen') return summary(el);
     if (view === 'contactos') {
-      H.table({ el, org: () => org, entity: 'contacts', title: 'contacto', newText: 'Nuevo contacto', refs: ['campaigns'], fields: F.contacts,
-        filters: [{ k: 'stage', options: opts(STAGE_C, 'Todas las etapas') }],
-        extraButtons: org === 'diwilo' ? '<button class="btn" data-import><i class="ph-light ph-download-simple"></i>Traer leads del sitio</button>' : '',
-        empty: 'Aún no hay clientes ni leads. Los leads del formulario del sitio llegan solos a Diwilo.',
+      const t = H.table({ el, org: () => org, entity: 'contacts', title: 'contacto', newText: 'Nuevo contacto', refs: ['campaigns'], fields: F.contacts,
+        filters: [{ k: 'stage', options: opts(STAGE_C, 'Todas las etapas') }, ...(org === 'diwilo' ? [{ k: 'origin', options: [['', 'Todos los orígenes'], ['form', 'Formulario del sitio'], ['manual', 'Agregados a mano']] }] : [])],
+        extraButtons: '<button class="btn" data-csv><i class="ph-light ph-download-simple"></i>Exportar CSV</button>',
+        empty: org === 'diwilo' ? 'Aún no hay clientes ni leads. Los del formulario del sitio llegan solos.' : 'Aún no hay clientes ni leads de este negocio.',
         columns: [
           { label: 'Nombre', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.name)}</b>${r.company ? `<br><span class="muted" style="font-size:12px">${esc(r.company)}</span>` : ''}` },
           { label: 'Contacto', html: (r) => [r.email && `<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`, r.phone && `<a href="https://wa.me/${esc(r.phone.replace(/\D/g, ''))}" target="_blank" rel="noopener">${esc(r.phone)}</a>`].filter(Boolean).join('<br>') || '<span class="muted">—</span>' },
-          { label: 'Etapa', html: (r) => chip(r.stage === 'cliente' ? 'ok' : r.stage === 'perdido' ? 'free' : 'soon', STAGE_C[r.stage] || r.stage) },
+          { label: 'Etapa', html: (r) => chip(r.stage === 'cliente' ? 'ok' : r.stage === 'perdido' ? 'free' : 'soon', STAGE_C[r.stage] || r.stage)
+            + (r.lead_status ? `<br><span class="muted" style="font-size:12px">Formulario: ${esc(LEAD_ST[r.lead_status]?.[1] || r.lead_status)}</span>` : '') },
+          { label: 'Mensaje', html: (r) => (r.notes ? `<span class="muted clamp2" title="${esc(r.notes)}">${esc(r.notes)}</span>` : '<span class="muted">—</span>') },
           { label: 'Origen', html: (r, R) => `${esc(r.source || '—')}${r.campaign_id ? `<br><span class="muted" style="font-size:12px">${refName(R, 'campaigns', r.campaign_id)}</span>` : ''}` },
           { label: 'Último contacto', html: (r) => (r.last_contact_at ? day(r.last_contact_at) : '<span class="muted">—</span>') },
-          { label: 'Creado', cls: 'muted', html: (r) => fmtDate(r.created_at) }],
-        rowActions: (r) => `<button class="btn sm" data-act="contacted" title="Marcar contacto de hoy"><i class="ph-light ph-phone-call"></i></button> <button class="btn sm" data-act="deal" title="Crear oportunidad"><i class="ph-light ph-funnel"></i></button>`,
-        onAction: async (a, r, btn) => {
-          if (a === 'contacted') { await api(`${P()}/contacts/${r.id}`, { method: 'PATCH', body: { last_contact_at: H.todayCo() } }); toast('Contacto registrado'); btn.closest('tr').querySelector('td:nth-child(5)').textContent = day(H.todayCo()); }
+          { label: 'Llegó', cls: 'muted', html: (r) => fmtDate(r.created_at) }],
+        rowActions: () => `<button class="btn sm" data-act="contacted" title="Marcar contacto de hoy"><i class="ph-light ph-phone-call"></i></button> <button class="btn sm" data-act="plan" title="Crear sus tareas con una plantilla"><i class="ph-light ph-list-checks"></i></button> <button class="btn sm" data-act="deal" title="Crear oportunidad"><i class="ph-light ph-funnel"></i></button>`,
+        onAction: async (a, r) => {
+          if (a === 'contacted') { await api(`${P()}/contacts/${r.id}`, { method: 'PATCH', body: { last_contact_at: H.todayCo() } }); toast('Contacto registrado'); A.refreshLeadBadge?.(); t.load(); }
+          if (a === 'plan') usePlaybook({ contact: r });
           if (a === 'deal') {
             const out = await H.form({ title: 'Nueva oportunidad', fields: F.deals, values: { title: `Oportunidad: ${r.name}`, contact_id: r.id, campaign_id: r.campaign_id, stage: 'nuevo' }, org });
             if (out) { await api(`${P()}/deals`, { method: 'POST', body: out }); H.dropRefs(org, 'deals'); toast('Oportunidad creada'); }
           }
-        } }).load();
-      $('[data-import]', el)?.addEventListener('click', async (e) => { e.target.disabled = true; try { const r = await api(`${P()}/marketing/import-leads`, { method: 'POST' }); toast(`${r.imported} leads nuevos de ${r.total}`); render(); } catch (x) { toast(x.message); } e.target.disabled = false; });
+        }, onChanged: () => A.refreshLeadBadge?.() });
+      t.load();
+      el.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-csv]')) return;
+        const cols = [['Nombre', 'name'], ['Empresa', 'company'], ['Correo', 'email'], ['Teléfono', 'phone'], ['Etapa', 'stage'], ['Estado formulario', 'lead_status'], ['Origen', 'source'], ['Responsable', 'owner'], ['Último contacto', 'last_contact_at'], ['Notas', 'notes']];
+        const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const csv = [cols.map((c) => c[0]).join(';'), ...t.rows().map((r) => [...cols.map(([, k]) => q(r[k])), q(new Date(r.created_at).toISOString())].join(';'))].join('\r\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = `clientes-y-leads-${org.replace(/[^a-z0-9]+/gi, '-')}.csv`; a.click();
+      });
       return;
     }
     if (view === 'oportunidades') return pipeline(el);
     if (view === 'campanas') return campaigns(el);
     if (view === 'tareas') {
-      return H.table({ el, org: () => org, entity: 'tasks', title: 'tarea', newText: 'Nueva tarea', refs: ['contacts', 'deals'], fields: F.tasks,
+      el.innerHTML = '<div data-tasks></div><h2 style="margin:26px 0 6px">Automatizaciones</h2><div class="card hubnote" data-anote></div><div data-autos></div>';
+      const tasks = H.table({ el: $('[data-tasks]', el), org: () => org, entity: 'tasks', title: 'tarea', newText: 'Nueva tarea', refs: ['contacts', 'deals'], fields: F.tasks,
         filters: [{ k: 'done', options: [['0', 'Pendientes'], ['1', 'Hechas'], ['', 'Todas']] }], defaults: () => ({ due_date: H.todayCo() }),
-        empty: 'Sin tareas. Las automatizaciones también crean tareas aquí.',
+        extraButtons: '<button class="btn" data-playbook><i class="ph-light ph-list-checks"></i>Usar plantilla</button>',
+        empty: 'Sin tareas pendientes. Crea una, usa una plantilla o deja que las automatizaciones las creen.',
         columns: [
           { label: '', html: (r) => `<input type="checkbox" data-act="toggle" ${r.done ? 'checked' : ''} aria-label="Hecha">` },
-          { label: 'Tarea', html: (r) => `<span style="${r.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(r.title)}</span>${r.source && r.source !== 'manual' ? ' <span class="tag" title="Creada por una automatización">auto</span>' : ''}` },
+          { label: 'Tarea', html: (r) => `<span style="${r.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(r.title)}</span>${r.source && r.source.startsWith('auto') ? ' <span class="tag" title="Creada por una automatización">auto</span>' : r.source === 'plantilla' ? ' <span class="tag">plantilla</span>' : ''}` },
           { label: 'Para', html: (r) => (r.due_date ? (r.due_date < H.todayCo() && !r.done ? chip('bad', day(r.due_date)) : day(r.due_date)) : '—') },
           { label: 'Relacionado', html: (r, R) => [r.contact_id && refName(R, 'contacts', r.contact_id), r.deal_id && refName(R, 'deals', r.deal_id, 'title')].filter(Boolean).join('<br>') || '<span class="muted">—</span>' },
           { label: 'Responsable', html: (r) => esc(r.assignee || '—') }],
-        onAction: async (a, r, el2) => { if (a === 'toggle') { await api(`${P()}/tasks/${r.id}`, { method: 'PATCH', body: { done: el2.checked } }); r.done = el2.checked ? 1 : 0; toast(el2.checked ? 'Tarea hecha' : 'Tarea pendiente'); } } }).load();
-    }
-    if (view === 'automatizaciones') {
-      el.insertAdjacentHTML('beforeend', `<div class="card hubnote"><b>Cómo funcionan.</b> «Llega un lead nuevo» se ejecuta al instante (por ejemplo, con cada lead del formulario del sitio). Las demás se revisan cada día a las 3:00 a. m. y crean tareas sin repetirlas. «Cada lunes + Informe del agente de IA» deja un informe semanal en Informes.
-        <div class="row" style="margin-top:10px"><button class="btn sm" data-preset="lead">+ Tarea por cada lead nuevo</button><button class="btn sm" data-preset="followup">+ Seguimiento a 3 días</button><button class="btn sm" data-preset="budget">+ Aviso al 80% del presupuesto</button><button class="btn sm" data-preset="weekly">+ Informe semanal con IA</button></div></div><div data-t></div>`);
-      const t = H.table({ el: $('[data-t]', el), org: () => org, entity: 'automations', title: 'automatización', newText: 'Nueva automatización', fields: F.automations,
+        onAction: async (a, r, el2) => { if (a === 'toggle') { await api(`${P()}/tasks/${r.id}`, { method: 'PATCH', body: { done: el2.checked } }); r.done = el2.checked ? 1 : 0; toast(el2.checked ? 'Tarea hecha' : 'Tarea pendiente'); } } });
+      tasks.load();
+      $('[data-tasks]', el).addEventListener('click', (e) => { if (e.target.closest('[data-playbook]')) usePlaybook({ onDone: () => tasks.load() }); });
+      $('[data-anote]', el).innerHTML = `Cada automatización crea <b>una o varias tareas</b> (sus pasos, a N días) o una oportunidad. «Llega un lead nuevo» corre al instante; las demás se revisan cada día a las 3:00 a. m. y no repiten tareas abiertas.
+        <div class="row" style="margin-top:10px;flex-wrap:wrap">${[['lead', 'Plan para cada lead nuevo'], ['followup', 'Seguimiento a 3 días sin contacto'], ['budget', 'Aviso al 80% del presupuesto'], ['cobro', 'Cobro de facturas vencidas'], ['weekly', 'Informe semanal con IA']].map(([k, l]) => `<button class="btn sm" data-preset="${k}">+ ${l}</button>`).join('')}</div>`;
+      const autos = H.table({ el: $('[data-autos]', el), org: () => org, entity: 'automations', title: 'automatización', newText: 'Nueva automatización', fields: [],
+        onEdit: (row, done) => editAutomation(row, done),
         empty: 'Sin automatizaciones. Usa los atajos de arriba para crear las más comunes.',
         columns: [
           { label: 'Automatización', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.name)}</b>` },
           { label: 'Cuando', html: (r) => esc(TRIGGER[r.trigger] || r.trigger).replace('N', r.days ?? 'N').replace('X%', `${r.percent ?? 'X'}%`) },
-          { label: 'Entonces', html: (r) => esc(ACTION[r.action] || r.action) },
+          { label: 'Entonces', html: (r) => (r.action === 'crear_tarea' ? `${esc(ACTION[r.action])}<br><span class="muted" style="font-size:12px">${stepsOf(r).map((x) => `${esc(x.t)}${x.d ? ` (día ${x.d})` : ''}`).join(' → ') || '—'}</span>` : esc(ACTION[r.action] || r.action)) },
           { label: 'Estado', html: (r) => (r.active ? chip('ok', 'Activa') : chip('free', 'Pausada')) },
           { label: 'Ejecuciones', cls: 'num', html: (r) => `${num(r.runs)}${r.last_run_at ? `<br><span class="muted" style="font-size:12px">${fmtDate(r.last_run_at)}</span>` : ''}` }] });
-      t.load();
+      autos.load();
+      const steps = (k) => JSON.stringify(PLAYBOOKS[k][1].map(([t, d]) => ({ t, d })));
       const PRESETS = {
-        lead: { name: 'Contactar cada lead nuevo', trigger: 'lead_nuevo', action: 'crear_tarea', days: 0, task_title: 'Contactar a {nombre}', active: true },
-        followup: { name: 'Seguimiento a leads sin contacto', trigger: 'sin_contacto', action: 'crear_tarea', days: 3, task_title: 'Hacer seguimiento a {nombre}', active: true },
-        budget: { name: 'Aviso de presupuesto', trigger: 'presupuesto_campana', action: 'crear_tarea', percent: 80, task_title: 'La campaña {campana} va en {porcentaje}% del presupuesto', active: true },
+        lead: { name: 'Plan para cada lead nuevo', trigger: 'lead_nuevo', action: 'crear_tarea', task_title: steps('lead'), active: true },
+        followup: { name: 'Seguimiento a leads sin contacto', trigger: 'sin_contacto', action: 'crear_tarea', days: 3, task_title: steps('seguimiento'), active: true },
+        budget: { name: 'Aviso de presupuesto', trigger: 'presupuesto_campana', action: 'crear_tarea', percent: 80, task_title: steps('presupuesto'), active: true },
+        cobro: { name: 'Cobro de facturas vencidas', trigger: 'factura_vencida', action: 'crear_tarea', task_title: steps('cobro'), active: true },
         weekly: { name: 'Informe semanal de marketing', trigger: 'semanal', action: 'informe_ia', active: true },
       };
-      el.addEventListener('click', async (e) => { const b = e.target.closest('[data-preset]'); if (!b) return; await api(`${P()}/automations`, { method: 'POST', body: PRESETS[b.dataset.preset] }); toast('Automatización creada'); t.load(); });
+      $('[data-anote]', el).addEventListener('click', async (e) => { const b = e.target.closest('[data-preset]'); if (!b) return; await api(`${P()}/automations`, { method: 'POST', body: PRESETS[b.dataset.preset] }); toast('Automatización creada'); autos.load(); });
       return;
     }
     if (view === 'herramientas') {
@@ -145,6 +168,99 @@ Admin.tab('marketing', (A) => {
           { label: 'Centro de costo', html: (r, R) => refName(R, 'cost_centers', r.cost_center_id) }] }).load();
     }
     if (view === 'informes') return reports(el);
+  }
+
+  // Crea de una vez todas las tareas de una plantilla (para un cliente o una campaña).
+  async function usePlaybook({ contact, onDone } = {}) {
+    const [contacts, camps] = await Promise.all([H.refs(org, 'contacts'), H.refs(org, 'campaigns')]);
+    const d = document.createElement('dialog');
+    d.className = 'ask hubdlg';
+    d.innerHTML = `<form method="dialog"><h2>Usar una plantilla de tareas</h2>
+      <div class="form hubform">
+        <label class="f full">Plantilla<select class="in" name="pb">${Object.entries(PLAYBOOKS).map(([k, [l]]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>
+        <label class="f">Cliente o lead<select class="in" name="contact"><option value="">—</option>${contacts.map((c) => `<option value="${c.id}" ${contact?.id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+        <label class="f">Campaña<select class="in" name="camp"><option value="">—</option>${camps.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label>
+        <label class="f">Empieza<input class="in" type="date" name="start" value="${H.todayCo()}"></label>
+        <label class="f">Responsable<input class="in" name="assignee"></label>
+        <div class="full pbprev" data-prev></div></div>
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" type="button" data-no>Cancelar</button><button class="btn pri" data-yes>Crear tareas</button></div></form>`;
+    document.body.appendChild(d);
+    const f = $('form', d);
+    const vars = () => ({ nombre: contacts.find((c) => String(c.id) === f.contact.value)?.name || '{nombre}', campana: camps.find((c) => String(c.id) === f.camp.value)?.name || '{campana}' });
+    const fill = (tpl) => tpl.replace(/\{(\w+)\}/g, (m, k) => vars()[k] ?? m);
+    const add = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+    const prev = () => { $('[data-prev]', d).innerHTML = `<ol class="pbsteps">${PLAYBOOKS[f.pb.value][1].map(([t, n]) => `<li><span>${esc(fill(t))}</span><span class="muted">${day(add(f.start.value || H.todayCo(), n))}</span></li>`).join('')}</ol>`; };
+    if (contact) f.pb.value = contact.stage === 'cliente' ? 'onboarding' : 'lead';
+    prev(); f.addEventListener('input', prev);
+    const close = () => { d.close(); d.remove(); };
+    $('[data-no]', d).onclick = close; d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const list = PLAYBOOKS[f.pb.value][1];
+      try {
+        for (const [t, n] of list) await api(`${P()}/tasks`, { method: 'POST', body: { title: fill(t), due_date: add(f.start.value || H.todayCo(), n), contact_id: f.contact.value || null, assignee: f.assignee.value, source: 'plantilla' } });
+        close(); toast(`${list.length} tareas creadas`); onDone?.();
+      } catch (x) { toast(x.message); }
+    };
+    d.showModal();
+  }
+
+  // Editor de una automatización: disparador, acción y sus pasos (varias tareas a N días).
+  async function editAutomation(row, done) {
+    const a = row || { trigger: 'lead_nuevo', action: 'crear_tarea', active: 1, task_title: JSON.stringify(PLAYBOOKS.lead[1].map(([t, d]) => ({ t, d }))) };
+    let steps = stepsOf(a);
+    const d = document.createElement('dialog');
+    d.className = 'ask hubdlg';
+    d.innerHTML = `<form method="dialog"><h2>${row ? 'Editar automatización' : 'Nueva automatización'}</h2>
+      <div class="form hubform">
+        <label class="f full">Nombre<input class="in" name="name" value="${esc(a.name || '')}" required></label>
+        <label class="f">Cuando…<select class="in" name="trigger">${Object.entries(TRIGGER).map(([k, l]) => `<option value="${k}" ${a.trigger === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        <label class="f" data-days>N (días sin contacto)<input class="in" type="number" min="1" name="days" value="${esc(a.days ?? 3)}"></label>
+        <label class="f" data-pct>X (% del presupuesto)<input class="in" type="number" min="1" max="200" name="percent" value="${esc(a.percent ?? 80)}"></label>
+        <label class="f">Entonces…<select class="in" name="action">${Object.entries(ACTION).map(([k, l]) => `<option value="${k}" ${a.action === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        <label class="f"><span>Estado</span><label class="row" style="gap:8px;font-size:13px"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}> Activa</label></label>
+        <div class="full" data-stepsbox>
+          <div class="row" style="justify-content:space-between;margin-bottom:6px"><b style="font-size:13px;color:var(--hi);font-weight:500" data-stitle>Tareas que crea</b>
+            <select class="in" data-pb style="width:auto;font-size:12px"><option value="">Cargar una plantilla…</option>${Object.entries(PLAYBOOKS).map(([k, [l]]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></div>
+          <div data-steps></div>
+          <button class="btn sm" type="button" data-addstep><i class="ph-light ph-plus"></i>Agregar tarea</button>
+          <p class="muted" style="font-size:11px;margin:6px 0 0">Usa {nombre}, {campana}, {porcentaje}, {factura} o {tercero}. «Día» es cuántos días después de dispararse vence la tarea.</p></div></div>
+      <p class="err" data-err></p>
+      <div class="row" style="justify-content:space-between;margin-top:12px"><span>${row ? '<button class="btn sm danger" type="button" data-del><i class="ph-light ph-trash"></i>Borrar</button>' : ''}</span>
+        <span class="row"><button class="btn" type="button" data-no>Cancelar</button><button class="btn pri" data-yes>Guardar</button></span></div></form>`;
+    document.body.appendChild(d);
+    const f = $('form', d);
+    const drawSteps = () => {
+      $('[data-steps]', d).innerHTML = steps.map((st, i) => `<div class="steprow" data-i="${i}"><span class="muted">${i + 1}.</span><input class="in" data-t value="${esc(st.t)}" placeholder="Título de la tarea"><label class="muted">día<input class="in" type="number" min="0" max="365" data-d value="${esc(st.d)}"></label><button class="btn sm" type="button" data-rm title="Quitar"><i class="ph-light ph-x"></i></button></div>`).join('') || '<p class="muted" style="margin:0 0 8px;font-size:12px">Sin tareas.</p>';
+    };
+    const sync = () => { steps = [...$$('.steprow', d)].map((r) => ({ t: $('[data-t]', r).value.trim(), d: Number($('[data-d]', r).value) || 0 })); };
+    const show = () => {
+      $('[data-days]', d).hidden = f.trigger.value !== 'sin_contacto';
+      $('[data-pct]', d).hidden = f.trigger.value !== 'presupuesto_campana';
+      $('[data-stepsbox]', d).hidden = f.action.value === 'informe_ia';
+      $('[data-stitle]', d).textContent = f.action.value === 'crear_oportunidad' ? 'Título de la oportunidad (el primero)' : 'Tareas que crea';
+    };
+    drawSteps(); show();
+    f.addEventListener('change', (e) => {
+      if (e.target.matches('[data-pb]') && e.target.value) { steps = PLAYBOOKS[e.target.value][1].map(([t, n]) => ({ t, d: n })); if (!f.name.value) f.name.value = PLAYBOOKS[e.target.value][0]; e.target.value = ''; drawSteps(); }
+      show();
+    });
+    d.addEventListener('click', (e) => {
+      if (e.target.closest('[data-addstep]')) { sync(); steps.push({ t: '', d: steps.length ? steps[steps.length - 1].d + 1 : 0 }); drawSteps(); $$('[data-t]', d).pop()?.focus(); }
+      if (e.target.closest('[data-rm]')) { sync(); steps.splice(Number(e.target.closest('.steprow').dataset.i), 1); drawSteps(); }
+    });
+    const close = () => { d.close(); d.remove(); };
+    $('[data-no]', d).onclick = close; d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    $('[data-del]', d)?.addEventListener('click', async () => { if (await A.sure('¿Borrar esta automatización? Las tareas que ya creó se quedan.', 'Borrar')) { await api(`${P()}/automations/${row.id}`, { method: 'DELETE' }); close(); toast('Borrada'); done(); } });
+    f.onsubmit = async (e) => {
+      e.preventDefault(); sync();
+      const list = steps.filter((x) => x.t);
+      if (f.action.value !== 'informe_ia' && !list.length) { $('[data-err]', d).textContent = 'Agrega al menos una tarea.'; return; }
+      const body = { name: f.name.value.trim(), trigger: f.trigger.value, action: f.action.value, days: f.days.value, percent: f.percent.value, active: f.active.checked, task_title: list.length ? JSON.stringify(list) : '' };
+      try { await api(row ? `${P()}/automations/${row.id}` : `${P()}/automations`, { method: row ? 'PATCH' : 'POST', body }); close(); toast('Automatización guardada'); done(); }
+      catch (x) { $('[data-err]', d).textContent = x.message; }
+    };
+    d.showModal();
   }
 
   async function summary(el) {

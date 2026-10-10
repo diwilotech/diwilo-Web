@@ -151,7 +151,8 @@ datos de marketing y finanzas. Tablas en `worker/hubs.sql`, API en `worker/src/h
 - **Marketing:** clientes y leads (los del formulario del sitio se sincronizan solos y su estado en Leads pasa a la etapa),
   campañas con sus links de rastreo por plataforma (Instagram, Facebook, TikTok, WhatsApp, Google, correo, QR… con UTM
   automáticos y clics por campaña), tarjetas de presentación (de Diwilo; las de cada negocio viven en su app), oportunidades (tablero por etapas), campañas con presupuesto y gasto real (costo por lead
-  y retorno), tareas, automatizaciones (lead nuevo, sin contacto, presupuesto, factura vencida, informe semanal con IA),
+  y retorno), tareas y automatizaciones juntas (cada automatización crea varias tareas a N días; plantillas prediseñadas para crearlas
+  también a mano: nuevo lead, propuesta, cliente nuevo, campaña, cobro…),
   suscripciones y herramientas por organización, e informes del agente de IA.
 - **Finanzas:** ingresos y gastos, facturas por cobrar y por pagar (con cartera por antigüedad), gastos recurrentes
   (infraestructura, software, API, IA), centros de costo por app, cliente, proyecto o departamento, presupuesto vs real,
