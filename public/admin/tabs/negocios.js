@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «negocios». La carga admin/core.js la primera vez que se abre.
 Admin.tab('negocios', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask } = A;
 
   /* ---------- NEGOCIOS (las apps de Diwilo) ---------- */
   const ROLE = { owner: 'Dueño', admin: 'Administrador', staff: 'Personal' };
@@ -417,8 +417,8 @@ Admin.tab('negocios', (A) => {
     e.stopImmediatePropagation();
     const b = biz.find((x) => x.id === btn.dataset.bizId), u = b?.users.find((x) => x.id === btn.dataset.uemail);
     if (!u) return;
-    const mail = prompt(`Nuevo correo para ${u.name || u.email}.\nCon él entrará a la app; la contraseña no cambia.`, u.email);
-    if (!mail || mail.trim().toLowerCase() === u.email) return;
+    const mail = await ask({ title: 'Cambiar correo', text: `Nuevo correo para ${u.name || u.email}. Con él entrará a la app; la contraseña no cambia.`, input: true, value: u.email, ok: 'Guardar correo' });
+    if (!mail || mail.toLowerCase() === u.email) return;
     try {
       await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'PATCH', body: { new_email: mail.trim().toLowerCase() } });
       toast('Correo actualizado'); loadBiz();
@@ -429,9 +429,12 @@ Admin.tab('negocios', (A) => {
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-archive]'); if (!btn) return;
     const b = biz.find((x) => x.id === btn.dataset.archive); if (!b) return;
-    const typed = prompt(`Eliminar «${b.name}» de ${appCfg().name}.\n\nNadie podrá entrar desde ya. Durante ${ARCHIVE_DAYS} días lo puedes restaurar en «Archivados»; después se borran el negocio, sus usuarios y todos sus datos.\n\nEscribe el nombre del negocio para confirmar:`);
+    const typed = await ask({
+      title: `Eliminar «${b.name}»`,
+      text: `Nadie de ${appCfg().name} podrá entrar desde ya. Durante ${ARCHIVE_DAYS} días lo puedes restaurar en «Archivados»; después se borran el negocio, sus usuarios y todos sus datos.\n\nEscribe el nombre del negocio para confirmar:`,
+      input: true, placeholder: b.name, ok: 'Eliminar negocio', danger: true, match: b.name,
+    });
     if (typed === null) return;
-    if (typed.trim().toLowerCase() !== b.name.trim().toLowerCase()) { toast('El nombre no coincide: no se eliminó'); return; }
     btn.disabled = true;
     try {
       const r = await api(bizPath(b.id), { method: 'DELETE' });

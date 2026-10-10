@@ -23,6 +23,30 @@
   function qrSvg(text) { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
   async function copy(t) { try { await navigator.clipboard.writeText(t); toast('Copiado'); } catch { prompt('Copia:', t); } }
   function formData(form) { const o = {}; new FormData(form).forEach((v, k) => { o[k] = String(v).trim(); }); return o; }
+  // Ventana del panel para confirmar o pedir un dato (los navegadores pueden bloquear prompt/confirm).
+  // Devuelve el texto escrito (o '' si no hay campo) al aceptar, y null al cancelar.
+  function ask({ title, text = '', input = false, value = '', placeholder = '', ok = 'Aceptar', danger = false, match = null }) {
+    return new Promise((resolve) => {
+      const d = document.createElement('dialog');
+      d.className = 'ask';
+      d.innerHTML = `<form method="dialog">
+        <h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text).replace(/\n/g, '<br>')}</p>` : ''}
+        ${input ? `<input class="in" name="v" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false">` : ''}
+        <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" value="cancel" type="button" data-no>Cancelar</button><button class="btn ${danger ? 'danger' : 'pri'}" value="ok" data-yes>${esc(ok)}</button></div>
+      </form>`;
+      document.body.appendChild(d);
+      const inp = $('input', d), yes = $('[data-yes]', d);
+      // match: el botón se activa solo cuando lo escrito coincide (p. ej. el nombre del negocio)
+      const norm = (s) => String(s).trim().toLowerCase();
+      if (match) { yes.disabled = true; inp.addEventListener('input', () => { yes.disabled = norm(inp.value) !== norm(match); }); }
+      const done = (v) => { d.close(); d.remove(); resolve(v); };
+      $('[data-no]', d).onclick = () => done(null);
+      d.addEventListener('cancel', (e) => { e.preventDefault(); done(null); });
+      $('form', d).addEventListener('submit', (e) => { e.preventDefault(); if (!yes.disabled) done(inp ? inp.value.trim() : ''); });
+      d.showModal();
+      (inp || yes).focus();
+    });
+  }
   function setBadge(id, n) { const b = document.getElementById(id); if (b) { b.hidden = !n; b.textContent = n; } }
 
   /* ---------- gráficas (En vivo y Links) ---------- */
@@ -128,7 +152,7 @@
   }
 
   window.Admin = {
-    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge,
+    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask,
     tab(id, factory) { factories[id] = factory; },
   };
 

@@ -265,3 +265,11 @@ tr.xrow:hover td{background:rgba(168,85,247,.04)}
 /* Detalle del negocio: cada columna contiene su tabla (se desplaza dentro en vez de montarse sobre la siguiente) */
 .bizgrid > .sub, .sub > *{min-width:0}
 .bizgrid .tbl-wrap{overflow-x:auto}
+
+/* Ventana del panel para confirmar o pedir un dato (A.ask) */
+dialog.ask{border:0;border-radius:16px;padding:22px;width:min(440px,calc(100% - 32px));background:var(--panel);color:var(--ink);box-shadow:var(--hair),0 30px 80px rgba(0,0,0,.6)}
+dialog.ask::backdrop{background:rgba(3,4,10,.7)}
+dialog.ask h2{margin:0 0 8px}
+dialog.ask p{margin:0 0 12px;font-size:13px;line-height:1.55}
+dialog.ask .in{width:100%}
+dialog.ask .btn[disabled]{opacity:.45;cursor:not-allowed}
