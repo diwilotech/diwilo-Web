@@ -9,6 +9,7 @@
 import app from './index.js';
 import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
+import { purgeArchived } from './platform.js';
 
 const PAGES = {
   '/': '/index.md',
@@ -28,5 +29,10 @@ export default {
     if (PAGES[path]) return negotiate({ request: req, env, next: () => env.ASSETS.fetch(req) }, PAGES[path]);
     if (path === '/mcp' || DYNAMIC.some((p) => (path + '/').startsWith(p))) return app.fetch(req, env, ctx);
     return env.ASSETS.fetch(req);
+  },
+
+  // Cron diario (wrangler.jsonc → triggers): las apps borran por lotes los negocios archivados hace más de 20 días.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(purgeArchived(env));
   },
 };

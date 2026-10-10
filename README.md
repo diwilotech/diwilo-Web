@@ -120,3 +120,23 @@ juntas: `npx wrangler dev -c wrangler.jsonc -c "../Control de Residentes/wrangle
 - `data-reveal` (`""`, `left`, `right`, `scale`, `fade`) y `data-stagger="90"` para aparecer al hacer scroll.
 - Hero palabra por palabra (`data-split`), progreso de lectura, paralaje, línea de ruta, contadores (`data-count`).
 - Respeta `prefers-reduced-motion`.
+
+## Panel (/admin)
+
+`public/admin.html` es solo la base (menú, login y cargador). Cada pestaña vive en su propio archivo y se carga la primera vez
+que se abre, sin cambiar la URL (la última pestaña se recuerda en la sesión del navegador):
+
+```
+public/admin/admin.css           estilos del panel
+public/admin/core.js             utilidades comunes (api, toast, gráficas, avisos del menú) y el cargador de pestañas
+public/admin/tabs/<id>.html      HTML de la pestaña      (resumen, negocios, blog, leads, chats, links, cards, api, ajustes)
+public/admin/tabs/<id>.js        lógica: Admin.tab('<id>', (A) => { ...; return { show, hide } })
+```
+
+Para agregar una pestaña: crea los dos archivos, un botón `.tab[data-view="<id>"]` en el menú y un
+`<section data-section="<id>" hidden></section>` en `admin.html`. Si cambias archivos del panel, sube `data-v` en
+`admin.html` para que el navegador no use los viejos.
+
+**Negocios:** eliminar archiva el negocio en la app (nadie entra); el cron diario (`triggers` en wrangler.jsonc) le pide a
+cada app borrar por lotes los archivados hace más de 20 días. «Entrar como dueño» pide a la app un pase de un solo uso
+(2 minutos) y abre la app con la sesión del dueño. Cada acción queda en «Actividad en tiempo real» (tipo `admin`).

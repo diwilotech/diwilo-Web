@@ -1,0 +1,23 @@
+<div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Integraciones y API</h1></div></div>
+<div class="grid" style="--min:420px">
+  <div class="card">
+    <h2>Webhook instantáneo</h2>
+    <p class="muted" style="margin:0 0 12px">Cada lead nuevo y cada chat iniciado se envía al instante a esta URL (POST JSON). Ideal para un webhook de n8n, Make o Zapier.</p>
+    <form class="row" id="hookForm" style="flex-wrap:nowrap"><input class="in" name="webhook_url" type="url" placeholder="https://n8n.tudominio.com/webhook/diwilo"><button class="btn pri" type="submit">Guardar</button></form>
+    <div class="row" style="margin-top:10px"><button class="btn sm" id="hookTest"><i class="ph-light ph-paper-plane-tilt"></i>Enviar prueba</button></div>
+    <pre class="code" style="margin-top:12px">{ "type": "lead" | "chat_started" | "test",
+"at": "2026-10-02T15:00:00.000Z",
+"data": { ... } }</pre>
+  </div>
+  <div class="card">
+    <h2>Claves de API</h2>
+    <p class="muted" style="margin:0 0 12px">Para que otros sistemas lean leads, chats y estadísticas. La clave se muestra una sola vez.</p>
+    <form class="row" id="keyForm" style="flex-wrap:nowrap"><input class="in" name="name" placeholder="n8n producción" required><button class="btn pri" type="submit">Crear clave</button></form>
+    <div id="newKey" style="margin-top:12px" hidden></div>
+    <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>Nombre</th><th>Prefijo</th><th>Último uso</th><th></th></tr></thead><tbody id="keysBody"></tbody></table></div>
+  </div>
+</div>
+<div class="card" style="margin-top:14px">
+  <h2>Endpoints</h2>
+  <pre class="code" id="apiDocs"></pre>
+</div>

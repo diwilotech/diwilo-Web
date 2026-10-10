@@ -15,8 +15,13 @@
  *   GET    /admin/api/platform/:app/businesses/:id/payments
  *   POST   /admin/api/platform/:app/businesses/:id/payments      { months, amount, note? }
  *   POST   /admin/api/platform/:app/businesses/:id/users         { email, name?, role }
- *   PATCH  /admin/api/platform/:app/businesses/:id/users/:userId { role, email }   cambia permisos
+ *   PATCH  /admin/api/platform/:app/businesses/:id/users/:userId { role?, email? }  permisos y/o correo
  *   DELETE /admin/api/platform/:app/businesses/:id/users/:userId
+ *   GET    /admin/api/platform/:app/businesses?archived=1         archivados (se borran a los 20 días)
+ *   DELETE /admin/api/platform/:app/businesses/:id                archivar
+ *   POST   /admin/api/platform/:app/businesses/:id/restore        sacar del archivo
+ *   POST   /admin/api/platform/:app/businesses/:id/sso            entrar como el dueño -> { url } (pase de un solo uso)
+ * purgeArchived(env) la corre el cron diario: cada app borra por lotes sus negocios archivados hace más de 20 días.
  */
 export const APPS = {
   pedidos: { name: 'Pedidos', binding: 'PEDIDOS', url: 'PEDIDOS_URL', roles: ['owner', 'staff'], slug: false },
@@ -26,6 +31,7 @@ export const APPS = {
   academia: { name: 'Academia', binding: 'ACADEMIA', url: 'ACADEMIA_URL', roles: ['owner', 'admin', 'staff'], slug: false },
 };
 const DEFAULT_TRIAL_DAYS = 15;
+export const ARCHIVE_DAYS = 20; // días que un negocio archivado se puede restaurar antes de borrarse
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
@@ -66,6 +72,10 @@ async function callApp(env, app, method, path, body) {
   if (!(status >= 200 && status < 300)) throw new AppError(status >= 500 ? 502 : status || 502, data.error || `${cfg.name} respondió ${status}`);
   return data;
 }
+
+// Deja constancia de lo que hace un administrador sobre un negocio (tipo 'admin' en events).
+const audit = (env, adminEmail, label) =>
+  env.DB.prepare('INSERT INTO events (ts, type, path, label) VALUES (?, ?, ?, ?)').bind(Date.now(), 'admin', '/admin', `${adminEmail || 'admin'}: ${label}`.slice(0, 300)).run().catch(() => {});
 
 async function config(env) {
   const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE key LIKE 'platform_%'").all();
@@ -117,8 +127,9 @@ async function route(req, env, path, url, adminEmail) {
   if (!APPS[app] || resource !== 'businesses') return json({ error: 'no encontrado' }, 404);
 
   if (!id && M === 'GET') {
+    const archived = url.searchParams.get('archived') === '1';
     const [{ businesses }, pays] = await Promise.all([
-      callApp(env, app, 'GET', '/businesses'),
+      callApp(env, app, 'GET', archived ? '/businesses?archived=1' : '/businesses'),
       db.prepare(`SELECT business_id, MAX(ts) last_ts, SUM(amount) total FROM sub_payments WHERE app = ? GROUP BY business_id`).bind(app).all(),
     ]);
     const byId = Object.fromEntries(pays.results.map((p) => [p.business_id, p]));
@@ -148,6 +159,26 @@ async function route(req, env, path, url, adminEmail) {
   }
 
   const bid = encodeURIComponent(id);
+
+  // Archivar (eliminar): la app deja de dejar entrar y lo borra por lotes a los ARCHIVE_DAYS días.
+  if (!sub && M === 'DELETE') {
+    const r = await callApp(env, app, 'DELETE', `/businesses/${bid}`);
+    await audit(env, adminEmail, `archivó un negocio de ${APPS[app].name} (${id})`);
+    return json({ ok: true, purge_on: r.purge_on || null });
+  }
+  if (sub === 'restore' && M === 'POST') {
+    await callApp(env, app, 'POST', `/businesses/${bid}/restore`);
+    await audit(env, adminEmail, `restauró un negocio de ${APPS[app].name} (${id})`);
+    return json({ ok: true });
+  }
+  // Entrar como el dueño: la app da un pase de un solo uso (2 min) y el panel lo abre en otra pestaña.
+  if (sub === 'sso' && M === 'POST') {
+    const base = (env[APPS[app].url] || '').replace(/\/+$/, '');
+    if (!base) throw new AppError(503, `Falta ${APPS[app].url} en wrangler.jsonc`);
+    const r = await callApp(env, app, 'POST', `/businesses/${bid}/sso`);
+    await audit(env, adminEmail, `entró como dueño a un negocio de ${APPS[app].name} (${id})`);
+    return json({ url: base + r.path });
+  }
 
   if (!sub && M === 'PATCH') {
     const b = await req.json().catch(() => ({}));
@@ -190,12 +221,17 @@ async function route(req, env, path, url, adminEmail) {
   // las que aún no lo tienen reciben el POST de siempre (que además genera un link nuevo).
   if (sub === 'users' && subId && M === 'PATCH') {
     const b = await req.json().catch(() => ({}));
-    if (!APPS[app].roles.includes(b.role)) return json({ error: 'Rol no válido' }, 400);
+    const body = {};
+    if (b.role !== undefined) { if (!APPS[app].roles.includes(b.role)) return json({ error: 'Rol no válido' }, 400); body.role = b.role; }
+    if (b.new_email !== undefined) body.email = clip(b.new_email, 254);
+    if (!Object.keys(body).length) return json({ error: 'Indica el rol o el correo' }, 400);
     const path = `/businesses/${bid}/users/${encodeURIComponent(subId)}`;
     try {
-      await callApp(env, app, 'PATCH', path, { role: b.role });
-      return json({ ok: true, role: b.role });
+      const r = await callApp(env, app, 'PATCH', path, body);
+      if (body.email) await audit(env, adminEmail, `cambió el correo de un usuario de ${APPS[app].name} a ${body.email}`);
+      return json({ ok: true, role: r.role || b.role, email: r.email });
     } catch (e) {
+      if (body.email) throw e;
       if (!(e instanceof AppError) || ![404, 405].includes(e.status) || !b.email || /usuario no pertenece/i.test(e.message)) throw e;
       const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email: clip(b.email, 254), role: b.role });
       return json({ ok: true, role: b.role, invite_url: inviteUrl(env, app, r.invite_path), relinked: true });
@@ -208,4 +244,19 @@ async function route(req, env, path, url, adminEmail) {
   }
 
   return json({ error: 'no encontrado' }, 404);
+}
+
+// Cron diario: cada app borra por lotes los negocios archivados hace más de ARCHIVE_DAYS días.
+export async function purgeArchived(env) {
+  const out = {};
+  for (const [key, cfg] of Object.entries(APPS)) {
+    if (!env[cfg.binding]) continue;
+    try { out[key] = await callApp(env, key, 'POST', '/purge', { days: ARCHIVE_DAYS }); }
+    catch (e) { out[key] = { error: e.message }; }
+  }
+  const purged = Object.values(out).reduce((n, r) => n + (r.purged?.length || 0), 0);
+  if (purged) await audit(env, 'cron', `borró ${purged} negocio(s) archivados`);
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('platform_last_purge', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    .bind(JSON.stringify({ at: new Date().toISOString(), ...out })).run();
+  return out;
 }

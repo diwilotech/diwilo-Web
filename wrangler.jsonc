@@ -29,6 +29,9 @@
   ],
   "ai": { "binding": "AI" },
   // Apps de Diwilo que se administran desde /admin → Negocios (llamadas internas, sin pasar por internet).
+  // 3:00 a. m. en Colombia: borrar por lotes los negocios archivados hace más de 20 días (worker.js → scheduled).
+  "triggers": { "crons": ["0 8 * * *"] },
+
   // Cada app exporta "Platform" (RPC): Diwilo la administra sin clave compartida y sin URL pública.
   "services": [
     { "binding": "PEDIDOS", "service": "cdpedidos", "entrypoint": "Platform" },
