@@ -19,6 +19,7 @@ import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
 import { blogAdmin } from './blog.js';
+import { hubsApi, hubLeadCreated } from './hubs.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -156,6 +157,8 @@ async function createLead(req, env, ctx, b) {
   await env.DB.prepare('INSERT INTO events (ts, type, path, label, sid, country, city, device) VALUES (?,?,?,?,?,?,?,?)')
     .bind(now(), 'lead', lead.page, clip(b.via, 40), clip(b.sid, 64), g.country, g.city, g.device).run();
   ctx.waitUntil(fireWebhook(env, 'lead', { id: r.meta.last_row_id, ...lead }));
+  // Marketing Hub: el lead entra como contacto de Diwilo (y corre sus automatizaciones)
+  ctx.waitUntil(hubLeadCreated(env, { id: r.meta.last_row_id, ts: now(), ...lead }, callAI));
   return r.meta.last_row_id;
 }
 
@@ -247,7 +250,7 @@ async function mcpServer(req, env, ctx) {
   }
 }
 
-async function callAI(env, system, history) {
+export async function callAI(env, system, history) {
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
   if (env.GEMINI_API_KEY) {
     const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -517,6 +520,7 @@ async function adminApi(req, env, path, url) {
   if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
+  if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
   if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;

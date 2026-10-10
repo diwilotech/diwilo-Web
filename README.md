@@ -140,3 +140,26 @@ Para agregar una pestaña: crea los dos archivos, un botón `.tab[data-view="<id
 **Negocios:** eliminar archiva el negocio en la app (nadie entra); el cron diario (`triggers` en wrangler.jsonc) le pide a
 cada app borrar por lotes los archivados hace más de 20 días. «Entrar como dueño» pide a la app un pase de un solo uso
 (2 minutos) y abre la app con la sesión del dueño. Cada acción queda en «Actividad en tiempo real» (tipo `admin`).
+
+## Hubs (Marketing y Finanzas)
+
+Módulos horizontales del panel que funcionan **por organización**: «Diwilo · operación propia» o cualquier negocio de
+las apps (selector arriba a la derecha). El negocio sigue viviendo en su app (usuarios, operación); aquí solo están sus
+datos de marketing y finanzas. Tablas en `worker/hubs.sql`, API en `worker/src/hubs.js`, pantallas en
+`public/admin/tabs/marketing.*`, `finanzas.*` y `public/admin/hub.js`.
+
+- **Marketing:** clientes y leads, oportunidades (tablero por etapas), campañas con presupuesto y gasto real (costo por lead
+  y retorno), tareas, automatizaciones (lead nuevo, sin contacto, presupuesto, factura vencida, informe semanal con IA),
+  suscripciones y herramientas por organización, e informes del agente de IA.
+- **Finanzas:** ingresos y gastos, facturas por cobrar y por pagar (con cartera por antigüedad), gastos recurrentes
+  (infraestructura, software, API, IA), centros de costo por app, cliente, proyecto o departamento, presupuesto vs real,
+  flujo de caja (6 meses reales + 3 proyectados), conciliación con el extracto del banco (CSV) y exportación para el contador.
+- **Conectado con lo que ya existe:** cada lead del formulario del sitio entra como contacto de Diwilo (con su campaña por
+  `utm_campaign`) y cada pago registrado en Negocios entra como ingreso de Diwilo en el centro de costo de su app.
+- El cron diario registra los gastos recurrentes que vencen y corre las automatizaciones.
+
+Primera vez (o si cambian las tablas): `npx wrangler d1 execute diwilo-admin-db --remote --file=worker/hubs.sql`.
+
+**Usuarios de las apps:** desde Negocios solo se maneja al **dueño** (uno por negocio): asignarlo o pasar la propiedad,
+su correo, su link de contraseña y «Entrar como dueño». Los administradores y el personal los crea el dueño o un
+administrador dentro de cada app (Personal / Equipo).

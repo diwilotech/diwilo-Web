@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «links». La carga admin/core.js la primera vez que se abre.
 Admin.tab('links', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- LINKS ---------- */
   let links = [];
@@ -28,7 +28,7 @@ Admin.tab('links', (A) => {
     const ed = e.target.closest('[data-link-edit]');
     if (ed) { const l = links.find((x) => x.id === +ed.dataset.linkEdit); const f = $('#linkForm'); ['id', 'title', 'slug', 'target', 'utm_source', 'utm_medium', 'utm_campaign'].forEach((k) => { f.elements[k].value = l[k] ?? ''; }); $('#linkFormTitle').textContent = 'Editar link'; f.scrollIntoView({ behavior: 'smooth' }); return; }
     const del = e.target.closest('[data-link-del]');
-    if (del) { if (!confirm('¿Borrar este link y sus clics?')) return; await api('links?id=' + del.dataset.linkDel, { method: 'DELETE' }); $('#linkDetail').hidden = true; return load(); }
+    if (del) { if (!(await sure('¿Borrar este link y sus clics?', 'Borrar'))) return; await api('links?id=' + del.dataset.linkDel, { method: 'DELETE' }); $('#linkDetail').hidden = true; return load(); }
     const st = e.target.closest('[data-link-stats]');
     if (st) {
       const l = links.find((x) => x.id === +st.dataset.linkStats); const d = await api('link-clicks?id=' + l.id); const short = `${ORIGIN}/l/${l.slug}`;

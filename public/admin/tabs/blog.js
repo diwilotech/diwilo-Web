@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «blog». La carga admin/core.js la primera vez que se abre.
 Admin.tab('blog', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- BLOG ---------- */
   let posts = [], post = null, postSaved = '', postFilter = '', md = null, blogMeta = { categories: [], authors: [], defaultAuthor: '' };
@@ -138,7 +138,7 @@ Admin.tab('blog', (A) => {
     if (a === 'b') wrap('**'); else if (a === 'i') wrap('*');
     else if (a === 'h2') linePrefix('## '); else if (a === 'h3') linePrefix('### ');
     else if (a === 'quote') linePrefix('> '); else if (a === 'ul') linePrefix('- '); else if (a === 'ol') linePrefix('', true);
-    else if (a === 'link') { const url = prompt('Dirección del enlace (https://… o /contacto):', 'https://'); if (url) wrap('[', `](${url.trim()})`, 'texto del enlace'); }
+    else if (a === 'link') { const t = ta(), s0 = t.selectionStart, s1 = t.selectionEnd; ask({ title: 'Insertar enlace', text: 'Dirección del enlace (https://… o /contacto):', input: true, value: 'https://', ok: 'Insertar' }).then((url) => { if (!url) return; t.focus(); t.setSelectionRange(s0, s1); wrap('[', `](${url})`, 'texto del enlace'); }); }
     else if (a === 'code') wrap('\n```\n', '\n```\n', 'código');
     else if (a === 'table') insertBlock('| Columna 1 | Columna 2 |\n|---|---|\n| Dato | Dato |');
     else if (a === 'hr') insertBlock('---');
@@ -221,13 +221,13 @@ Admin.tab('blog', (A) => {
   $('#pSaveDraft').addEventListener('click', () => savePost(false));
   $('#pPublish').addEventListener('click', () => savePost(true));
   document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#blogEditor').hidden) { e.preventDefault(); savePost(null); } });
-  function closePost() {
-    if (post && snapP() !== postSaved && !confirm('Hay cambios sin guardar. ¿Salir de todos modos?')) return;
+  async function closePost() {
+    if (post && snapP() !== postSaved && !(await sure('Hay cambios sin guardar. ¿Salir de todos modos?', 'Salir sin guardar'))) return;
     post = null; $('#blogEditor').hidden = true; $('#blogList').hidden = false; load();
   }
   $('#edBack2').addEventListener('click', closePost);
   $('#pDelete').addEventListener('click', async () => {
-    if (!post?.id || !confirm(`¿Borrar “${post.title}”? No se puede deshacer.`)) return;
+    if (!post?.id || !(await sure(`¿Borrar “${post.title}”? No se puede deshacer.`, 'Borrar'))) return;
     await api('blog/' + post.id, { method: 'DELETE' }); postSaved = snapP(); closePost(); toast('Entrada borrada');
   });
   window.addEventListener('beforeunload', (e) => { if (post && snapP() !== postSaved) e.preventDefault(); });

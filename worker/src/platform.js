@@ -14,9 +14,9 @@
  *   PATCH  /admin/api/platform/:app/businesses/:id               { name?, slug?, paid_until? }  slug = dirección (la vieja redirige)
  *   GET    /admin/api/platform/:app/businesses/:id/payments
  *   POST   /admin/api/platform/:app/businesses/:id/payments      { months, amount, note? }
- *   POST   /admin/api/platform/:app/businesses/:id/users         { email, name?, role }
- *   PATCH  /admin/api/platform/:app/businesses/:id/users/:userId { role?, email? }  permisos y/o correo
- *   DELETE /admin/api/platform/:app/businesses/:id/users/:userId
+ *   POST   /admin/api/platform/:app/businesses/:id/users         { email, name? }  asigna DUEÑO (o renueva su link)
+ *   PATCH  /admin/api/platform/:app/businesses/:id/users/:userId { role: 'owner' } | { new_email }  pasar propiedad / correo del dueño
+ *          (el personal y los administradores se crean y manejan dentro de cada app)
  *   GET    /admin/api/platform/:app/businesses?archived=1         archivados (se borran a los 20 días)
  *   DELETE /admin/api/platform/:app/businesses/:id                archivar
  *   POST   /admin/api/platform/:app/businesses/:id/restore        sacar del archivo
@@ -30,6 +30,8 @@ export const APPS = {
   residentes: { name: 'Residentes', binding: 'RESIDENTES', url: 'RESIDENTES_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional' },
   academia: { name: 'Academia', binding: 'ACADEMIA', url: 'ACADEMIA_URL', roles: ['owner', 'admin', 'staff'], slug: false },
 };
+import { hubPaymentRecorded } from './hubs.js';
+
 const DEFAULT_TRIAL_DAYS = 15;
 export const ARCHIVE_DAYS = 20; // días que un negocio archivado se puede restaurar antes de borrarse
 
@@ -207,42 +209,46 @@ async function route(req, env, path, url, adminEmail) {
     const base = before && before >= today() ? before : today();
     const after = addMonths(base, months);
     await callApp(env, app, 'PATCH', `/businesses/${bid}`, { paid_until: after });
-    await db.prepare(`INSERT INTO sub_payments (app, business_id, business_name, ts, months, amount, paid_until_before, paid_until_after, note, by_email)
+    const pay = await db.prepare(`INSERT INTO sub_payments (app, business_id, business_name, ts, months, amount, paid_until_before, paid_until_after, note, by_email)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(app, id, biz.name, Date.now(), months, amount, before, after, clip(b.note, 300), adminEmail).run();
+    // Finance Hub: el pago entra como ingreso de Diwilo en el centro de costo de la app
+    await hubPaymentRecorded(env, { id: pay.meta.last_row_id, app, amount, months, note: clip(b.note, 300), business_name: biz.name, date: today() });
     return json({ ok: true, paid_until: after }, 201);
   }
 
+  // Usuarios: desde Diwilo solo se maneja al DUEÑO (uno por negocio). El personal y los administradores
+  // los crea el dueño o un administrador dentro de cada app (su sección de Personal / Equipo).
+  const ownerOf = async () => (await callApp(env, app, 'GET', `/businesses/${bid}`)).users?.find((u) => u.role === 'owner') || null;
+
+  // Asignar dueño (correo nuevo o alguien del equipo) o generar el link de registro/restablecer del dueño actual.
   if (sub === 'users' && !subId && M === 'POST') {
     const b = await req.json().catch(() => ({}));
-    const role = APPS[app].roles.includes(b.role) ? b.role : 'staff';
-    const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email: clip(b.email, 254), name: clip(b.name, 100) || undefined, role });
+    const email = clip(b.email, 254);
+    if (!email) return json({ error: 'Falta el correo' }, 400);
+    const owner = await ownerOf();
+    const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email, name: clip(b.name, 100) || undefined, role: 'owner' });
+    if (!owner || owner.email !== email.toLowerCase()) await audit(env, adminEmail, `asignó como dueño a ${email} en un negocio de ${APPS[app].name}`);
     return json({ ...r, invite_url: inviteUrl(env, app, r.invite_path) }, 201);
   }
 
-  // Cambiar el rol (permisos) de un usuario. Las apps con PATCH …/users/:userId solo cambian el rol;
-  // las que aún no lo tienen reciben el POST de siempre (que además genera un link nuevo).
+  // Pasar la propiedad a alguien del equipo (role: 'owner') o cambiar el correo del dueño (new_email).
   if (sub === 'users' && subId && M === 'PATCH') {
     const b = await req.json().catch(() => ({}));
     const body = {};
-    if (b.role !== undefined) { if (!APPS[app].roles.includes(b.role)) return json({ error: 'Rol no válido' }, 400); body.role = b.role; }
-    if (b.new_email !== undefined) body.email = clip(b.new_email, 254);
-    if (!Object.keys(body).length) return json({ error: 'Indica el rol o el correo' }, 400);
-    const path = `/businesses/${bid}/users/${encodeURIComponent(subId)}`;
-    try {
-      const r = await callApp(env, app, 'PATCH', path, body);
-      if (body.email) await audit(env, adminEmail, `cambió el correo de un usuario de ${APPS[app].name} a ${body.email}`);
-      return json({ ok: true, role: r.role || b.role, email: r.email });
-    } catch (e) {
-      if (body.email) throw e;
-      if (!(e instanceof AppError) || ![404, 405].includes(e.status) || !b.email || /usuario no pertenece/i.test(e.message)) throw e;
-      const r = await callApp(env, app, 'POST', `/businesses/${bid}/users`, { email: clip(b.email, 254), role: b.role });
-      return json({ ok: true, role: b.role, invite_url: inviteUrl(env, app, r.invite_path), relinked: true });
+    if (b.role !== undefined) { if (b.role !== 'owner') return json({ error: 'Desde Diwilo solo se asigna el dueño. El equipo se maneja en la app.' }, 403); body.role = 'owner'; }
+    if (b.new_email !== undefined) {
+      const owner = await ownerOf();
+      if (owner?.id !== subId) return json({ error: 'Desde Diwilo solo se cambia el correo del dueño. El del equipo se cambia en la app.' }, 403);
+      body.email = clip(b.new_email, 254);
     }
+    if (!Object.keys(body).length) return json({ error: 'Indica el dueño o el correo' }, 400);
+    const r = await callApp(env, app, 'PATCH', `/businesses/${bid}/users/${encodeURIComponent(subId)}`, body);
+    await audit(env, adminEmail, body.email ? `cambió el correo del dueño a ${body.email} en ${APPS[app].name}` : `pasó la propiedad de un negocio de ${APPS[app].name}`);
+    return json({ ok: true, role: r.role || b.role, email: r.email });
   }
 
   if (sub === 'users' && subId && M === 'DELETE') {
-    await callApp(env, app, 'DELETE', `/businesses/${bid}/users/${encodeURIComponent(subId)}`);
-    return json({ ok: true });
+    return json({ error: 'El equipo se maneja dentro de la app (sección Personal o Equipo).' }, 403);
   }
 
   return json({ error: 'no encontrado' }, 404);
@@ -261,4 +267,9 @@ export async function purgeArchived(env) {
   await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('platform_last_purge', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     .bind(JSON.stringify({ at: new Date().toISOString(), ...out })).run();
   return out;
+}
+
+// Negocios de una app (para la lista de organizaciones de los hubs).
+export async function listAppBusinesses(env, app) {
+  return (await callApp(env, app, 'GET', '/businesses')).businesses || [];
 }

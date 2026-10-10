@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «leads». La carga admin/core.js la primera vez que se abre.
 Admin.tab('leads', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- LEADS ---------- */
   const STATUS = ['nuevo', 'contactado', 'propuesta', 'ganado', 'perdido'];
@@ -25,7 +25,7 @@ Admin.tab('leads', (A) => {
     const l = leads.find((x) => x.id === +id); if (l) l.status = e.target.value; updateLeadBadge(); toast('Estado actualizado');
   });
   $('#leadsBody').addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-del-lead]'); if (!b || !confirm('¿Borrar este lead?')) return;
+    const b = e.target.closest('[data-del-lead]'); if (!b || !(await sure('¿Borrar este lead?', 'Borrar'))) return;
     await api('leads?id=' + b.dataset.delLead, { method: 'DELETE' }); load();
   });
   $('#leadsCsv').addEventListener('click', () => {

@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «api». La carga admin/core.js la primera vez que se abre.
 Admin.tab('api', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- INTEGRACIONES ---------- */
   const load = async () => {
@@ -34,6 +34,6 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     $('[data-copy]', el).onclick = () => copy(r.key);
     load();
   });
-  $('#keysBody').addEventListener('click', async (e) => { const b = e.target.closest('[data-revoke]'); if (b && confirm('¿Revocar esta clave? Las integraciones que la usan dejarán de funcionar.')) { await api('keys?id=' + b.dataset.revoke, { method: 'DELETE' }); load(); } });
+  $('#keysBody').addEventListener('click', async (e) => { const b = e.target.closest('[data-revoke]'); if (b && await sure('¿Revocar esta clave? Las integraciones que la usan dejarán de funcionar.', 'Revocar')) { await api('keys?id=' + b.dataset.revoke, { method: 'DELETE' }); load(); } });
   return { show: load };
 });

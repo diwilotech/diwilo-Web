@@ -1,0 +1,622 @@
+/**
+ * Marketing Hub y Finance Hub: módulos horizontales del panel (/admin → Marketing y Finanzas).
+ * Funcionan por organización: 'diwilo' (la operación de Diwilo) o '<app>:<id del negocio>' (cada negocio
+ * de las apps). El negocio sigue viviendo en su app; aquí solo se guardan sus datos de marketing y finanzas.
+ * Tablas en worker/hubs.sql.
+ *
+ *   GET    /admin/api/hub/orgs                                  organizaciones (Diwilo + negocios de cada app)
+ *   GET    /admin/api/hub/:org/:entity?q=&limit=                 listar   (entity: ver ENTITIES)
+ *   POST   /admin/api/hub/:org/:entity                           crear
+ *   PATCH  /admin/api/hub/:org/:entity/:id                       editar
+ *   DELETE /admin/api/hub/:org/:entity/:id                       borrar
+ *   GET    /admin/api/hub/:org/marketing/summary?from=&to=       contactos, embudo, campañas (gasto, CPL, ROI), tareas
+ *   POST   /admin/api/hub/:org/marketing/import-leads            (solo diwilo) trae los leads del formulario del sitio
+ *   GET    /admin/api/hub/:org/finance/summary?month=YYYY-MM     ingresos, gastos, presupuesto vs real, cartera, flujo de caja
+ *   POST   /admin/api/hub/:org/finance/import-payments           (solo diwilo) trae los pagos de suscripciones de Negocios
+ *   POST   /admin/api/hub/:org/invoices/:id/pay                  { date, amount, account_id } registra el pago de una factura
+ *   GET    /admin/api/hub/:org/finance/bank-lines?account_id=    extracto importado (pendientes y conciliadas)
+ *   POST   /admin/api/hub/:org/finance/bank-import               { account_id, lines: [{ date, description, amount, ref }] }
+ *   POST   /admin/api/hub/:org/finance/bank-lines/:id/match      { movement_id } | { create: { category, cost_center_id } }
+ *   GET    /admin/api/hub/:org/finance/export?kind=movements|invoices&from=&to=   CSV para el contador
+ *   POST   /admin/api/hub/:org/reports                           { kind: marketing|finanzas } informe escrito por el agente de IA
+ * runHubsDaily(env, callAI) lo corre el cron: gastos recurrentes que vencen y automatizaciones.
+ */
+import { APPS, listAppBusinesses } from './platform.js';
+
+const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+class HubError extends Error { constructor(status, message) { super(message); this.status = status; } }
+const now = () => Date.now();
+const today = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10); // Colombia (UTC-5)
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH = /^\d{4}-\d{2}$/;
+const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+function addMonths(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const f = new Date(Date.UTC(y, m - 1 + n, 1));
+  f.setUTCDate(Math.min(d, new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + 1, 0)).getUTCDate()));
+  return f.toISOString().slice(0, 10);
+}
+const DIWILO = 'diwilo';
+const ORG_RE = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/;
+
+/* ---------------- entidades (CRUD genérico) ---------------- */
+// Tipos: text | long | email | url | date | month | money | int | bool (bool+ = sí por defecto) | ['opción', ...]   (! = obligatorio)
+const STAGES_CONTACT = ['lead', 'cliente', 'perdido'];
+const STAGES_DEAL = ['nuevo', 'calificado', 'propuesta', 'negociacion', 'ganado', 'perdido'];
+export const ENTITIES = {
+  contacts: { table: 'mk_contacts', search: ['name', 'email', 'company', 'phone'], order: 'updated_at DESC',
+    fields: { name: 'text!', email: 'email', phone: 'text', company: 'text', stage: STAGES_CONTACT, source: 'text', campaign_id: 'int', owner: 'text', tags: 'text', notes: 'long', last_contact_at: 'date' } },
+  deals: { table: 'mk_deals', search: ['title', 'notes'], order: 'updated_at DESC',
+    fields: { title: 'text!', contact_id: 'int', campaign_id: 'int', value: 'money', stage: STAGES_DEAL, expected_close: 'date', notes: 'long' } },
+  campaigns: { table: 'mk_campaigns', search: ['name', 'utm_campaign'], order: "CASE status WHEN 'activa' THEN 0 WHEN 'pausada' THEN 1 ELSE 2 END, start_date DESC",
+    fields: { name: 'text!', channel: ['meta_ads', 'google_ads', 'whatsapp', 'correo', 'organico', 'otro'], status: ['activa', 'pausada', 'terminada'], start_date: 'date', end_date: 'date', budget: 'money', goal_leads: 'int', utm_campaign: 'text', notes: 'long' } },
+  spend: { table: 'mk_spend', search: ['note'], order: 'date DESC',
+    fields: { campaign_id: 'int!', date: 'date!', amount: 'money!', leads: 'int', clicks: 'int', impressions: 'int', note: 'text' } },
+  tasks: { table: 'mk_tasks', search: ['title', 'notes', 'assignee'], order: 'done, COALESCE(due_date, \'9999\'), created_at DESC',
+    fields: { title: 'text!', due_date: 'date', done: 'bool', contact_id: 'int', deal_id: 'int', assignee: 'text', notes: 'long' } },
+  automations: { table: 'mk_automations', search: ['name'], order: 'created_at DESC',
+    fields: { name: 'text!', trigger: ['lead_nuevo', 'sin_contacto', 'presupuesto_campana', 'factura_vencida', 'semanal'], action: ['crear_tarea', 'crear_oportunidad', 'informe_ia'], days: 'int', percent: 'int', task_title: 'text', active: 'bool+' } },
+  tools: { table: 'org_tools', search: ['name', 'vendor', 'account_email'], order: "CASE status WHEN 'cancelada' THEN 1 ELSE 0 END, name",
+    fields: { name: 'text!', category: ['marketing', 'crm', 'infraestructura', 'software', 'api', 'ia', 'otro'], vendor: 'text', plan: 'text', cost: 'money', cycle: ['mensual', 'anual', 'por uso'], renews_on: 'date', url: 'url', account_email: 'email', status: ['activa', 'prueba', 'cancelada'], cost_center_id: 'int', notes: 'long' } },
+  reports: { table: 'hub_reports', search: ['title', 'content'], order: 'created_at DESC', readOnly: true, fields: {} },
+  cost_centers: { table: 'fin_cost_centers', search: ['name', 'code'], order: 'active DESC, kind, name',
+    fields: { name: 'text!', kind: ['app', 'cliente', 'proyecto', 'departamento'], code: 'text', active: 'bool+', notes: 'long' } },
+  accounts: { table: 'fin_accounts', search: ['name', 'bank'], order: 'name',
+    fields: { name: 'text!', kind: ['banco', 'efectivo', 'tarjeta', 'billetera'], bank: 'text', last4: 'text', opening_balance: 'money' } },
+  invoices: { table: 'fin_invoices', search: ['number', 'counterparty', 'tax_id'], order: 'issue_date DESC, id DESC',
+    fields: { kind: ['emitida', 'recibida'], number: 'text', counterparty: 'text!', tax_id: 'text', issue_date: 'date!', due_date: 'date', subtotal: 'money', tax: 'money', total: 'money', status: ['pendiente', 'pagada', 'anulada'], cost_center_id: 'int', category: 'text', notes: 'long' } },
+  movements: { table: 'fin_movements', search: ['description', 'counterparty', 'category'], order: 'date DESC, id DESC',
+    fields: { kind: ['ingreso', 'gasto'], date: 'date!', amount: 'money!', category: 'text', description: 'text', counterparty: 'text', cost_center_id: 'int', account_id: 'int', invoice_id: 'int', reconciled: 'bool' } },
+  recurring: { table: 'fin_recurring', search: ['name', 'vendor'], order: 'active DESC, next_date',
+    fields: { name: 'text!', vendor: 'text', category: ['infraestructura', 'software', 'api', 'ia', 'marketing', 'otro'], amount: 'money!', cycle: ['mensual', 'anual'], next_date: 'date!', cost_center_id: 'int', account_id: 'int', active: 'bool+', notes: 'long' } },
+  budgets: { table: 'fin_budgets', search: ['category'], order: 'month DESC, id DESC',
+    fields: { month: 'month!', cost_center_id: 'int', category: 'text', amount: 'money!' } },
+};
+
+function cast(key, type, v) {
+  if (Array.isArray(type)) {
+    if (v === null || v === undefined || v === '') return type[0];
+    if (!type.includes(v)) throw new HubError(400, `Valor no válido para ${key}`);
+    return v;
+  }
+  const t = type.replace(/[!+]$/, '');
+  if (v === null || v === undefined || v === '') {
+    if (type.endsWith('!')) throw new HubError(400, `Falta ${key}`);
+    return t === 'bool' ? (type.endsWith('+') ? 1 : 0) : null;
+  }
+  switch (t) {
+    case 'text': return String(v).trim().slice(0, 300);
+    case 'long': return String(v).trim().slice(0, 5000);
+    case 'email': { const s = String(v).trim().toLowerCase().slice(0, 254); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) throw new HubError(400, `Correo no válido en ${key}`); return s; }
+    case 'url': { const s = String(v).trim().slice(0, 500); if (!/^https?:\/\//i.test(s)) throw new HubError(400, `La dirección de ${key} debe empezar por https://`); return s; }
+    case 'date': { const s = String(v).slice(0, 10); if (!DATE.test(s)) throw new HubError(400, `Fecha no válida en ${key}`); return s; }
+    case 'month': { const s = String(v).slice(0, 7); if (!MONTH.test(s)) throw new HubError(400, `Mes no válido en ${key}`); return s; }
+    case 'money': case 'int': { const n = Math.round(Number(String(v).replace(/[^\d.-]/g, ''))); if (!Number.isFinite(n)) throw new HubError(400, `Número no válido en ${key}`); if (t === 'money' && n < 0) throw new HubError(400, `${key} no puede ser negativo`); return n; }
+    case 'bool': return v === true || v === 1 || v === '1' || v === 'true' || v === 'on' ? 1 : 0;
+    default: return String(v);
+  }
+}
+// creating: aplica obligatorios y valores por defecto de todo el esquema; editando: solo lo que llega.
+function pick(def, body, creating) {
+  const out = {};
+  for (const [k, type] of Object.entries(def.fields)) {
+    if (!creating && !(k in body)) continue;
+    out[k] = cast(k, type, body[k]);
+  }
+  return out;
+}
+
+/* ---------------- organizaciones ---------------- */
+async function ensureOrg(env, id, name, extra = {}) {
+  const t = now();
+  await env.DB.prepare(`INSERT INTO orgs (id, kind, app, business_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`)
+    .bind(id, extra.kind || (id === DIWILO ? 'diwilo' : 'negocio'), extra.app || null, extra.business_id || null, name, t, t).run();
+}
+async function listOrgs(env) {
+  await ensureOrg(env, DIWILO, 'Diwilo');
+  const errors = [];
+  await Promise.all(Object.entries(APPS).map(async ([key, cfg]) => {
+    if (!env[cfg.binding]) return;
+    try {
+      for (const b of await listAppBusinesses(env, key)) await ensureOrg(env, `${key}:${b.id}`, b.name, { app: key, business_id: b.id });
+    } catch (e) { errors.push(`${cfg.name}: ${e.message}`); }
+  }));
+  const { results } = await env.DB.prepare("SELECT id, kind, app, business_id, name FROM orgs ORDER BY CASE kind WHEN 'diwilo' THEN 0 ELSE 1 END, app, name").all();
+  return { orgs: results.map((o) => ({ ...o, app_name: o.app ? APPS[o.app]?.name || o.app : null })), errors };
+}
+async function orgExists(env, org) {
+  if (org === DIWILO) { await ensureOrg(env, DIWILO, 'Diwilo'); return true; }
+  return !!(await env.DB.prepare('SELECT 1 FROM orgs WHERE id = ?').bind(org).first());
+}
+
+/* ---------------- CRUD ---------------- */
+async function list(env, org, def, url) {
+  const q = (url.searchParams.get('q') || '').trim();
+  const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get('limit')) || 500));
+  const where = ['org_id = ?'], args = [org];
+  if (q) { where.push('(' + def.search.map((c) => `${c} LIKE ?`).join(' OR ') + ')'); def.search.forEach(() => args.push(`%${q}%`)); }
+  // filtros simples por columna: ?f_stage=lead
+  for (const [k, v] of url.searchParams) {
+    const col = k.startsWith('f_') ? k.slice(2) : null;
+    if (col && (col in def.fields || col === 'id') && v !== '') { where.push(`${col} = ?`); args.push(v); }
+  }
+  const { results } = await env.DB.prepare(`SELECT * FROM ${def.table} WHERE ${where.join(' AND ')} ORDER BY ${def.order} LIMIT ${limit}`).bind(...args).all();
+  return results;
+}
+async function getRow(env, def, org, id) {
+  const r = await env.DB.prepare(`SELECT * FROM ${def.table} WHERE id = ? AND org_id = ?`).bind(id, org).first();
+  if (!r) throw new HubError(404, 'No encontrado');
+  return r;
+}
+async function create(env, org, entity, def, body, hooks) {
+  const row = pick(def, body, true);
+  if (entity === 'invoices') {
+    row.total = row.total || (row.subtotal || 0) + (row.tax || 0);
+    if (!(row.total > 0)) throw new HubError(400, 'La factura necesita un total (o subtotal e impuestos)');
+  }
+  if (entity === 'deals' && ['ganado', 'perdido'].includes(row.stage)) row.closed_at = now();
+  const t = now(), cols = Object.keys(row);
+  const r = await env.DB.prepare(`INSERT INTO ${def.table} (org_id, ${cols.join(', ')}, created_at, updated_at) VALUES (?, ${cols.map(() => '?').join(', ')}, ?, ?)`)
+    .bind(org, ...cols.map((c) => row[c]), t, t).run();
+  const id = r.meta.last_row_id;
+  if (entity === 'contacts' && row.stage === 'lead') await hooks.onNewContact(env, org, { id, ...row });
+  if (entity === 'movements' && row.invoice_id) await recomputeInvoice(env, org, row.invoice_id);
+  return { id };
+}
+async function update(env, org, entity, def, id, body) {
+  const before = await getRow(env, def, org, id);
+  const row = pick(def, body, false);
+  if (entity === 'deals' && row.stage && row.stage !== before.stage) row.closed_at = ['ganado', 'perdido'].includes(row.stage) ? now() : null;
+  const cols = Object.keys(row);
+  if (cols.length) {
+    await env.DB.prepare(`UPDATE ${def.table} SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND org_id = ?`)
+      .bind(...cols.map((c) => row[c]), now(), id, org).run();
+  }
+  if (entity === 'tasks' && 'done' in row) await env.DB.prepare('UPDATE mk_tasks SET done_at = ? WHERE id = ?').bind(row.done ? now() : null, id).run();
+  if (entity === 'movements') for (const inv of new Set([before.invoice_id, row.invoice_id].filter(Boolean))) await recomputeInvoice(env, org, inv);
+  if (entity === 'invoices') await recomputeInvoice(env, org, id);
+  return { ok: true };
+}
+async function remove(env, org, entity, def, id) {
+  const before = await getRow(env, def, org, id);
+  await env.DB.prepare(`DELETE FROM ${def.table} WHERE id = ? AND org_id = ?`).bind(id, org).run();
+  if (entity === 'movements' && before.invoice_id) await recomputeInvoice(env, org, before.invoice_id);
+  if (entity === 'movements') await env.DB.prepare('UPDATE fin_bank_lines SET movement_id = NULL WHERE movement_id = ? AND org_id = ?').bind(id, org).run();
+  return { ok: true };
+}
+
+/* ---------------- facturas ---------------- */
+// Pagado = suma de los movimientos ligados. Estado: pagada si cubre el total (anulada se respeta).
+async function recomputeInvoice(env, org, invoiceId) {
+  const inv = await env.DB.prepare('SELECT total, status FROM fin_invoices WHERE id = ? AND org_id = ?').bind(invoiceId, org).first();
+  if (!inv) return;
+  const s = await env.DB.prepare('SELECT COALESCE(SUM(amount), 0) n FROM fin_movements WHERE invoice_id = ? AND org_id = ?').bind(invoiceId, org).first();
+  const status = inv.status === 'anulada' ? 'anulada' : s.n >= inv.total && inv.total > 0 ? 'pagada' : 'pendiente';
+  await env.DB.prepare('UPDATE fin_invoices SET paid = ?, status = ?, updated_at = ? WHERE id = ?').bind(s.n, status, now(), invoiceId).run();
+}
+async function payInvoice(env, org, id, body) {
+  const inv = await getRow(env, ENTITIES.invoices, org, id);
+  if (inv.status === 'anulada') throw new HubError(409, 'La factura está anulada');
+  const amount = cast('monto', 'money!', body.amount ?? inv.total - inv.paid);
+  if (amount <= 0) throw new HubError(400, 'El monto debe ser mayor que cero');
+  const date = cast('fecha', 'date', body.date) || today();
+  const t = now();
+  await env.DB.prepare(`INSERT INTO fin_movements (org_id, kind, date, amount, category, description, counterparty, cost_center_id, account_id, invoice_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(org, inv.kind === 'emitida' ? 'ingreso' : 'gasto', date, amount, inv.category || 'Facturas',
+    `Pago factura ${inv.number || '#' + inv.id}`, inv.counterparty, inv.cost_center_id, cast('cuenta', 'int', body.account_id), inv.id, t, t).run();
+  await recomputeInvoice(env, org, id);
+  return { ok: true };
+}
+const invoiceState = (i, t = today()) => i.status === 'anulada' ? 'anulada' : i.status === 'pagada' ? 'pagada' : i.due_date && i.due_date < t ? 'vencida' : 'pendiente';
+
+/* ---------------- resúmenes ---------------- */
+const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results;
+const one = (env, sql, ...a) => env.DB.prepare(sql).bind(...a).first();
+
+async function marketingSummary(env, org, url) {
+  const to = DATE.test(url.searchParams.get('to') || '') ? url.searchParams.get('to') : today();
+  const from = DATE.test(url.searchParams.get('from') || '') ? url.searchParams.get('from') : addDays(to, -29);
+  const fromMs = Date.parse(from + 'T05:00:00Z'), toMs = Date.parse(to + 'T05:00:00Z') + 86400000;
+  const [contacts, newContacts, bySource, pipeline, won, lost, camps, spendRows, contactsByCamp, wonByCamp, tasks, tools] = await Promise.all([
+    all(env, 'SELECT stage, COUNT(*) n FROM mk_contacts WHERE org_id = ? GROUP BY stage', org),
+    one(env, 'SELECT COUNT(*) n FROM mk_contacts WHERE org_id = ? AND created_at >= ? AND created_at < ?', org, fromMs, toMs),
+    all(env, "SELECT COALESCE(NULLIF(source, ''), '(sin dato)') k, COUNT(*) n FROM mk_contacts WHERE org_id = ? AND created_at >= ? AND created_at < ? GROUP BY k ORDER BY n DESC LIMIT 8", org, fromMs, toMs),
+    all(env, "SELECT stage, COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage NOT IN ('ganado', 'perdido') GROUP BY stage", org),
+    one(env, "SELECT COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage = 'ganado' AND closed_at >= ? AND closed_at < ?", org, fromMs, toMs),
+    one(env, "SELECT COUNT(*) n FROM mk_deals WHERE org_id = ? AND stage = 'perdido' AND closed_at >= ? AND closed_at < ?", org, fromMs, toMs),
+    all(env, 'SELECT id, name, channel, status, budget, goal_leads, start_date, end_date FROM mk_campaigns WHERE org_id = ?', org),
+    all(env, 'SELECT campaign_id, COALESCE(SUM(amount), 0) spend, COALESCE(SUM(leads), 0) leads, COALESCE(SUM(CASE WHEN date >= ? AND date <= ? THEN amount END), 0) spend_period FROM mk_spend WHERE org_id = ? GROUP BY campaign_id', from, to, org),
+    all(env, 'SELECT campaign_id, COUNT(*) n FROM mk_contacts WHERE org_id = ? AND campaign_id IS NOT NULL GROUP BY campaign_id', org),
+    all(env, "SELECT campaign_id, COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage = 'ganado' AND campaign_id IS NOT NULL GROUP BY campaign_id", org),
+    one(env, 'SELECT COUNT(*) open, SUM(CASE WHEN due_date < ? THEN 1 ELSE 0 END) overdue FROM mk_tasks WHERE org_id = ? AND done = 0', today(), org),
+    one(env, "SELECT COUNT(*) n, COALESCE(SUM(CASE cycle WHEN 'anual' THEN cost / 12 WHEN 'mensual' THEN cost ELSE 0 END), 0) monthly FROM org_tools WHERE org_id = ? AND status <> 'cancelada'", org),
+  ]);
+  const by = (rows) => Object.fromEntries(rows.map((r) => [r.campaign_id, r]));
+  const sp = by(spendRows), cc = by(contactsByCamp), wc = by(wonByCamp);
+  const campaigns = camps.map((c) => {
+    const spend = sp[c.id]?.spend || 0, leads = Math.max(sp[c.id]?.leads || 0, cc[c.id]?.n || 0), revenue = wc[c.id]?.v || 0;
+    return { ...c, spend, spend_period: sp[c.id]?.spend_period || 0, leads, won: wc[c.id]?.n || 0, revenue,
+      cpl: leads ? Math.round(spend / leads) : null, roi: spend ? Math.round(((revenue - spend) / spend) * 100) : null,
+      budget_used: c.budget ? Math.round((spend / c.budget) * 100) : null };
+  });
+  const channels = {};
+  for (const c of campaigns) { const k = c.channel; channels[k] ||= { channel: k, spend: 0, leads: 0, revenue: 0 }; channels[k].spend += c.spend; channels[k].leads += c.leads; channels[k].revenue += c.revenue; }
+  const totals = campaigns.reduce((a, c) => ({ budget: a.budget + (c.budget || 0), spend: a.spend + c.spend, spend_period: a.spend_period + c.spend_period, leads: a.leads + c.leads, revenue: a.revenue + c.revenue }), { budget: 0, spend: 0, spend_period: 0, leads: 0, revenue: 0 });
+  let site = null;
+  if (org === DIWILO) site = await one(env, 'SELECT COUNT(*) leads FROM leads WHERE ts >= ? AND ts < ?', fromMs, toMs).catch(() => null);
+  return {
+    from, to,
+    contacts: { by_stage: Object.fromEntries(contacts.map((r) => [r.stage, r.n])), new: newContacts.n, by_source: bySource },
+    deals: { pipeline: STAGES_DEAL.slice(0, 4).map((s) => ({ stage: s, n: pipeline.find((p) => p.stage === s)?.n || 0, value: pipeline.find((p) => p.stage === s)?.v || 0 })),
+      won: won.n, won_value: won.v, lost: lost.n, win_rate: won.n + lost.n ? Math.round((won.n / (won.n + lost.n)) * 100) : null },
+    campaigns, channels: Object.values(channels),
+    totals: { ...totals, cpl: totals.leads ? Math.round(totals.spend / totals.leads) : null, roi: totals.spend ? Math.round(((totals.revenue - totals.spend) / totals.spend) * 100) : null },
+    tasks: { open: tasks.open || 0, overdue: tasks.overdue || 0 },
+    tools: { active: tools.n, monthly: Math.round(tools.monthly) },
+    site,
+  };
+}
+
+async function financeSummary(env, org, url) {
+  const month = MONTH.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : today().slice(0, 7);
+  const t = today();
+  const first = `${month}-01`, next = addMonths(first, 1);
+  const [mov, byCat, byCc, budgets, invoices, recurring, accounts, accMov, unrec, ccs] = await Promise.all([
+    one(env, "SELECT COALESCE(SUM(CASE WHEN kind = 'ingreso' THEN amount END), 0) income, COALESCE(SUM(CASE WHEN kind = 'gasto' THEN amount END), 0) expense FROM fin_movements WHERE org_id = ? AND date >= ? AND date < ?", org, first, next),
+    all(env, "SELECT kind, COALESCE(NULLIF(category, ''), 'Sin categoría') k, SUM(amount) n FROM fin_movements WHERE org_id = ? AND date >= ? AND date < ? GROUP BY kind, k ORDER BY n DESC", org, first, next),
+    all(env, "SELECT cost_center_id id, SUM(CASE WHEN kind = 'gasto' THEN amount ELSE 0 END) expense, SUM(CASE WHEN kind = 'ingreso' THEN amount ELSE 0 END) income FROM fin_movements WHERE org_id = ? AND date >= ? AND date < ? GROUP BY cost_center_id", org, first, next),
+    all(env, 'SELECT cost_center_id id, category, SUM(amount) amount FROM fin_budgets WHERE org_id = ? AND month = ? GROUP BY cost_center_id, category', org, month),
+    all(env, "SELECT id, kind, number, counterparty, issue_date, due_date, total, paid, status FROM fin_invoices WHERE org_id = ? AND status <> 'anulada' AND status <> 'pagada'", org),
+    all(env, 'SELECT id, name, category, amount, cycle, next_date FROM fin_recurring WHERE org_id = ? AND active = 1', org),
+    all(env, 'SELECT id, name, kind, opening_balance FROM fin_accounts WHERE org_id = ?', org),
+    all(env, "SELECT account_id id, SUM(CASE WHEN kind = 'ingreso' THEN amount ELSE -amount END) n FROM fin_movements WHERE org_id = ? AND account_id IS NOT NULL GROUP BY account_id", org),
+    one(env, 'SELECT COUNT(*) n FROM fin_bank_lines WHERE org_id = ? AND movement_id IS NULL', org),
+    all(env, 'SELECT id, name, kind FROM fin_cost_centers WHERE org_id = ?', org),
+  ]);
+  // Cartera: por cobrar (emitidas) y por pagar (recibidas), por antigüedad del vencimiento
+  const aging = (kind) => {
+    const out = { total: 0, overdue: 0, buckets: { al_dia: 0, d30: 0, d60: 0, d90: 0, mas90: 0 }, items: [] };
+    for (const i of invoices.filter((x) => x.kind === kind)) {
+      const due = i.total - i.paid; if (due <= 0) continue;
+      const late = i.due_date && i.due_date < t ? Math.round((Date.parse(t) - Date.parse(i.due_date)) / 86400000) : 0;
+      out.total += due; if (late > 0) out.overdue += due;
+      out.buckets[late <= 0 ? 'al_dia' : late <= 30 ? 'd30' : late <= 60 ? 'd60' : late <= 90 ? 'd90' : 'mas90'] += due;
+      out.items.push({ ...i, due, late, state: invoiceState(i, t) });
+    }
+    out.items.sort((a, b) => b.late - a.late || b.due - a.due);
+    out.items = out.items.slice(0, 8);
+    return out;
+  };
+  // Flujo de caja: 6 meses reales + 3 proyectados (recurrentes + facturas por vencer)
+  const curFirst = `${t.slice(0, 7)}-01`;
+  const past = await all(env, "SELECT substr(date, 1, 7) m, SUM(CASE WHEN kind = 'ingreso' THEN amount ELSE 0 END) income, SUM(CASE WHEN kind = 'gasto' THEN amount ELSE 0 END) expense FROM fin_movements WHERE org_id = ? AND date >= ? GROUP BY m", org, addMonths(curFirst, -5));
+  const flow = [];
+  for (let k = -5; k <= 3; k++) {
+    const m = addMonths(curFirst, k).slice(0, 7);
+    const real = past.find((p) => p.m === m);
+    const row = { month: m, income: real?.income || 0, expense: real?.expense || 0, projected: k > 0 };
+    if (k >= 0) {
+      const mFirst = `${m}-01`, mNext = addMonths(mFirst, 1);
+      for (const r of recurring) {
+        let d = r.next_date, guard = 0;
+        while (d < mNext && guard++ < 40) { if (d >= mFirst && (k > 0 || d >= t)) row.expense += r.amount; d = addMonths(d, r.cycle === 'anual' ? 12 : 1); }
+      }
+      for (const i of invoices) {
+        const due = i.total - i.paid; if (due <= 0 || !i.due_date) continue;
+        if (i.due_date >= mFirst && i.due_date < mNext && (k > 0 || i.due_date >= t)) row[i.kind === 'emitida' ? 'income' : 'expense'] += due;
+      }
+      if (k === 0) row.partial = true;
+    }
+    row.net = row.income - row.expense;
+    flow.push(row);
+  }
+  const ccName = Object.fromEntries(ccs.map((c) => [c.id, c.name]));
+  const centers = {};
+  for (const r of byCc) centers[r.id ?? 0] = { id: r.id, name: r.id ? ccName[r.id] || `#${r.id}` : 'Sin centro de costo', expense: r.expense, income: r.income, budget: 0 };
+  for (const b of budgets) { const k = b.id ?? 0; centers[k] ||= { id: b.id, name: b.id ? ccName[b.id] || `#${b.id}` : 'General', expense: 0, income: 0, budget: 0 }; centers[k].budget += b.amount; }
+  const recurringMonthly = {};
+  for (const r of recurring) recurringMonthly[r.category] = (recurringMonthly[r.category] || 0) + (r.cycle === 'anual' ? Math.round(r.amount / 12) : r.amount);
+  const bal = Object.fromEntries(accMov.map((a) => [a.id, a.n]));
+  return {
+    month, today: t,
+    totals: { income: mov.income, expense: mov.expense, net: mov.income - mov.expense,
+      budget: budgets.reduce((n, b) => n + b.amount, 0) },
+    expense_by_category: byCat.filter((r) => r.kind === 'gasto').map(({ k, n }) => ({ k, n })),
+    income_by_category: byCat.filter((r) => r.kind === 'ingreso').map(({ k, n }) => ({ k, n })),
+    cost_centers: Object.values(centers).sort((a, b) => b.expense - a.expense),
+    receivable: aging('emitida'), payable: aging('recibida'),
+    cash_flow: flow,
+    recurring_monthly: recurringMonthly,
+    recurring_total: Object.values(recurringMonthly).reduce((a, b) => a + b, 0),
+    accounts: accounts.map((a) => ({ ...a, balance: a.opening_balance + (bal[a.id] || 0) })),
+    bank_pending: unrec.n,
+  };
+}
+
+/* ---------------- banco: importar extracto y conciliar ---------------- */
+async function bankImport(env, org, body) {
+  const accountId = cast('cuenta', 'int!', body.account_id);
+  await getRow(env, ENTITIES.accounts, org, accountId);
+  const lines = Array.isArray(body.lines) ? body.lines.slice(0, 2000) : [];
+  if (!lines.length) throw new HubError(400, 'El extracto no trae movimientos');
+  const t = now(), stmts = [];
+  for (const l of lines) {
+    const date = cast('fecha', 'date!', l.date), amount = Math.round(Number(l.amount));
+    if (!Number.isFinite(amount) || amount === 0) continue;
+    stmts.push(env.DB.prepare('INSERT INTO fin_bank_lines (org_id, account_id, date, description, amount, ref, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(org, accountId, date, String(l.description || '').slice(0, 300), amount, l.ref ? String(l.ref).slice(0, 100) : null, t));
+  }
+  for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+  return { imported: stmts.length, matched: await autoMatch(env, org, accountId) };
+}
+// Concilia solo lo inequívoco: mismo valor, mismo sentido, ±3 días y un único movimiento candidato.
+async function autoMatch(env, org, accountId) {
+  const lines = await all(env, 'SELECT * FROM fin_bank_lines WHERE org_id = ? AND account_id = ? AND movement_id IS NULL', org, accountId);
+  let matched = 0;
+  for (const l of lines) {
+    const cands = await all(env, `SELECT id FROM fin_movements WHERE org_id = ? AND reconciled = 0 AND kind = ? AND amount = ? AND date BETWEEN ? AND ?
+      AND (account_id IS NULL OR account_id = ?)`, org, l.amount > 0 ? 'ingreso' : 'gasto', Math.abs(l.amount), addDays(l.date, -3), addDays(l.date, 3), accountId);
+    if (cands.length !== 1) continue;
+    await link(env, org, l.id, cands[0].id, accountId);
+    matched++;
+  }
+  return matched;
+}
+async function link(env, org, lineId, movementId, accountId) {
+  await env.DB.batch([
+    env.DB.prepare('UPDATE fin_bank_lines SET movement_id = ? WHERE id = ? AND org_id = ?').bind(movementId, lineId, org),
+    env.DB.prepare('UPDATE fin_movements SET reconciled = 1, account_id = COALESCE(account_id, ?), updated_at = ? WHERE id = ? AND org_id = ?').bind(accountId, now(), movementId, org),
+  ]);
+}
+async function bankLines(env, org, url) {
+  const acc = Number(url.searchParams.get('account_id')) || null;
+  const lines = await all(env, `SELECT b.*, m.description AS m_description, m.category AS m_category FROM fin_bank_lines b
+    LEFT JOIN fin_movements m ON m.id = b.movement_id WHERE b.org_id = ? ${acc ? 'AND b.account_id = ?' : ''} ORDER BY b.movement_id IS NOT NULL, b.date DESC LIMIT 500`, org, ...(acc ? [acc] : []));
+  // Candidatos para las pendientes (mismo valor y sentido, ±7 días)
+  for (const l of lines.filter((x) => !x.movement_id).slice(0, 100)) {
+    l.candidates = await all(env, `SELECT id, date, description, counterparty, amount FROM fin_movements WHERE org_id = ? AND reconciled = 0 AND kind = ? AND amount = ?
+      AND date BETWEEN ? AND ? LIMIT 5`, org, l.amount > 0 ? 'ingreso' : 'gasto', Math.abs(l.amount), addDays(l.date, -7), addDays(l.date, 7));
+  }
+  return { lines };
+}
+async function matchLine(env, org, lineId, body) {
+  const l = await one(env, 'SELECT * FROM fin_bank_lines WHERE id = ? AND org_id = ?', lineId, org);
+  if (!l) throw new HubError(404, 'Línea no encontrada');
+  if (body.unlink) {
+    if (l.movement_id) await env.DB.batch([
+      env.DB.prepare('UPDATE fin_bank_lines SET movement_id = NULL WHERE id = ?').bind(lineId),
+      env.DB.prepare('UPDATE fin_movements SET reconciled = 0 WHERE id = ? AND org_id = ?').bind(l.movement_id, org),
+    ]);
+    return { ok: true };
+  }
+  let movementId = body.movement_id ? cast('movimiento', 'int', body.movement_id) : null;
+  if (movementId) await getRow(env, ENTITIES.movements, org, movementId);
+  else if (body.create) {
+    const t = now();
+    const r = await env.DB.prepare(`INSERT INTO fin_movements (org_id, kind, date, amount, category, description, cost_center_id, account_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(org, l.amount > 0 ? 'ingreso' : 'gasto', l.date, Math.abs(l.amount), cast('categoría', 'text', body.create.category),
+      l.description, cast('centro', 'int', body.create.cost_center_id), l.account_id, t, t).run();
+    movementId = r.meta.last_row_id;
+  } else throw new HubError(400, 'Elige un movimiento o crea uno');
+  await link(env, org, lineId, movementId, l.account_id);
+  return { ok: true, movement_id: movementId };
+}
+
+/* ---------------- exportar para el contador ---------------- */
+const csvCell = (v) => { const s = String(v ?? ''); return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+async function exportCsv(env, org, url) {
+  const kind = url.searchParams.get('kind') === 'invoices' ? 'invoices' : 'movements';
+  const from = DATE.test(url.searchParams.get('from') || '') ? url.searchParams.get('from') : '0000-01-01';
+  const to = DATE.test(url.searchParams.get('to') || '') ? url.searchParams.get('to') : '9999-12-31';
+  let header, rows;
+  if (kind === 'movements') {
+    header = ['Fecha', 'Tipo', 'Monto', 'Categoría', 'Descripción', 'Tercero', 'Centro de costo', 'Cuenta', 'Factura', 'Conciliado'];
+    rows = (await all(env, `SELECT m.*, c.name cc, a.name acc, i.number inv FROM fin_movements m LEFT JOIN fin_cost_centers c ON c.id = m.cost_center_id
+      LEFT JOIN fin_accounts a ON a.id = m.account_id LEFT JOIN fin_invoices i ON i.id = m.invoice_id WHERE m.org_id = ? AND m.date BETWEEN ? AND ? ORDER BY m.date, m.id`, org, from, to))
+      .map((m) => [m.date, m.kind, m.kind === 'gasto' ? -m.amount : m.amount, m.category, m.description, m.counterparty, m.cc, m.acc, m.inv, m.reconciled ? 'sí' : 'no']);
+  } else {
+    header = ['Tipo', 'Número', 'Tercero', 'NIT/CC', 'Emisión', 'Vencimiento', 'Subtotal', 'Impuestos', 'Total', 'Pagado', 'Saldo', 'Estado', 'Centro de costo', 'Categoría'];
+    rows = (await all(env, `SELECT i.*, c.name cc FROM fin_invoices i LEFT JOIN fin_cost_centers c ON c.id = i.cost_center_id WHERE i.org_id = ? AND i.issue_date BETWEEN ? AND ? ORDER BY i.issue_date, i.id`, org, from, to))
+      .map((i) => [i.kind === 'emitida' ? 'Por cobrar' : 'Por pagar', i.number, i.counterparty, i.tax_id, i.issue_date, i.due_date, i.subtotal, i.tax, i.total, i.paid, i.total - i.paid, invoiceState(i), i.cc, i.category]);
+  }
+  const body = '﻿' + [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n');
+  const name = `${kind === 'invoices' ? 'facturas' : 'movimientos'}-${org.replace(/[^a-z0-9]+/gi, '-')}-${from.startsWith('0000') ? 'todo' : from}.csv`;
+  return new Response(body, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } });
+}
+
+/* ---------------- integraciones con lo que ya existe ---------------- */
+// Lead del formulario del sitio -> contacto de Diwilo (y automatizaciones de "lead nuevo").
+export async function hubLeadCreated(env, lead, callAI) {
+  try {
+    await ensureOrg(env, DIWILO, 'Diwilo');
+    const camp = lead.utm_campaign ? await one(env, 'SELECT id FROM mk_campaigns WHERE org_id = ? AND utm_campaign = ?', DIWILO, lead.utm_campaign) : null;
+    const t = now();
+    const source = lead.utm_source ? `Sitio web · ${lead.utm_source}` : 'Sitio web';
+    const r = await env.DB.prepare(`INSERT OR IGNORE INTO mk_contacts (org_id, name, email, phone, stage, source, campaign_id, notes, ref, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'lead', ?, ?, ?, ?, ?, ?)`).bind(DIWILO, lead.name || lead.email || 'Lead', lead.email || null, lead.phone || null, source, camp?.id || null,
+      [lead.topics, lead.message].filter(Boolean).join(' — ').slice(0, 2000) || null, `lead:${lead.id}`, lead.ts || t, t).run();
+    if (r.meta.changes) await onNewContact(env, DIWILO, { id: r.meta.last_row_id, name: lead.name, campaign_id: camp?.id || null }, callAI);
+  } catch (e) { console.error('hub lead', e.message); }
+}
+// Pago de suscripción registrado en Negocios -> ingreso de Diwilo en el centro de costo de la app.
+export async function hubPaymentRecorded(env, p) {
+  try {
+    if (!(p.amount > 0)) return;
+    await ensureOrg(env, DIWILO, 'Diwilo');
+    const cc = await appCostCenter(env, p.app);
+    const t = now();
+    await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, category, description, counterparty, cost_center_id, ref, created_at, updated_at)
+      VALUES (?, 'ingreso', ?, ?, 'Suscripciones apps', ?, ?, ?, ?, ?, ?)`).bind(DIWILO, p.date || today(), p.amount,
+      `${APPS[p.app]?.name || p.app}: ${p.months} ${p.months === 1 ? 'mes' : 'meses'}${p.note ? ' · ' + p.note : ''}`.slice(0, 300), p.business_name || null, cc, `pago:${p.id}`, t, t).run();
+  } catch (e) { console.error('hub pago', e.message); }
+}
+async function appCostCenter(env, app) {
+  const code = `app:${app}`;
+  const t = now();
+  await env.DB.prepare(`INSERT OR IGNORE INTO fin_cost_centers (org_id, name, kind, code, active, created_at, updated_at) VALUES (?, ?, 'app', ?, 1, ?, ?)`)
+    .bind(DIWILO, `App ${APPS[app]?.name || app}`, code, t, t).run();
+  return (await one(env, 'SELECT id FROM fin_cost_centers WHERE org_id = ? AND code = ?', DIWILO, code)).id;
+}
+async function importLeads(env) {
+  const { results } = await env.DB.prepare('SELECT * FROM leads ORDER BY ts').all();
+  let n = 0;
+  for (const l of results) {
+    const r = await env.DB.prepare(`INSERT OR IGNORE INTO mk_contacts (org_id, name, email, phone, stage, source, notes, ref, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(DIWILO, l.name || l.email || 'Lead', l.email || null, l.phone || null,
+      ['ganado'].includes(l.status) ? 'cliente' : l.status === 'perdido' ? 'perdido' : 'lead',
+      l.utm_source ? `Sitio web · ${l.utm_source}` : 'Sitio web', [l.topics, l.message].filter(Boolean).join(' — ').slice(0, 2000) || null, `lead:${l.id}`, l.ts, now()).run();
+    n += r.meta.changes;
+  }
+  return { imported: n, total: results.length };
+}
+async function importPayments(env) {
+  const { results } = await env.DB.prepare('SELECT * FROM sub_payments ORDER BY ts').all();
+  let n = 0;
+  for (const p of results) {
+    const before = await one(env, 'SELECT 1 FROM fin_movements WHERE org_id = ? AND ref = ?', DIWILO, `pago:${p.id}`);
+    if (before || !(p.amount > 0)) continue;
+    await hubPaymentRecorded(env, { id: p.id, app: p.app, amount: p.amount, months: p.months, note: p.note, business_name: p.business_name, date: new Date(p.ts - 5 * 3600000).toISOString().slice(0, 10) });
+    n++;
+  }
+  return { imported: n, total: results.length };
+}
+
+/* ---------------- automatizaciones y agente ---------------- */
+const fill = (tpl, vars) => String(tpl || '').replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+async function addTask(env, org, title, { due, contact_id = null, deal_id = null, source }) {
+  if (source && await one(env, 'SELECT 1 FROM mk_tasks WHERE org_id = ? AND source = ? AND done = 0', org, source)) return false; // no duplicar
+  const t = now();
+  await env.DB.prepare('INSERT INTO mk_tasks (org_id, title, due_date, contact_id, deal_id, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(org, title.slice(0, 300), due || today(), contact_id, deal_id, source || 'manual', t, t).run();
+  return true;
+}
+async function bump(env, a) { await env.DB.prepare('UPDATE mk_automations SET runs = runs + 1, last_run_at = ? WHERE id = ?').bind(now(), a.id).run(); }
+
+async function onNewContact(env, org, contact, callAI) {
+  const autos = await all(env, "SELECT * FROM mk_automations WHERE org_id = ? AND active = 1 AND trigger = 'lead_nuevo'", org);
+  for (const a of autos) {
+    const vars = { nombre: contact.name || 'el lead' };
+    if (a.action === 'crear_oportunidad') {
+      const t = now();
+      await env.DB.prepare("INSERT INTO mk_deals (org_id, title, contact_id, campaign_id, value, stage, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 'nuevo', ?, ?)")
+        .bind(org, fill(a.task_title || 'Oportunidad: {nombre}', vars).slice(0, 300), contact.id, contact.campaign_id || null, t, t).run();
+    } else if (a.action === 'crear_tarea') {
+      await addTask(env, org, fill(a.task_title || 'Contactar a {nombre}', vars), { due: addDays(today(), a.days || 0), contact_id: contact.id, source: `auto:${a.id}:c${contact.id}` });
+    }
+    await bump(env, a);
+  }
+}
+
+async function runAutomations(env, callAI) {
+  const autos = await all(env, "SELECT * FROM mk_automations WHERE active = 1 AND trigger <> 'lead_nuevo'");
+  const t = today(), isMonday = new Date(Date.now() - 5 * 3600000).getUTCDay() === 1;
+  for (const a of autos) {
+    let did = false;
+    if (a.trigger === 'sin_contacto') {
+      const days = a.days || 3, limitMs = now() - days * 86400000;
+      const rows = await all(env, `SELECT id, name FROM mk_contacts WHERE org_id = ? AND stage = 'lead' AND created_at < ?
+        AND (last_contact_at IS NULL OR last_contact_at < ?) LIMIT 50`, a.org_id, limitMs, addDays(t, -days));
+      for (const c of rows) did = (await addTask(env, a.org_id, fill(a.task_title || 'Hacer seguimiento a {nombre}', { nombre: c.name }), { contact_id: c.id, source: `auto:${a.id}:c${c.id}` })) || did;
+    } else if (a.trigger === 'presupuesto_campana') {
+      const pct = a.percent || 80;
+      const rows = await all(env, `SELECT c.id, c.name, c.budget, COALESCE(SUM(s.amount), 0) spend FROM mk_campaigns c LEFT JOIN mk_spend s ON s.campaign_id = c.id
+        WHERE c.org_id = ? AND c.status = 'activa' AND c.budget > 0 GROUP BY c.id HAVING spend * 100 >= c.budget * ?`, a.org_id, pct);
+      for (const c of rows) did = (await addTask(env, a.org_id, fill(a.task_title || 'La campaña {campana} va en {porcentaje}% del presupuesto', { campana: c.name, porcentaje: Math.round(c.spend * 100 / c.budget) }), { source: `auto:${a.id}:k${c.id}` })) || did;
+    } else if (a.trigger === 'factura_vencida') {
+      const rows = await all(env, "SELECT id, number, counterparty, kind FROM fin_invoices WHERE org_id = ? AND status = 'pendiente' AND due_date < ? LIMIT 50", a.org_id, t);
+      for (const i of rows) did = (await addTask(env, a.org_id, fill(a.task_title || (i.kind === 'emitida' ? 'Cobrar factura {factura} a {tercero}' : 'Pagar factura {factura} de {tercero}'), { factura: i.number || '#' + i.id, tercero: i.counterparty }), { source: `auto:${a.id}:f${i.id}` })) || did;
+    } else if (a.trigger === 'semanal' && isMonday && a.action === 'informe_ia') {
+      const last = a.last_run_at ? new Date(a.last_run_at - 5 * 3600000).toISOString().slice(0, 10) : null;
+      if (last !== t) { await writeReport(env, a.org_id, 'marketing', callAI); did = true; }
+    }
+    if (did) await bump(env, a);
+  }
+}
+
+// Gastos recurrentes que vencen: crea el movimiento y corre la próxima fecha.
+async function runRecurring(env) {
+  const t = today();
+  const due = await all(env, 'SELECT * FROM fin_recurring WHERE active = 1 AND next_date <= ?', t);
+  for (const r of due) {
+    let d = r.next_date, guard = 0;
+    while (d <= t && guard++ < 24) {
+      const ts = now();
+      await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, category, description, counterparty, cost_center_id, account_id, recurring_id, ref, created_at, updated_at)
+        VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(r.org_id, d, r.amount, r.category, r.name, r.vendor, r.cost_center_id, r.account_id, r.id, `rec:${r.id}:${d}`, ts, ts).run();
+      d = addMonths(d, r.cycle === 'anual' ? 12 : 1);
+    }
+    await env.DB.prepare('UPDATE fin_recurring SET next_date = ?, updated_at = ? WHERE id = ?').bind(d, now(), r.id).run();
+  }
+  return due.length;
+}
+
+export async function runHubsDaily(env, callAI) {
+  try { await runRecurring(env); } catch (e) { console.error('hubs recurrentes', e.message); }
+  try { await runAutomations(env, callAI); } catch (e) { console.error('hubs automatizaciones', e.message); }
+}
+
+// Agente: informe en lenguaje claro a partir de los números del hub.
+async function writeReport(env, org, kind, callAI) {
+  const fake = new URL('https://x/?');
+  const data = kind === 'finanzas' ? await financeSummary(env, org, fake) : await marketingSummary(env, org, fake);
+  const name = (await one(env, 'SELECT name FROM orgs WHERE id = ?', org))?.name || org;
+  const system = `Eres el analista de ${kind === 'finanzas' ? 'finanzas' : 'marketing'} de ${name}. Escribe en español de Colombia un informe breve para el dueño:
+1) qué pasó (con cifras en pesos colombianos), 2) qué preocupa, 3) tres acciones concretas para esta semana.
+Usa solo los datos que te doy; si faltan datos, dilo y sugiere qué registrar. Máximo 220 palabras, con títulos cortos y viñetas.`;
+  let content;
+  try { content = await callAI(env, system, [{ role: 'user', content: 'Datos (JSON):\n' + JSON.stringify(data).slice(0, 12000) }]); } catch (e) { content = null; }
+  if (!content) throw new HubError(502, 'La IA no respondió. Intenta de nuevo en un momento.');
+  const title = `${kind === 'finanzas' ? 'Finanzas' : 'Marketing'} · ${new Date(Date.now() - 5 * 3600000).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const r = await env.DB.prepare('INSERT INTO hub_reports (org_id, kind, title, content, created_at) VALUES (?, ?, ?, ?, ?)').bind(org, kind, title, content, now()).run();
+  return { id: r.meta.last_row_id, title, content };
+}
+
+/* ---------------- ruteo ---------------- */
+export async function hubsApi(req, env, path, url, adminEmail, callAI) {
+  try {
+    return await route(req, env, path, url, callAI);
+  } catch (e) {
+    if (e instanceof HubError) return json({ error: e.message }, e.status);
+    if (/UNIQUE/i.test(String(e.message))) return json({ error: 'Ya existe un registro con ese mismo código o referencia' }, 409);
+    if (/no such table/i.test(String(e.message))) return json({ error: 'Faltan las tablas de los hubs. Corre: npx wrangler d1 execute diwilo-admin-db --remote --file=worker/hubs.sql' }, 503);
+    throw e;
+  }
+}
+
+async function route(req, env, path, url, callAI) {
+  const M = req.method;
+  const parts = path.split('/').filter(Boolean).slice(3).map(decodeURIComponent); // tras /admin/api/hub
+  if (parts[0] === 'orgs' && M === 'GET') return json(await listOrgs(env));
+  const [org, a, b, c] = parts;
+  if (!org || !ORG_RE.test(org)) return json({ error: 'Organización no válida' }, 400);
+  if (!(await orgExists(env, org))) return json({ error: 'Organización no encontrada: recarga la lista' }, 404);
+  const body = M === 'GET' || M === 'DELETE' ? {} : await req.json().catch(() => ({}));
+  const hooks = { onNewContact: (e, o, ct) => onNewContact(e, o, ct, callAI) };
+
+  if (a === 'marketing' && b === 'summary' && M === 'GET') return json(await marketingSummary(env, org, url));
+  if (a === 'marketing' && b === 'import-leads' && M === 'POST') { if (org !== DIWILO) return json({ error: 'Solo para Diwilo' }, 400); return json(await importLeads(env)); }
+  if (a === 'finance' && b === 'summary' && M === 'GET') return json(await financeSummary(env, org, url));
+  if (a === 'finance' && b === 'import-payments' && M === 'POST') { if (org !== DIWILO) return json({ error: 'Solo para Diwilo' }, 400); return json(await importPayments(env)); }
+  if (a === 'finance' && b === 'bank-lines' && !c && M === 'GET') return json(await bankLines(env, org, url));
+  if (a === 'finance' && b === 'bank-import' && M === 'POST') return json(await bankImport(env, org, body));
+  if (a === 'finance' && b === 'bank-lines' && c && parts[4] === 'match' && M === 'POST') return json(await matchLine(env, org, Number(c), body));
+  if (a === 'finance' && b === 'export' && M === 'GET') return exportCsv(env, org, url);
+  if (a === 'invoices' && b && c === 'pay' && M === 'POST') return json(await payInvoice(env, org, Number(b), body));
+  if (a === 'reports' && !b && M === 'POST') return json(await writeReport(env, org, body.kind === 'finanzas' ? 'finanzas' : 'marketing', callAI), 201);
+
+  const def = ENTITIES[a];
+  if (!def) return json({ error: 'no encontrado' }, 404);
+  if (!b && M === 'GET') {
+    const rows = await list(env, org, def, url);
+    if (a === 'invoices') { const t = today(); rows.forEach((r) => { r.state = invoiceState(r, t); }); }
+    return json({ rows });
+  }
+  if (def.readOnly && M !== 'DELETE') return json({ error: 'Solo lectura' }, 405);
+  if (!b && M === 'POST') return json(await create(env, org, a, def, body, hooks), 201);
+  const id = Number(b);
+  if (!Number.isInteger(id) || id <= 0) return json({ error: 'Id no válido' }, 400);
+  if (M === 'PATCH') return json(await update(env, org, a, def, id, body));
+  if (M === 'DELETE') return json(await remove(env, org, a, def, id));
+  return json({ error: 'no encontrado' }, 404);
+}

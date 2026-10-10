@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-v="2026-10-12">
+<html lang="es" data-v="2026-10-13">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&family=JetBrains+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/light/style.css">
-<link rel="stylesheet" href="/admin/admin.css?v=2026-10-12">
+<link rel="stylesheet" href="/admin/admin.css?v=2026-10-13">
 </head>
 <body>
 
@@ -29,6 +29,8 @@
     <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo</div>
     <button class="tab" data-view="resumen"><i class="ph-light ph-pulse"></i>En vivo</button>
     <button class="tab" data-view="negocios"><i class="ph-light ph-buildings"></i>Negocios<span class="badge" id="bizBadge" hidden></span></button>
+    <button class="tab" data-view="marketing"><i class="ph-light ph-megaphone"></i>Marketing</button>
+    <button class="tab" data-view="finanzas"><i class="ph-light ph-chart-pie-slice"></i>Finanzas</button>
     <button class="tab" data-view="blog"><i class="ph-light ph-article"></i>Blog</button>
     <button class="tab" data-view="leads"><i class="ph-light ph-user-plus"></i>Leads<span class="badge" id="leadBadge" hidden></span></button>
     <button class="tab" data-view="chats"><i class="ph-light ph-chats-circle"></i>Chats IA</button>
@@ -46,6 +48,8 @@
   <main>
     <section data-section="resumen" hidden></section>
     <section data-section="negocios" hidden></section>
+    <section data-section="marketing" hidden></section>
+    <section data-section="finanzas" hidden></section>
     <section data-section="blog" hidden></section>
     <section data-section="leads" hidden></section>
     <section data-section="chats" hidden></section>
@@ -58,6 +62,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="/admin/core.js?v=2026-10-12"></script>
+<script src="/admin/core.js?v=2026-10-13"></script>
+<script src="/admin/hub.js?v=2026-10-13"></script>
 </body>
 </html>

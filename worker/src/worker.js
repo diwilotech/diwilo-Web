@@ -10,6 +10,8 @@ import app from './index.js';
 import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
 import { purgeArchived } from './platform.js';
+import { runHubsDaily } from './hubs.js';
+import { callAI } from './index.js';
 
 const PAGES = {
   '/': '/index.md',
@@ -34,5 +36,7 @@ export default {
   // Cron diario (wrangler.jsonc → triggers): las apps borran por lotes los negocios archivados hace más de 20 días.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(purgeArchived(env));
+    // Hubs: gastos recurrentes que vencen y automatizaciones de marketing
+    ctx.waitUntil(runHubsDaily(env, callAI));
   },
 };

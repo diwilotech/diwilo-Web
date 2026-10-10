@@ -85,7 +85,7 @@ Admin.tab('negocios', (A) => {
         const value = f.elements.nolock.checked ? null : f.elements.paid_until.value;
         if (!f.elements.nolock.checked && !value) { err.textContent = 'Elige una fecha o marca “No bloquear”.'; return; }
         const b = biz.find((x) => x.id === f.dataset.lock);
-        if (value && value < bizToday && !confirm(`${b.name} quedará bloqueado (solo lectura) desde ya. ¿Continuar?`)) return;
+        if (value && value < bizToday && (await ask({ title: 'Bloquear la app', text: `${b.name} quedará en solo lectura desde ya.`, ok: 'Bloquear', danger: true })) === null) return;
         try {
           await api(bizPath(b.id), { method: 'PATCH', body: { paid_until: value } });
           toast(value ? `Activa hasta ${fmtDay(value)}` : 'Sin bloqueo');
@@ -95,20 +95,19 @@ Admin.tab('negocios', (A) => {
     });
   }
 
-  // Tabla de usuarios con sus permisos (rol editable).
+  // Tabla de usuarios con sus permisos. Desde Diwilo solo se maneja al dueño; el equipo se crea en la app.
   function usersHtml(b) {
-    const app = appCfg();
     if (!b.users.length) return '<p class="muted" style="margin:0">Sin usuarios.</p>';
     return `<div class="tbl-wrap"><table class="utbl"><thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th></th></tr></thead><tbody>
       ${b.users.map((u) => `<tr>
         <td><b style="font-weight:500;color:var(--hi)">${esc(u.name || u.email.split('@')[0])}</b><br><span class="muted" style="font-size:12px">${esc(u.email)}</span>
-          <button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="ph-light ph-pencil-simple"></i></button></td>
-        <td><select class="in" data-role="${esc(u.id)}" data-biz-id="${esc(b.id)}" ${u.role === 'owner' ? 'disabled title="Para cambiar al dueño, asigna a otra persona como Dueño"' : ''}>
-            ${app.roles.map((r) => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${ROLE[r]}</option>`).join('')}</select>
+          ${u.role === 'owner' ? `<button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo del dueño" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="ph-light ph-pencil-simple"></i></button>` : ''}</td>
+        <td><span class="rolechip"><i class="ph-light ${ICON[u.role] || 'ph-user'}"></i>${ROLE[u.role] || esc(u.role)}</span>
           <span class="perm">${esc(permText(u.role))}</span></td>
         <td><span class="st ${u.status === 'active' ? 'ok' : u.status === 'invited' ? 'soon' : 'free'}">${USTATUS[u.status] || esc(u.status)}</span></td>
-        <td style="white-space:nowrap">${linkBtn(u, 'data-xlink')}${u.role !== 'owner' ? ` <button class="btn sm danger" data-xdel="${esc(u.id)}" aria-label="Quitar"><i class="ph-light ph-trash"></i></button>` : ''}</td></tr>`).join('')}
-      </tbody></table></div>`;
+        <td style="white-space:nowrap">${u.role === 'owner' ? linkBtn(u, 'data-xlink') : `<button class="btn sm" data-mkowner="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Le pasa la propiedad del negocio"><i class="ph-light ph-crown-simple"></i>Hacer dueño</button>`}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="muted" style="margin:8px 0 0;font-size:12px"><i class="ph-light ph-info"></i> El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
   }
 
   function subState(b) {
@@ -236,10 +235,10 @@ Admin.tab('negocios', (A) => {
           <div id="bizUsers">${usersHtml(b)}</div>
           <div id="userInvite"></div>
           <form class="form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-            <label class="f">Correo<input class="in" type="email" name="email" required></label>
+            <p class="muted full" style="margin:0;font-size:12px">Cambiar el dueño: se le envía un link para crear su contraseña. El dueño actual queda como ${app.roles.includes('admin') ? 'administrador' : 'personal'}.</p>
+            <label class="f">Correo del nuevo dueño<input class="in" type="email" name="email" required></label>
             <label class="f">Nombre<input class="in" name="name" maxlength="100"></label>
-            <label class="f">Rol<select class="in" name="role">${app.roles.map((r) => `<option value="${r}" ${r === 'staff' ? 'selected' : ''}>${ROLE[r]}</option>`).join('')}</select></label>
-            <div class="row full"><button class="btn" type="submit"><i class="ph-light ph-user-plus"></i>Agregar e invitar</button><span class="err" data-err></span></div>
+            <div class="row full"><button class="btn" type="submit"><i class="ph-light ph-crown-simple"></i>Asignar como dueño</button><span class="err" data-err></span></div>
           </form>
         </div>
         <div class="sub">
@@ -325,12 +324,6 @@ Admin.tab('negocios', (A) => {
       try { await issueLink(b, u, '#userInvite'); } catch (x) { toast(x.message); } finally { inv.disabled = false; }
       return;
     }
-    const del = e.target.closest('[data-udel], [data-xdel]');
-    if (del) {
-      const u = b.users.find((x) => x.id === (del.dataset.udel || del.dataset.xdel));
-      if (!confirm(`¿Quitar a ${u.email} de ${b.name}? Perderá el acceso.`)) return;
-      try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'DELETE' }); toast('Usuario quitado'); loadBiz(); } catch (x) { toast(x.message); }
-    }
   });
   $('#bizDetail').addEventListener('submit', async (e) => {
     if (e.target.matches('form[data-lock]')) return;
@@ -352,9 +345,12 @@ Admin.tab('negocios', (A) => {
         toast('Nombre actualizado');
       } else if (f.id === 'userForm') {
         const body = formData(f);
+        const cur = b.users.find((u) => u.role === 'owner');
+        if (cur && cur.email !== body.email.toLowerCase() && (await ask({ title: 'Cambiar el dueño', text: `${body.email} será el dueño de ${b.name}. ${cur.email} quedará como ${appCfg().roles.includes('admin') ? 'administrador' : 'personal'}.`, ok: 'Asignar dueño' })) === null) return;
         const r = await api(bizPath(b.id, '/users'), { method: 'POST', body });
         await loadBiz();
         $('#userInvite').innerHTML = inviteHtml(r.invite_url, body.email, 'registro');
+        toast('Dueño asignado');
         return;
       }
       loadBiz();
@@ -362,27 +358,6 @@ Admin.tab('negocios', (A) => {
   });
   document.addEventListener('click', (e) => { const c = e.target.closest('#inviteBox [data-copy], #userInvite [data-copy], [data-xinvite] [data-copy]'); if (c) copy(c.dataset.copy); });
 
-  // Permisos: cambiar el rol de un usuario
-  document.addEventListener('change', async (e) => {
-    const sel = e.target.closest('select[data-role]'); if (!sel) return;
-    const b = biz.find((x) => x.id === sel.dataset.bizId), u = b?.users.find((x) => x.id === sel.dataset.role);
-    if (!u) return;
-    const role = sel.value;
-    if (role === 'owner') {
-      const cur = b.users.find((x) => x.role === 'owner');
-      if (!confirm(`¿Pasar la propiedad de ${b.name} a ${u.email}?${cur ? ` ${cur.email} quedará como Administrador.` : ''}`)) { sel.value = u.role; return; }
-    }
-    sel.disabled = true;
-    try {
-      const r = await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'PATCH', body: { role, email: u.email } });
-      toast(`${u.email}: ahora es ${ROLE[role]}`);
-      await loadBiz();
-      if (r.relinked && r.invite_url) {
-        const box = $(`tr.xrow[data-xbiz="${CSS.escape(b.id)}"] [data-xinvite]`) || $('#userInvite');
-        if (box) box.innerHTML = inviteHtml(r.invite_url, u.email, linkKind(u));
-      }
-    } catch (x) { toast(x.message); sel.value = u.role; sel.disabled = false; }
-  });
   $('#bizBody').addEventListener('click', async (e) => {
     const row = e.target.closest('tr.xrow'); if (!row) return;
     const b = biz.find((x) => x.id === row.dataset.xbiz);
@@ -396,18 +371,25 @@ Admin.tab('negocios', (A) => {
       } catch (x) { toast(x.message); } finally { lk.disabled = false; }
       return;
     }
-    const del = e.target.closest('[data-xdel]');
-    if (del) {
-      const u = b.users.find((x) => x.id === del.dataset.xdel);
-      if (!confirm(`¿Quitar a ${u.email} de ${b.name}? Perderá el acceso.`)) return;
-      try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'DELETE' }); toast('Usuario quitado'); loadBiz(); } catch (x) { toast(x.message); }
-    }
   });
   $('#priceForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const r = await api('platform/config', { method: 'POST', body: formData(e.target) });
     plat.prices = r.prices; plat.trial_days = r.trial_days; toast('Precios guardados');
   });
+  // Pasar la propiedad a alguien del equipo.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-mkowner]'); if (!btn) return;
+    e.stopImmediatePropagation();
+    const b = biz.find((x) => x.id === btn.dataset.bizId), u = b?.users.find((x) => x.id === btn.dataset.mkowner);
+    if (!u) return;
+    const cur = b.users.find((x) => x.role === 'owner');
+    if ((await ask({ title: 'Pasar la propiedad', text: `${u.email} será el dueño de ${b.name}.${cur ? ` ${cur.email} quedará como ${appCfg().roles.includes('admin') ? 'administrador' : 'personal'}.` : ''}`, ok: 'Hacer dueño' })) === null) return;
+    btn.disabled = true;
+    try { await api(bizPath(b.id, `/users/${encodeURIComponent(u.id)}`), { method: 'PATCH', body: { role: 'owner' } }); toast(`${u.email} ahora es el dueño`); loadBiz(); }
+    catch (x) { toast(x.message); btn.disabled = false; }
+  }, true);
+
   /* ---------- eliminar (archivar), archivados, correo y entrar como dueño ---------- */
   // Entrar como el dueño: la pestaña se abre ya (para que el navegador no la bloquee) y luego se le da la dirección.
   document.addEventListener('click', async (e) => {

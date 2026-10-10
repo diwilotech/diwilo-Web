@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «chats». La carga admin/core.js la primera vez que se abre.
 Admin.tab('chats', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- CHATS ---------- */
   let currentChat = null;
@@ -21,7 +21,7 @@ Admin.tab('chats', (A) => {
     $('#convo').innerHTML = msgs.map((m) => `<div class="msg ${m.role === 'user' ? 'user' : 'assistant'}">${esc(m.content)}<small>${fmtDate(m.ts)}</small></div>`).join('');
   });
   $('#chatDel').addEventListener('click', async () => {
-    if (!currentChat || !confirm('¿Borrar esta conversación?')) return;
+    if (!currentChat || !(await sure('¿Borrar esta conversación?', 'Borrar'))) return;
     await api('chats?chat=' + encodeURIComponent(currentChat), { method: 'DELETE' });
     currentChat = null; $('#convo').innerHTML = ''; $('#chatDel').hidden = true; $('#chatTitle').textContent = 'Elige una conversación'; load();
   });

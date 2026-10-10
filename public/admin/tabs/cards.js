@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «cards». La carga admin/core.js la primera vez que se abre.
 Admin.tab('cards', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- TARJETAS (galería + editor visual) ---------- */
   const ACC = {
@@ -166,13 +166,13 @@ Admin.tab('cards', (A) => {
   $('#edSave').addEventListener('click', saveDraft);
   document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#cardEditor').hidden) { e.preventDefault(); saveDraft(); } });
 
-  function closeEditor() {
-    if (snapshot() !== saved && !confirm('Hay cambios sin guardar. ¿Salir de todos modos?')) return;
+  async function closeEditor() {
+    if (snapshot() !== saved && !(await sure('Hay cambios sin guardar. ¿Salir de todos modos?', 'Salir sin guardar'))) return;
     $('#cardEditor').hidden = true; $('#cardsGallery').hidden = false; draft = null; load();
   }
   $('#cardBack').addEventListener('click', closeEditor);
   $('#edDelete').addEventListener('click', async () => {
-    if (!draft.id || !confirm(`¿Borrar la tarjeta de ${draft.name}? El enlace y el QR dejarán de funcionar.`)) return;
+    if (!draft.id || !(await sure(`¿Borrar la tarjeta de ${draft.name}? El enlace y el QR dejarán de funcionar.`, 'Borrar'))) return;
     await api('cards?id=' + draft.id, { method: 'DELETE' }); saved = snapshot(); closeEditor(); toast('Tarjeta borrada');
   });
   $('#edCopy').addEventListener('click', () => copy(`${ORIGIN}/c/${draft.slug}`));

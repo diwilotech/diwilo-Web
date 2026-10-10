@@ -47,6 +47,8 @@
       (inp || yes).focus();
     });
   }
+  // Confirmación con la ventana del panel: true si acepta.
+  const sure = async (text, ok = 'Sí, continuar', danger = true) => (await ask({ title: 'Confirmar', text, ok, danger })) !== null;
   function setBadge(id, n) { const b = document.getElementById(id); if (b) { b.hidden = !n; b.textContent = n; } }
 
   /* ---------- gráficas (En vivo y Links) ---------- */
@@ -152,7 +154,7 @@
   }
 
   window.Admin = {
-    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask,
+    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask, sure,
     tab(id, factory) { factories[id] = factory; },
   };
 

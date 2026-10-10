@@ -276,3 +276,46 @@ dialog.ask .btn[disabled]{opacity:.45;cursor:not-allowed}
 
 /* Negocios: dirección del negocio (prefijo de la URL + campo) */
 #slugForm .in{min-width:0;flex:1}
+
+/* Negocios: rol como etiqueta (el equipo se maneja en cada app) */
+.rolechip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--fill);color:var(--ink2);font-size:12px}
+
+/* ---------- Hubs (Marketing y Finanzas) ---------- */
+.orgpick{display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:var(--fill);box-shadow:var(--hair)}
+.orgpick select{background:transparent;border:0;color:var(--hi);font:500 14px var(--f-ui);padding:4px 8px;max-width:320px;outline:none}
+.orgpick select option,.orgpick select optgroup{background:var(--panel);color:var(--ink)}
+.hubseg{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 18px}
+.hubseg .btn i{margin-right:6px}
+.hubbar{gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end}
+.grow{flex:1}
+.hubnote{margin-bottom:14px;font-size:13px;color:var(--ink2);line-height:1.55}
+dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
+.hubform{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))!important;max-height:62vh;overflow:auto;padding-right:4px}
+.hubform .full{grid-column:1/-1}
+.bars2{display:flex;align-items:flex-end;gap:10px;height:200px;padding:6px 2px 0}
+.b2{flex:1;display:grid;grid-template-rows:1fr auto;gap:6px;height:100%;min-width:0}
+.b2c{display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%}
+.b2c i{display:block;width:min(18px,40%);border-radius:5px 5px 0 0;min-height:2px}
+.b2 span{font-size:11px;color:var(--ink3);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ba{background:linear-gradient(180deg,var(--lilac),var(--violet))}.bb{background:rgba(182,217,252,.55)}
+.b2.proj .b2c i{opacity:.4;background-image:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.18) 4px 7px)}
+.legend{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--ink3)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .pj{background:var(--fill);box-shadow:var(--hair)}
+.meter{display:inline-block;width:calc(100% - 44px);height:7px;border-radius:9px;background:var(--fill);vertical-align:middle;margin-right:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--good);border-radius:9px}
+.meter.warn i{background:var(--warn)}.meter.over i{background:var(--bad)}
+.funnel{display:grid;grid-template-columns:110px 1fr 40px 110px;align-items:center;gap:10px;margin:8px 0;font-size:13px}
+.funnel b{text-align:right;color:var(--hi);font-weight:500}.funnel .muted{text-align:right;font-size:12px}
+.ftrack{height:10px;border-radius:9px;background:var(--fill);overflow:hidden}.ftrack i{display:block;height:100%;background:linear-gradient(90deg,var(--violet),var(--lilac));border-radius:9px}
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(200px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+.kcol{background:var(--glass);border-radius:14px;padding:10px;box-shadow:var(--hair);min-height:220px;display:flex;flex-direction:column;gap:8px}
+.khead{display:flex;flex-direction:column;gap:2px;padding:2px 4px 6px;font-size:13px}.khead .muted{font-size:12px}
+.kcard{display:grid;gap:3px;padding:10px 12px;border-radius:10px;background:var(--panel);box-shadow:var(--hair);cursor:grab;font-size:13px}
+.kcard b{color:var(--hi);font-weight:500}.kcard .muted{font-size:12px}
+.kcard:hover{box-shadow:inset 0 0 0 1px var(--line)}
+.aging{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.aging div{display:grid;gap:2px;padding:8px;border-radius:10px;background:var(--fill);font-size:12px}.aging b{font-weight:500;color:var(--hi);font-size:13px}
+.urows{display:grid;gap:2px}
+.report{margin-bottom:14px}.prose-admin{font-size:14px;line-height:1.6;color:var(--ink2)}.prose-admin h2,.prose-admin h3{font-size:15px;margin:14px 0 6px}.prose-admin ul{padding-left:18px}
+@media (max-width:760px){.funnel{grid-template-columns:90px 1fr 30px}.funnel .muted{display:none}.aging{grid-template-columns:repeat(3,1fr)}}
