@@ -324,3 +324,10 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .embedded .head .menu-btn{display:none}
 .embedded .head h1{font-size:17px}
 .embedded > .head:first-child, .embedded #cardsGallery > .head{margin-top:0}
+
+/* Marketing → Campañas: links de rastreo por plataforma */
+.camplinks h2 i{color:var(--lilac);margin-right:4px}
+.platbtns{display:flex;flex-wrap:wrap;gap:8px}
+.platbtns .btn i{margin-right:6px;font-size:15px}
+.embedded > .head{margin-bottom:12px}
+[data-all] .embedded > .head{display:none}

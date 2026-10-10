@@ -143,7 +143,7 @@
   }
 
   // Pestañas que ahora viven dentro de otra (enlaces viejos y última pestaña recordada).
-  const MOVED = { links: ['marketing', 'links'], cards: ['marketing', 'tarjetas'] };
+  const MOVED = { links: ['marketing', 'campanas'], cards: ['marketing', 'tarjetas'] };
   async function go(id) {
     if (MOVED[id]) { try { sessionStorage.setItem('dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
     if (!$(`[data-section="${id}"]`)) id = 'resumen';

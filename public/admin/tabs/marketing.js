@@ -19,10 +19,11 @@ Admin.tab('marketing', (A) => {
   const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
     ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas', 'ph-check-square'], ['automatizaciones', 'Automatizaciones y agentes', 'ph-robot'],
     ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
-    ['links', 'Links de rastreo', 'ph-link-simple'], ['tarjetas', 'Tarjetas', 'ph-identification-card']];
-  // Links de rastreo y tarjetas de presentación son de Diwilo (las tarjetas de cada negocio viven en su app).
-  const DIWILO_ONLY = new Set(['links', 'tarjetas']);
-  const EMBED = { links: 'links', tarjetas: 'cards' };
+    ['tarjetas', 'Tarjetas', 'ph-identification-card']];
+  // Las tarjetas de presentación son de Diwilo (las de cada negocio viven en su app). Los links de rastreo están en Campañas.
+  const DIWILO_ONLY = new Set(['tarjetas']);
+  const EMBED = { tarjetas: 'cards' };
+  const EMBEDDED = ['links', 'cards'];
 
   const F = {
     contacts: [
@@ -65,7 +66,7 @@ Admin.tab('marketing', (A) => {
 
   async function render() {
     const el = $('#mkView');
-    Object.values(EMBED).forEach((id) => A.unmount(id));
+    EMBEDDED.forEach((id) => A.unmount(id));
     el.innerHTML = '';
     if (DIWILO_ONLY.has(view) && org !== 'diwilo') { view = 'resumen'; return pick(); }
     if (EMBED[view]) { try { await A.mount(EMBED[view], el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="err">${esc(x.message)}</p>`; } return; }
@@ -218,29 +219,91 @@ Admin.tab('marketing', (A) => {
     load();
   }
 
+  // Plataformas para los links de rastreo de cada campaña (los UTM los pone el servidor).
+  const PLAT = [['instagram', 'Instagram', 'ph-instagram-logo'], ['facebook', 'Facebook', 'ph-facebook-logo'], ['tiktok', 'TikTok', 'ph-tiktok-logo'],
+    ['whatsapp', 'WhatsApp', 'ph-whatsapp-logo'], ['google', 'Google Ads', 'ph-google-logo'], ['youtube', 'YouTube', 'ph-youtube-logo'],
+    ['linkedin', 'LinkedIn', 'ph-linkedin-logo'], ['correo', 'Correo', 'ph-envelope-simple'], ['qr', 'QR impreso', 'ph-qr-code'], ['otro', 'Otro', 'ph-link-simple']];
+  const SRC = { instagram: PLAT[0], facebook: PLAT[1], tiktok: PLAT[2], whatsapp: PLAT[3], google: PLAT[4], youtube: PLAT[5], linkedin: PLAT[6], email: PLAT[7], qr: PLAT[8] };
+  function qrDownload(url, name) {
+    const q = qrcode(0, 'M'); q.addData(url); q.make();
+    const cv = document.createElement('canvas'), n = q.getModuleCount(), cell = 16, pad = 32; cv.width = cv.height = n * cell + pad * 2;
+    const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect(pad + c * cell, pad + r * cell, cell, cell);
+    const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = `qr-${name}.png`; a.click();
+  }
+
   async function campaigns(el) {
-    el.innerHTML = '<div data-c></div><h2 style="margin:22px 0 10px">Gasto real registrado</h2><div data-s></div>';
+    el.innerHTML = `<div data-c></div><div data-lp style="margin-top:14px"></div><h2 style="margin:22px 0 10px">Gasto real registrado</h2><div data-s></div>
+      ${org === 'diwilo' ? '<h2 style="margin:26px 0 10px">Todos los links de rastreo</h2><div data-all></div>' : ''}`;
+    let stats = {}, allLinks = null;
+    const loadStats = async () => { try { const s = await api(`${P()}/marketing/summary`); stats = Object.fromEntries(s.campaigns.map((c) => [c.id, c])); } catch { stats = {}; } };
     const spend = H.table({ el: $('[data-s]', el), org: () => org, entity: 'spend', title: 'gasto', newText: 'Registrar gasto', refs: ['campaigns'], fields: F.spend,
       defaults: () => ({ date: H.todayCo() }), empty: 'Registra el gasto real de cada campaña (por día o por semana). Luego llegará solo desde Meta y Google Ads.',
       columns: [{ label: 'Fecha', html: (r) => day(r.date) }, { label: 'Campaña', html: (r, R) => refName(R, 'campaigns', r.campaign_id) },
         { label: 'Gasto', cls: 'num', html: (r) => money(r.amount) }, { label: 'Leads', cls: 'num', html: (r) => num(r.leads) },
         { label: 'Clics', cls: 'num', html: (r) => num(r.clicks) }, { label: 'Nota', html: (r) => esc(r.note || '') }] });
-    H.table({ el: $('[data-c]', el), org: () => org, entity: 'campaigns', title: 'campaña', newText: 'Nueva campaña', fields: F.campaigns,
+    const camps = H.table({ el: $('[data-c]', el), org: () => org, entity: 'campaigns', title: 'campaña', newText: 'Nueva campaña', fields: F.campaigns,
       filters: [{ k: 'channel', options: opts(CHANNEL, 'Todos los canales') }], defaults: () => ({ start_date: H.todayCo() }),
-      empty: 'Sin campañas todavía.', onChanged: () => spend.load(),
+      empty: 'Sin campañas todavía. Crea una y genera sus links por plataforma (Instagram, Facebook, TikTok…).',
+      onChanged: async () => { await loadStats(); camps.load(); spend.load(); },
       columns: [
         { label: 'Campaña', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.name)}</b>${r.utm_campaign ? `<br><span class="muted mono">utm: ${esc(r.utm_campaign)}</span>` : ''}` },
         { label: 'Canal', html: (r) => esc(CHANNEL[r.channel] || r.channel) },
         { label: 'Estado', html: (r) => chip(r.status === 'activa' ? 'ok' : r.status === 'pausada' ? 'soon' : 'free', r.status) },
         { label: 'Presupuesto', cls: 'num', html: (r) => money(r.budget) },
+        { label: 'Links · clics', cls: 'num', html: (r) => (stats[r.id] ? `${num(stats[r.id].links)} · <b style="color:var(--hi);font-weight:500">${num(stats[r.id].clicks)}</b>` : '—') },
+        { label: 'Leads', cls: 'num', html: (r) => num(stats[r.id]?.leads || 0) },
         { label: 'Fechas', html: (r) => `${day(r.start_date)}${r.end_date ? ` → ${day(r.end_date)}` : ''}` }],
-      rowActions: () => '<button class="btn sm" data-act="spend"><i class="ph-light ph-currency-circle-dollar"></i>Gasto</button>',
+      rowActions: () => '<button class="btn sm pri" data-act="links"><i class="ph-light ph-link-simple"></i>Links</button> <button class="btn sm" data-act="spend"><i class="ph-light ph-currency-circle-dollar"></i>Gasto</button>',
       onAction: async (a, r) => {
+        if (a === 'links') return showLinks(r.id);
         if (a !== 'spend') return;
         const out = await H.form({ title: `Gasto de ${r.name}`, fields: F.spend, values: { campaign_id: r.id, date: H.todayCo() }, org });
         if (out) { await api(`${P()}/spend`, { method: 'POST', body: out }); toast('Gasto registrado'); spend.load(); }
-      } }).load();
+      } });
+
+    // Panel de links de una campaña: un link por plataforma, con sus clics y su QR.
+    async function showLinks(id) {
+      const box = $('[data-lp]', el);
+      let d; try { d = await api(`${P()}/campaigns/${id}/links`); } catch (x) { toast(x.message); return; }
+      const base = location.origin;
+      box.innerHTML = `<div class="card camplinks"><div class="row" style="justify-content:space-between;margin-bottom:6px"><h2><i class="ph-light ph-link-simple"></i> Links de rastreo · ${esc(d.campaign.name)}</h2><button class="btn sm" data-close>Cerrar</button></div>
+        <p class="muted" style="margin:0 0 12px;font-size:12px">Cada plataforma tiene su link corto con los UTM puestos (utm_campaign <span class="mono">${esc(d.campaign.utm_campaign)}</span>). Cada clic se cuenta aquí y los leads que lleguen por él quedan en esta campaña.</p>
+        <div class="platbtns">${PLAT.map(([k, l, ic]) => `<button class="btn sm" data-plat="${k}"><i class="ph-light ${ic}"></i>${esc(l)}</button>`).join('')}</div>
+        ${d.links.length ? `<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>Plataforma</th><th>Link corto</th><th>Lleva a</th><th class="num">Clics</th><th></th></tr></thead><tbody>${d.links.map((l) => {
+          const [, label, ic] = SRC[l.utm_source] || ['', l.utm_source || 'Otro', 'ph-link-simple'];
+          const short = `${base}/l/${l.slug}`;
+          return `<tr data-link="${l.id}" data-short="${esc(short)}" data-slug="${esc(l.slug)}"><td><i class="ph-light ${ic}"></i> ${esc(label)}</td>
+            <td><button class="btn sm" data-copy><i class="ph-light ph-copy"></i>/l/${esc(l.slug)}</button></td>
+            <td class="muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.target)}">${esc(l.target)}</td>
+            <td class="num"><b style="color:var(--hi);font-weight:500">${num(l.clicks)}</b></td>
+            <td style="white-space:nowrap"><button class="btn sm" data-qr title="Descargar QR"><i class="ph-light ph-qr-code"></i></button> <button class="btn sm danger" data-del title="Borrar"><i class="ph-light ph-trash"></i></button></td></tr>`;
+        }).join('')}</tbody></table></div>` : '<p class="muted" style="margin:12px 0 0">Aún no hay links: elige una plataforma arriba.</p>'}</div>`;
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      box.onclick = async (e) => {
+        if (e.target.closest('[data-close]')) { box.innerHTML = ''; return; }
+        const pl = e.target.closest('[data-plat]');
+        if (pl) {
+          const label = PLAT.find((p) => p[0] === pl.dataset.plat)[1];
+          const last = d.links[d.links.length - 1]?.target || (org === 'diwilo' ? 'https://diwilo.com/' : 'https://');
+          const target = await A.ask({ title: `Link para ${label}`, text: '¿A qué página lleva? Los UTM se agregan solos.', input: true, value: last, ok: 'Crear link' });
+          if (!target) return;
+          try { const r = await api(`${P()}/campaigns/${id}/links`, { method: 'POST', body: { platform: pl.dataset.plat, target } }); await A.copy(`${base}/l/${r.slug}`); toast(`Link creado y copiado: /l/${r.slug}`); await loadStats(); camps.load(); showLinks(id); allLinks?.tab.show?.(); }
+          catch (x) { toast(x.message); }
+          return;
+        }
+        const tr = e.target.closest('[data-link]'); if (!tr) return;
+        if (e.target.closest('[data-copy]')) return A.copy(tr.dataset.short);
+        if (e.target.closest('[data-qr]')) return qrDownload(tr.dataset.short, tr.dataset.slug);
+        if (e.target.closest('[data-del]') && await A.sure('¿Borrar este link y sus clics? El QR o el enlace dejarán de funcionar.', 'Borrar')) {
+          await api('links?id=' + tr.dataset.link, { method: 'DELETE' }); toast('Link borrado'); await loadStats(); camps.load(); showLinks(id); allLinks?.tab.show?.();
+        }
+      };
+    }
+    await loadStats();
+    camps.load();
     spend.load();
+    if (org === 'diwilo') { try { allLinks = await A.mount('links', $('[data-all]', el)); } catch {} }
   }
 
   async function reports(el) {
@@ -267,5 +330,5 @@ Admin.tab('marketing', (A) => {
     try { org = await H.orgPicker($('#mkOrg'), (id) => { org = id; pick(); }); } catch (x) { $('#mkView').innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
     if (!$('#mkSeg').children.length) pick(); else render();
   }
-  return { show: load, hide: () => Object.values(EMBED).forEach((id) => A.unmount(id)) };
+  return { show: load, hide: () => EMBEDDED.forEach((id) => A.unmount(id)) };
 });

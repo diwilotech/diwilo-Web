@@ -11,6 +11,9 @@
  *   DELETE /admin/api/hub/:org/:entity/:id                       borrar
  *   GET    /admin/api/hub/:org/marketing/summary?from=&to=       contactos, embudo, campañas (gasto, CPL, ROI), tareas
  *   POST   /admin/api/hub/:org/marketing/import-leads            (solo diwilo) trae los leads del formulario del sitio
+ *          (además se sincronizan solos al abrir Clientes y leads o el Resumen de Diwilo)
+ *   GET    /admin/api/hub/:org/campaigns/:id/links               links de rastreo de la campaña (por su utm_campaign)
+ *   POST   /admin/api/hub/:org/campaigns/:id/links               { platform, target } crea el link de una plataforma (UTM automáticos)
  *   GET    /admin/api/hub/:org/finance/summary?month=YYYY-MM     ingresos, gastos, presupuesto vs real, cartera, flujo de caja
  *   POST   /admin/api/hub/:org/finance/import-payments           (solo diwilo) trae los pagos de suscripciones de Negocios
  *   POST   /admin/api/hub/:org/invoices/:id/pay                  { date, amount, account_id } registra el pago de una factura
@@ -156,6 +159,8 @@ async function create(env, org, entity, def, body, hooks) {
     if (!(row.total > 0)) throw new HubError(400, 'La factura necesita un total (o subtotal e impuestos)');
   }
   if (entity === 'deals' && ['ganado', 'perdido'].includes(row.stage)) row.closed_at = now();
+  if (entity === 'campaigns') row.utm_campaign = await uniqueUtm(env, row.utm_campaign || row.name);
+  for (const k of Object.keys(row)) if (row[k] === null) delete row[k]; // vacío: que aplique el valor por defecto de la tabla
   const t = now(), cols = Object.keys(row);
   const r = await env.DB.prepare(`INSERT INTO ${def.table} (org_id, ${cols.join(', ')}, created_at, updated_at) VALUES (?, ${cols.map(() => '?').join(', ')}, ?, ?)`)
     .bind(org, ...cols.map((c) => row[c]), t, t).run();
@@ -167,7 +172,9 @@ async function create(env, org, entity, def, body, hooks) {
 async function update(env, org, entity, def, id, body) {
   const before = await getRow(env, def, org, id);
   const row = pick(def, body, false);
+  for (const [k, type] of Object.entries(def.fields)) if (row[k] === null && type === 'money' && typeof before[k] === 'number') row[k] = 0;
   if (entity === 'deals' && row.stage && row.stage !== before.stage) row.closed_at = ['ganado', 'perdido'].includes(row.stage) ? now() : null;
+  if (entity === 'campaigns' && 'utm_campaign' in row) row.utm_campaign = await uniqueUtm(env, row.utm_campaign || before.name, id);
   const cols = Object.keys(row);
   if (cols.length) {
     await env.DB.prepare(`UPDATE ${def.table} SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ? AND org_id = ?`)
@@ -184,6 +191,45 @@ async function remove(env, org, entity, def, id) {
   if (entity === 'movements' && before.invoice_id) await recomputeInvoice(env, org, before.invoice_id);
   if (entity === 'movements') await env.DB.prepare('UPDATE fin_bank_lines SET movement_id = NULL WHERE movement_id = ? AND org_id = ?').bind(id, org).run();
   return { ok: true };
+}
+
+/* ---------------- links de rastreo por campaña ---------------- */
+const slugify = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+// utm_campaign único entre todas las campañas (los links de rastreo y los leads se asocian por él).
+async function uniqueUtm(env, wanted, exceptId = 0) {
+  const base = slugify(wanted) || 'campana';
+  for (let i = 1; i < 50; i++) {
+    const u = i === 1 ? base : `${base}-${i}`;
+    if (!(await one(env, 'SELECT 1 FROM mk_campaigns WHERE utm_campaign = ? AND id <> ?', u, exceptId))) return u;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+// Plataforma -> nombre, utm_source, utm_medium
+export const PLATFORMS = {
+  instagram: ['Instagram', 'instagram', 'social'], facebook: ['Facebook', 'facebook', 'social'], tiktok: ['TikTok', 'tiktok', 'social'],
+  whatsapp: ['WhatsApp', 'whatsapp', 'mensajeria'], google: ['Google Ads', 'google', 'cpc'], youtube: ['YouTube', 'youtube', 'video'],
+  linkedin: ['LinkedIn', 'linkedin', 'social'], correo: ['Correo', 'email', 'email'], qr: ['QR impreso', 'qr', 'offline'], otro: ['Otro', 'otro', 'referido'],
+};
+async function campaignLinks(env, org, id) {
+  const c = await getRow(env, ENTITIES.campaigns, org, id);
+  if (!c.utm_campaign) {
+    c.utm_campaign = await uniqueUtm(env, c.name, c.id);
+    await env.DB.prepare('UPDATE mk_campaigns SET utm_campaign = ? WHERE id = ?').bind(c.utm_campaign, c.id).run();
+  }
+  const links = await all(env, 'SELECT id, slug, title, target, utm_source, utm_medium, utm_campaign, clicks, created_at FROM links WHERE utm_campaign = ? ORDER BY created_at', c.utm_campaign);
+  return { campaign: { id: c.id, name: c.name, utm_campaign: c.utm_campaign }, links };
+}
+async function createCampaignLink(env, org, id, body) {
+  const { campaign } = await campaignLinks(env, org, id);
+  const p = PLATFORMS[body.platform] || PLATFORMS.otro;
+  const target = String(body.target || '').trim();
+  try { if (!/^https?:$/.test(new URL(target).protocol)) throw 0; } catch { throw new HubError(400, 'La dirección de destino debe empezar por https://'); }
+  const base = slugify(`${campaign.utm_campaign}-${p[1]}`).slice(0, 60);
+  let slug = base;
+  for (let i = 2; await one(env, 'SELECT 1 FROM links WHERE slug = ?', slug); i++) slug = `${base}-${i}`;
+  const r = await env.DB.prepare('INSERT INTO links (slug, title, target, utm_source, utm_medium, utm_campaign, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(slug, String(body.title || `${campaign.name} · ${p[0]}`).slice(0, 200), target.slice(0, 1000), p[1], p[2], campaign.utm_campaign, now()).run();
+  return { id: r.meta.last_row_id, slug };
 }
 
 /* ---------------- facturas ---------------- */
@@ -225,18 +271,22 @@ async function marketingSummary(env, org, url) {
     all(env, "SELECT stage, COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage NOT IN ('ganado', 'perdido') GROUP BY stage", org),
     one(env, "SELECT COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage = 'ganado' AND closed_at >= ? AND closed_at < ?", org, fromMs, toMs),
     one(env, "SELECT COUNT(*) n FROM mk_deals WHERE org_id = ? AND stage = 'perdido' AND closed_at >= ? AND closed_at < ?", org, fromMs, toMs),
-    all(env, 'SELECT id, name, channel, status, budget, goal_leads, start_date, end_date FROM mk_campaigns WHERE org_id = ?', org),
+    all(env, 'SELECT id, name, channel, status, budget, goal_leads, start_date, end_date, utm_campaign FROM mk_campaigns WHERE org_id = ?', org),
     all(env, 'SELECT campaign_id, COALESCE(SUM(amount), 0) spend, COALESCE(SUM(leads), 0) leads, COALESCE(SUM(CASE WHEN date >= ? AND date <= ? THEN amount END), 0) spend_period FROM mk_spend WHERE org_id = ? GROUP BY campaign_id', from, to, org),
     all(env, 'SELECT campaign_id, COUNT(*) n FROM mk_contacts WHERE org_id = ? AND campaign_id IS NOT NULL GROUP BY campaign_id', org),
     all(env, "SELECT campaign_id, COUNT(*) n, COALESCE(SUM(value), 0) v FROM mk_deals WHERE org_id = ? AND stage = 'ganado' AND campaign_id IS NOT NULL GROUP BY campaign_id", org),
     one(env, 'SELECT COUNT(*) open, SUM(CASE WHEN due_date < ? THEN 1 ELSE 0 END) overdue FROM mk_tasks WHERE org_id = ? AND done = 0', today(), org),
     one(env, "SELECT COUNT(*) n, COALESCE(SUM(CASE cycle WHEN 'anual' THEN cost / 12 WHEN 'mensual' THEN cost ELSE 0 END), 0) monthly FROM org_tools WHERE org_id = ? AND status <> 'cancelada'", org),
   ]);
+  const clickRows = await all(env, `SELECT l.utm_campaign k, COUNT(*) links, COALESCE(SUM(l.clicks), 0) clicks FROM links l
+    JOIN mk_campaigns c ON c.utm_campaign = l.utm_campaign AND c.org_id = ? GROUP BY l.utm_campaign`, org).catch(() => []);
+  const clicksBy = Object.fromEntries(clickRows.map((r) => [r.k, r]));
   const by = (rows) => Object.fromEntries(rows.map((r) => [r.campaign_id, r]));
   const sp = by(spendRows), cc = by(contactsByCamp), wc = by(wonByCamp);
   const campaigns = camps.map((c) => {
     const spend = sp[c.id]?.spend || 0, leads = Math.max(sp[c.id]?.leads || 0, cc[c.id]?.n || 0), revenue = wc[c.id]?.v || 0;
     return { ...c, spend, spend_period: sp[c.id]?.spend_period || 0, leads, won: wc[c.id]?.n || 0, revenue,
+      links: clicksBy[c.utm_campaign]?.links || 0, clicks: clicksBy[c.utm_campaign]?.clicks || 0,
       cpl: leads ? Math.round(spend / leads) : null, roi: spend ? Math.round(((revenue - spend) / spend) * 100) : null,
       budget_used: c.budget ? Math.round((spend / c.budget) * 100) : null };
   });
@@ -458,14 +508,30 @@ async function appCostCenter(env, app) {
     .bind(DIWILO, `App ${APPS[app]?.name || app}`, code, t, t).run();
   return (await one(env, 'SELECT id FROM fin_cost_centers WHERE org_id = ? AND code = ?', DIWILO, code)).id;
 }
-async function importLeads(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM leads ORDER BY ts').all();
+// Trae a Marketing los leads del formulario que aún no están (los nuevos desde la última vez).
+async function syncLeads(env) {
+  const last = Number((await one(env, "SELECT value FROM settings WHERE key = 'hub_leads_last'"))?.value || 0);
+  const max = (await one(env, 'SELECT MAX(id) n FROM leads'))?.n || 0;
+  if (max <= last) return { imported: 0 };
+  const r = await importLeads(env, last);
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('hub_leads_last', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(String(max)).run();
+  return r;
+}
+const LEAD_STAGE = (status) => (status === 'ganado' ? 'cliente' : status === 'perdido' ? 'perdido' : 'lead');
+// Estado cambiado en la pestaña Leads -> etapa del contacto en Marketing.
+export async function hubLeadStatus(env, leadId, status) {
+  try { await env.DB.prepare("UPDATE mk_contacts SET stage = ?, updated_at = ? WHERE org_id = 'diwilo' AND ref = ?").bind(LEAD_STAGE(status), now(), `lead:${leadId}`).run(); }
+  catch (e) { console.error('hub lead estado', e.message); }
+}
+async function importLeads(env, afterId = 0) {
+  await ensureOrg(env, DIWILO, 'Diwilo');
+  const { results } = await env.DB.prepare('SELECT * FROM leads WHERE id > ? ORDER BY id').bind(afterId).all();
   let n = 0;
   for (const l of results) {
-    const r = await env.DB.prepare(`INSERT OR IGNORE INTO mk_contacts (org_id, name, email, phone, stage, source, notes, ref, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(DIWILO, l.name || l.email || 'Lead', l.email || null, l.phone || null,
-      ['ganado'].includes(l.status) ? 'cliente' : l.status === 'perdido' ? 'perdido' : 'lead',
-      l.utm_source ? `Sitio web · ${l.utm_source}` : 'Sitio web', [l.topics, l.message].filter(Boolean).join(' — ').slice(0, 2000) || null, `lead:${l.id}`, l.ts, now()).run();
+    const camp = l.utm_campaign ? await one(env, 'SELECT id FROM mk_campaigns WHERE org_id = ? AND utm_campaign = ?', DIWILO, l.utm_campaign) : null;
+    const r = await env.DB.prepare(`INSERT OR IGNORE INTO mk_contacts (org_id, name, email, phone, stage, source, campaign_id, notes, ref, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(DIWILO, l.name || l.email || 'Lead', l.email || null, l.phone || null, LEAD_STAGE(l.status),
+      l.utm_source ? `Sitio web · ${l.utm_source}` : 'Sitio web', camp?.id || null, [l.topics, l.message].filter(Boolean).join(' — ').slice(0, 2000) || null, `lead:${l.id}`, l.ts, now()).run();
     n += r.meta.changes;
   }
   return { imported: n, total: results.length };
@@ -594,8 +660,12 @@ async function route(req, env, path, url, callAI) {
   const body = M === 'GET' || M === 'DELETE' ? {} : await req.json().catch(() => ({}));
   const hooks = { onNewContact: (e, o, ct) => onNewContact(e, o, ct, callAI) };
 
+  // Diwilo: los leads del formulario se sincronizan solos al abrir Clientes y leads o el Resumen.
+  if (org === DIWILO && M === 'GET' && ((a === 'marketing' && b === 'summary') || (a === 'contacts' && !b))) await syncLeads(env).catch((e) => console.error('sync leads', e.message));
+  if (a === 'campaigns' && b && c === 'links' && M === 'GET') return json(await campaignLinks(env, org, Number(b)));
+  if (a === 'campaigns' && b && c === 'links' && M === 'POST') return json(await createCampaignLink(env, org, Number(b), body), 201);
   if (a === 'marketing' && b === 'summary' && M === 'GET') return json(await marketingSummary(env, org, url));
-  if (a === 'marketing' && b === 'import-leads' && M === 'POST') { if (org !== DIWILO) return json({ error: 'Solo para Diwilo' }, 400); return json(await importLeads(env)); }
+  if (a === 'marketing' && b === 'import-leads' && M === 'POST') { if (org !== DIWILO) return json({ error: 'Solo para Diwilo' }, 400); return json(await importLeads(env, 0)); }
   if (a === 'finance' && b === 'summary' && M === 'GET') return json(await financeSummary(env, org, url));
   if (a === 'finance' && b === 'import-payments' && M === 'POST') { if (org !== DIWILO) return json({ error: 'Solo para Diwilo' }, 400); return json(await importPayments(env)); }
   if (a === 'finance' && b === 'bank-lines' && !c && M === 'GET') return json(await bankLines(env, org, url));

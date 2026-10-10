@@ -19,7 +19,7 @@ import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
 import { blogAdmin } from './blog.js';
-import { hubsApi, hubLeadCreated } from './hubs.js';
+import { hubsApi, hubLeadCreated, hubLeadStatus } from './hubs.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -568,7 +568,7 @@ async function adminApi(req, env, path, url) {
 
   if (path === '/admin/api/leads') {
     if (M === 'GET') return json((await db.prepare('SELECT * FROM leads ORDER BY ts DESC LIMIT 500').all()).results);
-    if (M === 'POST') { const b = await readJson(req); await db.prepare('UPDATE leads SET status=? WHERE id=?').bind(clip(b.status, 30), b.id).run(); return json({ ok: true }); }
+    if (M === 'POST') { const b = await readJson(req); await db.prepare('UPDATE leads SET status=? WHERE id=?').bind(clip(b.status, 30), b.id).run(); await hubLeadStatus(env, b.id, b.status); return json({ ok: true }); }
     if (M === 'DELETE') { await db.prepare('DELETE FROM leads WHERE id=?').bind(id).run(); return json({ ok: true }); }
   }
 
