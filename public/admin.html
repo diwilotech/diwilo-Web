@@ -1206,10 +1206,11 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
     : `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera el link para que cree su contraseña"><i class="ph-light ph-envelope-simple"></i>Link de registro</button>`;
   // Dirección general de ingreso de la app (sin token ni negocio): la persona entra con su correo y
   // contraseña y la app la lleva a su negocio (o le deja elegir si tiene varios).
-  function loginUrl() {
+  function loginUrl(b) {
     const base = appCfg().url;
     if (!base) return null;
-    return `${base}/`;
+    // Academia atiende cada negocio en su propia dirección: /<slug>
+    return bizApp === 'academia' && b?.slug ? `${base}/${b.slug}` : `${base}/`;
   }
   // Genera (en la app) un link nuevo para crear o restablecer la contraseña de u.
   async function issueLink(b, u, box) {
