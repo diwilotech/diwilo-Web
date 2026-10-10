@@ -94,6 +94,10 @@
   /* ---------- tabla de una entidad con buscar, crear, editar y borrar ---------- */
   // cfg: { el, org(), entity, title, newText, columns: [{ label, html(row, R), cls }], fields, filters: [{ k, options }], rowActions(row) -> html, onAction(name, row), defaults(), onChanged() }
   function table(cfg) {
+    // Contenedor propio: los escuchadores quedan en él y se van con él.
+    const host = document.createElement('div');
+    cfg.el.replaceChildren(host);
+    cfg = { ...cfg, el: host };
     const st = { q: '', f: {}, rows: [] };
     const R = {}; // referencias cargadas para mostrar nombres
     cfg.el.innerHTML = `<div class="row hubbar">

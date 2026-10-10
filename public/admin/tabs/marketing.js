@@ -16,14 +16,14 @@ Admin.tab('marketing', (A) => {
   const chip = (cls, t) => `<span class="st ${cls}">${esc(t)}</span>`;
   const refName = (R, ent, id, key = 'name') => (id ? esc(R[ent]?.find((x) => x.id === id)?.[key] || `#${id}`) : '<span class="muted">—</span>');
 
-  const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
+  const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['formulario', 'Formulario del sitio', 'ph-user-plus'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
     ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas', 'ph-check-square'], ['automatizaciones', 'Automatizaciones y agentes', 'ph-robot'],
     ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
     ['tarjetas', 'Tarjetas', 'ph-identification-card']];
   // Las tarjetas de presentación son de Diwilo (las de cada negocio viven en su app). Los links de rastreo están en Campañas.
-  const DIWILO_ONLY = new Set(['tarjetas']);
-  const EMBED = { tarjetas: 'cards' };
-  const EMBEDDED = ['links', 'cards'];
+  const DIWILO_ONLY = new Set(['tarjetas', 'formulario']);
+  const EMBED = { tarjetas: 'cards', formulario: 'leads' };
+  const EMBEDDED = ['links', 'cards', 'leads'];
 
   const F = {
     contacts: [
@@ -65,7 +65,9 @@ Admin.tab('marketing', (A) => {
   };
 
   async function render() {
-    const el = $('#mkView');
+    // Contenedor nuevo en cada sección: así no se acumulan los escuchadores de clics de las anteriores.
+    const old = $('#mkView'), el = old.cloneNode(false);
+    old.replaceWith(el);
     EMBEDDED.forEach((id) => A.unmount(id));
     el.innerHTML = '';
     if (DIWILO_ONLY.has(view) && org !== 'diwilo') { view = 'resumen'; return pick(); }

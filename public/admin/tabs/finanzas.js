@@ -46,7 +46,9 @@ Admin.tab('finanzas', (A) => {
   };
 
   async function render() {
-    const el = $('#fiView');
+    // Contenedor nuevo en cada sección: así no se acumulan los escuchadores de clics de las anteriores.
+    const old = $('#fiView'), el = old.cloneNode(false);
+    old.replaceWith(el);
     el.innerHTML = '';
     if (view === 'resumen') return summary(el);
     if (view === 'movimientos') {
