@@ -148,7 +148,7 @@ las apps (selector arriba a la derecha). El negocio sigue viviendo en su app (us
 datos de marketing y finanzas. Tablas en `worker/hubs.sql`, API en `worker/src/hubs.js`, pantallas en
 `public/admin/tabs/marketing.*`, `finanzas.*` y `public/admin/hub.js`.
 
-- **Marketing:** clientes y leads, oportunidades (tablero por etapas), campañas con presupuesto y gasto real (costo por lead
+- **Marketing:** clientes y leads, links de rastreo y tarjetas de presentación (de Diwilo; las tarjetas de cada negocio viven en su app), oportunidades (tablero por etapas), campañas con presupuesto y gasto real (costo por lead
   y retorno), tareas, automatizaciones (lead nuevo, sin contacto, presupuesto, factura vencida, informe semanal con IA),
   suscripciones y herramientas por organización, e informes del agente de IA.
 - **Finanzas:** ingresos y gastos, facturas por cobrar y por pagar (con cartera por antigüedad), gastos recurrentes

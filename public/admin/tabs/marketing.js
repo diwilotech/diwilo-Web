@@ -3,7 +3,7 @@ Admin.tab('marketing', (A) => {
   const { $, $$, esc, toast, api, fmtDate, rank } = A;
   const H = window.Hub;
   const { money, num, pct, day } = H;
-  let org = H.current(), view = 'resumen';
+  let org = H.current(), view = (() => { try { const v = sessionStorage.getItem('dwl_mk_view'); sessionStorage.removeItem('dwl_mk_view'); return v || 'resumen'; } catch { return 'resumen'; } })();
   const P = () => `hub/${encodeURIComponent(org)}`;
 
   const STAGE_C = { lead: 'Lead', cliente: 'Cliente', perdido: 'Perdido' };
@@ -18,7 +18,11 @@ Admin.tab('marketing', (A) => {
 
   const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
     ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas', 'ph-check-square'], ['automatizaciones', 'Automatizaciones y agentes', 'ph-robot'],
-    ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text']];
+    ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
+    ['links', 'Links de rastreo', 'ph-link-simple'], ['tarjetas', 'Tarjetas', 'ph-identification-card']];
+  // Links de rastreo y tarjetas de presentación son de Diwilo (las tarjetas de cada negocio viven en su app).
+  const DIWILO_ONLY = new Set(['links', 'tarjetas']);
+  const EMBED = { links: 'links', tarjetas: 'cards' };
 
   const F = {
     contacts: [
@@ -61,7 +65,10 @@ Admin.tab('marketing', (A) => {
 
   async function render() {
     const el = $('#mkView');
+    Object.values(EMBED).forEach((id) => A.unmount(id));
     el.innerHTML = '';
+    if (DIWILO_ONLY.has(view) && org !== 'diwilo') { view = 'resumen'; return pick(); }
+    if (EMBED[view]) { try { await A.mount(EMBED[view], el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="err">${esc(x.message)}</p>`; } return; }
     if (view === 'resumen') return summary(el);
     if (view === 'contactos') {
       H.table({ el, org: () => org, entity: 'contacts', title: 'contacto', newText: 'Nuevo contacto', refs: ['campaigns'], fields: F.contacts,
@@ -254,11 +261,11 @@ Admin.tab('marketing', (A) => {
     load();
   }
 
-  function pick() { H.seg($('#mkSeg'), VIEWS, (k) => { view = k; render(); }, view); render(); }
+  function pick() { H.seg($('#mkSeg'), VIEWS.filter(([k]) => org === 'diwilo' || !DIWILO_ONLY.has(k)), (k) => { view = k; render(); }, view); render(); }
 
   async function load() {
-    try { org = await H.orgPicker($('#mkOrg'), (id) => { org = id; render(); }); } catch (x) { $('#mkView').innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
+    try { org = await H.orgPicker($('#mkOrg'), (id) => { org = id; pick(); }); } catch (x) { $('#mkView').innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
     if (!$('#mkSeg').children.length) pick(); else render();
   }
-  return { show: load };
+  return { show: load, hide: () => Object.values(EMBED).forEach((id) => A.unmount(id)) };
 });

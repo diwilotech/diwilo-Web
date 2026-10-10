@@ -220,7 +220,7 @@ Admin.tab('blog', (A) => {
   }
   $('#pSaveDraft').addEventListener('click', () => savePost(false));
   $('#pPublish').addEventListener('click', () => savePost(true));
-  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#blogEditor').hidden) { e.preventDefault(); savePost(null); } });
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && $('#blogEditor')?.offsetParent) { e.preventDefault(); savePost(null); } });
   async function closePost() {
     if (post && snapP() !== postSaved && !(await sure('Hay cambios sin guardar. ¿Salir de todos modos?', 'Salir sin guardar'))) return;
     post = null; $('#blogEditor').hidden = true; $('#blogList').hidden = false; load();

@@ -319,3 +319,8 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .urows{display:grid;gap:2px}
 .report{margin-bottom:14px}.prose-admin{font-size:14px;line-height:1.6;color:var(--ink2)}.prose-admin h2,.prose-admin h3{font-size:15px;margin:14px 0 6px}.prose-admin ul{padding-left:18px}
 @media (max-width:760px){.funnel{grid-template-columns:90px 1fr 30px}.funnel .muted{display:none}.aging{grid-template-columns:repeat(3,1fr)}}
+
+/* Pestañas montadas dentro de Marketing (Links y Tarjetas): sin su propio encabezado de página */
+.embedded .head .menu-btn{display:none}
+.embedded .head h1{font-size:17px}
+.embedded > .head:first-child, .embedded #cardsGallery > .head{margin-top:0}

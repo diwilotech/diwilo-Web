@@ -164,7 +164,7 @@ Admin.tab('cards', (A) => {
     btn.disabled = false;
   }
   $('#edSave').addEventListener('click', saveDraft);
-  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#cardEditor').hidden) { e.preventDefault(); saveDraft(); } });
+  document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's' && $('#cardEditor')?.offsetParent) { e.preventDefault(); saveDraft(); } });
 
   async function closeEditor() {
     if (snapshot() !== saved && !(await sure('Hay cambios sin guardar. ¿Salir de todos modos?', 'Salir sin guardar'))) return;

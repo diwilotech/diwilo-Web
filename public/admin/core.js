@@ -116,7 +116,36 @@
     })().finally(() => { delete loading[id]; }));
   }
 
+  // Monta una pestaña dentro de otra (p. ej. Links y Tarjetas dentro de Marketing). Se crea una sola vez y después
+  // solo se mueve: así no se duplican sus eventos. Cuando no está a la vista queda guardada (oculta) en #embedStore.
+  const mounted = {};
+  async function mount(id, host) {
+    let m = mounted[id];
+    if (!m) {
+      const node = document.createElement('div');
+      node.className = 'embedded';
+      host.appendChild(node);
+      const r = await fetch(`/admin/tabs/${id}?v=${V}`, { credentials: 'same-origin', cache: 'no-cache' }).catch(() => null);
+      if (!r || r.status === 401 || new URL(r.url).origin !== location.origin) { showLogin(); throw new Error('sesión'); }
+      node.innerHTML = await r.text();
+      if (!factories[id]) await loadScript(`/admin/tabs/${id}.js?v=${V}`);
+      m = mounted[id] = { node, tab: factories[id](Admin) || {} };
+    } else host.appendChild(m.node);
+    await m.tab.show?.();
+    return m;
+  }
+  function unmount(id) {
+    const m = mounted[id]; if (!m) return;
+    let store = document.getElementById('embedStore');
+    if (!store) { store = document.createElement('div'); store.id = 'embedStore'; store.hidden = true; document.body.appendChild(store); }
+    store.appendChild(m.node);
+    m.tab.hide?.();
+  }
+
+  // Pestañas que ahora viven dentro de otra (enlaces viejos y última pestaña recordada).
+  const MOVED = { links: ['marketing', 'links'], cards: ['marketing', 'tarjetas'] };
   async function go(id) {
+    if (MOVED[id]) { try { sessionStorage.setItem('dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
     if (!$(`[data-section="${id}"]`)) id = 'resumen';
     if (current && current !== id) tabs[current]?.hide?.();
     current = id;
@@ -154,7 +183,7 @@
   }
 
   window.Admin = {
-    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask, sure,
+    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, ask, sure, mount, unmount,
     tab(id, factory) { factories[id] = factory; },
   };
 
