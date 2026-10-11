@@ -123,7 +123,7 @@ Admin.tab('ia', (A) => {
         <label class="f">Trabaja para<select class="in" name="org_id">${orgs.map((o) => `<option value="${esc(o.id)}" ${o.id === a.org_id ? 'selected' : ''}>${esc(o.name)}${o.app_name ? ` · ${esc(o.app_name)}` : ''}</option>`).join('')}</select></label>
         <label class="f">Cuándo trabaja<select class="in" name="schedule">${Object.entries(SCHED).map(([k, l]) => `<option value="${k}" ${a.schedule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
         <label class="f">Permiso<select class="in" name="autonomy"><option value="proponer" ${a.autonomy !== 'ejecutar' ? 'selected' : ''}>Propone, yo apruebo</option><option value="ejecutar" ${a.autonomy === 'ejecutar' ? 'selected' : ''}>Actúa solo</option></select></label>
-        <label class="f full">Instrucciones (rol, qué revisar, qué hacer y cómo responder)<textarea class="in" name="instructions" rows="7" required>${esc(a.instructions)}</textarea></label>
+        <label class="f full">Instrucciones (rol, qué revisar, qué hacer y cómo responder)${a.template && meta.templates.some((t) => t.key === a.template) ? ' <button class="btn sm" type="button" data-tplreset title="Trae las instrucciones y herramientas más nuevas de su plantilla"><i class="ph-light ph-arrows-counter-clockwise"></i>Usar la versión actual de la plantilla</button>' : ''}<textarea class="in" name="instructions" rows="7" required>${esc(a.instructions)}</textarea></label>
         <div class="full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede consultar</b><div class="tgrid">${toolBox(false)}</div></div>
         <div class="full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede hacer</b><div class="tgrid">${toolBox(true)}</div></div>
         <label class="f"><span>Estado</span><label class="row" style="gap:8px;font-size:13px"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}> Activo</label></label></div>
@@ -133,6 +133,12 @@ Admin.tab('ia', (A) => {
     document.body.appendChild(d);
     const f = $('form', d), close = () => { d.close(); d.remove(); };
     $('[data-no]', d).onclick = close; d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    $('[data-tplreset]', d)?.addEventListener('click', () => {
+      const t = meta.templates.find((x) => x.key === a.template);
+      f.instructions.value = t.instructions;
+      f.querySelectorAll('[name=tools]').forEach((x) => { x.checked = t.tools.includes(x.value); });
+      toast('Plantilla aplicada: revisa y guarda');
+    });
     $('[data-del]', d)?.addEventListener('click', async () => { if (await A.sure(`¿Borrar el agente «${a.name}» y su historial?`, 'Borrar')) { await A.api(`agents/${a.id}`, { method: 'DELETE' }); close(); toast('Agente borrado'); done(); } });
     f.onsubmit = async (e) => {
       e.preventDefault();

@@ -22,9 +22,11 @@
  *   POST   /admin/api/hub/:org/finance/bank-lines/:id/match      { movement_id } | { create: { category, cost_center_id } }
  *   GET    /admin/api/hub/:org/finance/export?kind=movements|invoices&from=&to=   CSV para el contador
  *   POST   /admin/api/hub/:org/reports                           { kind: marketing|finanzas } informe escrito por el agente de IA
+ *   POST   /admin/api/hub/:org/lists/:id/check                   revisa los sitios/feeds de una lista (p. ej. blogs de competidores)
  * runHubsDaily(env, callAI) lo corre el cron: gastos recurrentes que vencen y automatizaciones.
  */
 import { APPS, listAppBusinesses } from './platform.js';
+import { readFeed } from './web.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 class HubError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -62,6 +64,11 @@ export const ENTITIES = {
   tools: { table: 'org_tools', search: ['name', 'vendor', 'account_email'], order: "CASE status WHEN 'cancelada' THEN 1 ELSE 0 END, name",
     fields: { name: 'text!', category: ['marketing', 'crm', 'infraestructura', 'software', 'api', 'ia', 'otro'], vendor: 'text', plan: 'text', cost: 'money', cycle: ['mensual', 'anual', 'por uso'], renews_on: 'date', url: 'url', account_email: 'email', status: ['activa', 'prueba', 'cancelada'], cost_center_id: 'int', notes: 'long' } },
   reports: { table: 'hub_reports', search: ['title', 'content'], order: 'created_at DESC', readOnly: true, fields: {} },
+  // Listas que los agentes vigilan y completan (competidores, fuentes, temas, tendencias, prospectos…)
+  lists: { table: 'mk_lists', search: ['name', 'description'], order: 'name',
+    fields: { name: 'text!', kind: ['competidores', 'fuentes', 'temas', 'tendencias', 'prospectos', 'otra'], description: 'long' } },
+  list_items: { table: 'mk_list_items', search: ['title', 'url', 'notes'], order: "CASE status WHEN 'descartado' THEN 1 ELSE 0 END, updated_at DESC",
+    fields: { list_id: 'int!', title: 'text!', url: 'url', feed_url: 'url', notes: 'long', status: ['activo', 'revisado', 'descartado'], score: 'int' } },
   cost_centers: { table: 'fin_cost_centers', search: ['name', 'code'], order: 'active DESC, kind, name',
     fields: { name: 'text!', kind: ['app', 'cliente', 'proyecto', 'departamento'], code: 'text', active: 'bool+', notes: 'long' } },
   accounts: { table: 'fin_accounts', search: ['name', 'bank'], order: 'name',
@@ -208,7 +215,41 @@ async function remove(env, org, entity, def, id) {
   await env.DB.prepare(`DELETE FROM ${def.table} WHERE id = ? AND org_id = ?`).bind(id, org).run();
   if (entity === 'movements' && before.invoice_id) await recomputeInvoice(env, org, before.invoice_id);
   if (entity === 'movements') await env.DB.prepare('UPDATE fin_bank_lines SET movement_id = NULL WHERE movement_id = ? AND org_id = ?').bind(id, org).run();
+  if (entity === 'lists') await env.DB.prepare('DELETE FROM mk_list_items WHERE list_id = ? AND org_id = ?').bind(id, org).run();
   return { ok: true };
+}
+
+/* ---------------- listas ---------------- */
+// Tablas: se crean solas la primera vez (y también están en worker/hubs.sql).
+let listsReady = false;
+export async function ensureListTables(env) {
+  if (listsReady) return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mk_lists (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL, name TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'otra', description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS mk_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL, list_id INTEGER NOT NULL,
+      title TEXT NOT NULL, url TEXT, feed_url TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'activo', score INTEGER, data TEXT,
+      last_checked_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_mk_list_items ON mk_list_items(org_id, list_id, updated_at)'),
+  ]);
+  listsReady = true;
+}
+// Revisa los sitios/feeds de una lista: guarda las últimas publicaciones de cada uno (y su feed si lo encuentra).
+export async function checkList(env, org, listId) {
+  await ensureListTables(env);
+  const list = await getRow(env, ENTITIES.lists, org, listId);
+  const items = await all(env, "SELECT * FROM mk_list_items WHERE org_id = ? AND list_id = ? AND status <> 'descartado' AND (url IS NOT NULL OR feed_url IS NOT NULL) ORDER BY updated_at DESC LIMIT 15", org, listId);
+  const out = [];
+  await Promise.all(items.map(async (it) => {
+    try {
+      const f = await readFeed(it.feed_url || it.url, 6);
+      const latest = f.items.length ? f.items.map(({ titulo, url, fecha }) => ({ titulo, url, fecha })) : (f.articulos_en_pagina || []).map(({ titulo, url }) => ({ titulo, url }));
+      await env.DB.prepare('UPDATE mk_list_items SET data = ?, feed_url = COALESCE(feed_url, ?), last_checked_at = ?, updated_at = ? WHERE id = ?')
+        .bind(JSON.stringify({ ultimas: latest.slice(0, 6) }), f.items.length ? f.url : null, now(), now(), it.id).run();
+      out.push({ nombre: it.title, sitio: it.url, ultimas: latest.slice(0, 6) });
+    } catch (e) { out.push({ nombre: it.title, sitio: it.url, error: e.message }); }
+  }));
+  return { lista: list.name, revisados: out.length, sitios: out };
 }
 
 /* ---------------- links de rastreo por campaña ---------------- */
@@ -704,6 +745,8 @@ async function route(req, env, path, url, callAI) {
   if (a === 'finance' && b === 'bank-lines' && c && parts[4] === 'match' && M === 'POST') return json(await matchLine(env, org, Number(c), body));
   if (a === 'finance' && b === 'export' && M === 'GET') return exportCsv(env, org, url);
   if (a === 'invoices' && b && c === 'pay' && M === 'POST') return json(await payInvoice(env, org, Number(b), body));
+  if (a === 'lists' || a === 'list_items') await ensureListTables(env);
+  if (a === 'lists' && b && c === 'check' && M === 'POST') return json(await checkList(env, org, Number(b)));
   if (a === 'reports' && !b && M === 'POST') return json(await writeReport(env, org, body.kind === 'finanzas' ? 'finanzas' : 'marketing', callAI), 201);
 
   const def = ENTITIES[a];

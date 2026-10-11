@@ -109,7 +109,7 @@
     const base = () => `hub/${encodeURIComponent(cfg.org())}/${cfg.entity}`;
     async function load() {
       const qs = new URLSearchParams({ q: st.q });
-      for (const [k, v] of Object.entries(st.f)) if (v) qs.set('f_' + k, v);
+      for (const [k, v] of Object.entries({ ...st.f, ...(cfg.fixed || {}) })) if (v) qs.set('f_' + k, v);
       try {
         const [d] = await Promise.all([api(`${base()}?${qs}`), ...(cfg.refs || []).map(async (r) => { R[r] = await refs(cfg.org(), r); })]);
         st.rows = d.rows;

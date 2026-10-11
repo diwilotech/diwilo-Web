@@ -40,12 +40,14 @@ const READ = ['estado_general', 'leads_recientes', 'negocios', 'organizaciones',
 // Plantillas listas para usar (se pueden editar después).
 export const TEMPLATES = {
   blog: { name: 'Agente de blog', schedule: 'semanal', autonomy: 'ejecutar',
-    tools: ['temas_de_clientes', 'blog_resumen', 'leads_recientes', 'blog_crear_borrador'],
-    instructions: `Eres el editor del blog de Diwilo. Cada vez que trabajes:
-1) Revisa lo que preguntan los clientes (temas_de_clientes) y lo que ya está publicado (blog_resumen).
-2) Elige UN tema que responda una duda real de los clientes y que no esté cubierto (busca intención de compra: «cómo elegir», «cuánto cuesta», «cómo automatizar»).
-3) Escribe un borrador con blog_crear_borrador (título atractivo y concreto, enfoque claro, categoría).
-4) Responde con: el tema elegido, por qué, y 3 ideas más para las próximas semanas.` },
+    tools: ['temas_de_clientes', 'blog_resumen', 'revisar_competidores', 'noticias_web', 'leer_pagina', 'ver_listas', 'leer_lista', 'agregar_a_lista', 'blog_crear_borrador'],
+    instructions: `Eres el editor del blog de Diwilo (software, datos, automatización e IA para pymes en Colombia; apps para restaurantes, nutricionistas, negocios con citas, propiedad horizontal y academias). Cada vez que trabajes:
+1) Mira qué publica la competencia: revisar_competidores con la lista «Competidores» (si no existe, sigue sin ella).
+2) Mira tendencias del nicho con noticias_web (2 o 3 consultas, por ejemplo «automatización pymes Colombia», «inteligencia artificial empresas Colombia», «software restaurantes Colombia»).
+3) Cruza eso con lo que preguntan los clientes (temas_de_clientes) y lo que ya publicamos (blog_resumen).
+4) Guarda en la lista «Tendencias» (si existe) las 3 tendencias más útiles con su enlace (agregar_a_lista).
+5) Elige UN tema con intención de compra que no tengamos y escribe el borrador con blog_crear_borrador (título concreto, enfoque claro y quién lo lee).
+6) Responde con: qué está publicando la competencia, las tendencias, el tema elegido y por qué, y 3 ideas para las próximas semanas.` },
   leads: { name: 'Seguimiento de leads', schedule: 'diario', autonomy: 'ejecutar',
     tools: ['leads_recientes', 'buscar_contactos', 'tareas_pendientes', 'crear_tarea'],
     instructions: `Revisa los leads del formulario que siguen en estado «nuevo» (leads_recientes con estado nuevo) y las tareas pendientes.
@@ -106,7 +108,7 @@ CÓMO RESPONDER: SIEMPRE un único objeto JSON y nada más:
 Usa las herramientas para cualquier dato; nunca inventes cifras, nombres ni fechas. No puedes borrar, archivar, cambiar dueños ni registrar pagos.`;
   const history = [{ role: 'user', content: pedido ? `Trabaja ahora. Pedido del administrador para esta vez: ${pedido}` : 'Trabaja ahora según tus instrucciones.' }];
   let r;
-  try { r = await agentLoop(env, { system, history, allowed: tools, ctx, mode: agent.autonomy === 'ejecutar' ? 'ejecutar' : 'proponer', maxSteps: 10 }); }
+  try { r = await agentLoop(env, { system, history, allowed: tools, ctx, mode: agent.autonomy === 'ejecutar' ? 'ejecutar' : 'proponer', maxSteps: 16 }); }
   catch (e) { r = { reply: `No pude terminar: ${e.message}`, actions: [], used: [], failed: true }; }
   const status = r.failed ? 'error' : r.actions.some((a) => a.status === 'pendiente') ? 'por aprobar' : 'lista';
   await env.DB.batch([
@@ -243,6 +245,31 @@ Object.assign(TOOLS, {
       if (!agent) throw new Error('No encontré ese agente');
       const r = await runAgent(env, agent, { trigger: 'manual', pedido: String(a.pedido || '').slice(0, 1000), callAI: ctx.callAI });
       return { agente: agent.name, estado: r.status, resultado: r.output, acciones: r.actions.map((x) => `${x.status}: ${x.summary}`) };
+    },
+  },
+});
+
+Object.assign(TOOLS, {
+  editar_agente: {
+    write: true, assistantOnly: true,
+    desc: 'Cambia un agente que YA existe (por id o nombre): nombre, instrucciones, herramientas (solo agregar o quitar algunas; las demás se conservan), horario, permiso o si está activo. Úsalo en vez de crear otro. Si cambias las instrucciones, conserva lo que ya hacía y suma lo nuevo.',
+    args: '{ "id"?: número, "nombre"?: texto, "nuevo_nombre"?: texto, "instrucciones"?: texto, "agregar_herramientas"?: [..], "quitar_herramientas"?: [..], "horario"?: "manual"|"diario"|"semanal", "permiso"?: "proponer"|"ejecutar", "activo"?: true|false }',
+    summary: (a) => `Editar el agente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}: ${[a.nuevo_nombre && `nombre «${a.nuevo_nombre}»`, a.instrucciones && 'nuevas instrucciones',
+      a.agregar_herramientas?.length && `agregar ${a.agregar_herramientas.join(', ')}`, a.quitar_herramientas?.length && `quitar ${a.quitar_herramientas.join(', ')}`,
+      a.horario && `horario ${SCHED_TXT[a.horario] || a.horario}`, a.permiso && (a.permiso === 'ejecutar' ? 'actúa solo' : 'propone y tú apruebas'), a.activo !== undefined && (a.activo ? 'activo' : 'pausado')].filter(Boolean).join('; ') || 'sin cambios'}`,
+    async run(env, a) {
+      const agent = await findAgent(env, a);
+      if (!agent) throw new Error('No encontré ese agente');
+      // Solo se agregan o quitan herramientas puntuales: nunca se reemplazan todas (así no se pierde lo que ya hacía).
+      let tools = JSON.parse(agent.tools || '[]');
+      if (Array.isArray(a.herramientas)) tools = [...new Set([...tools, ...a.herramientas])];
+      if (Array.isArray(a.agregar_herramientas)) tools = [...new Set([...tools, ...a.agregar_herramientas])];
+      if (Array.isArray(a.quitar_herramientas)) tools = tools.filter((x) => !a.quitar_herramientas.includes(x));
+      const row = clean({ ...(a.nuevo_nombre ? { name: a.nuevo_nombre } : {}), ...(a.instrucciones ? { instructions: a.instrucciones } : {}), tools,
+        ...(a.horario ? { schedule: a.horario } : {}), ...(a.permiso ? { autonomy: a.permiso } : {}), ...(a.activo !== undefined ? { active: !!a.activo } : {}) }, true);
+      const cols = Object.keys(row);
+      await env.DB.prepare(`UPDATE ai_agents SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).bind(...Object.values(row), now(), agent.id).run();
+      return { id: agent.id, agente: row.name || agent.name, herramientas_ahora: JSON.parse(row.tools), donde: 'Integraciones e IA → Agentes' };
     },
   },
 });

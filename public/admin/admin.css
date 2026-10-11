@@ -387,3 +387,13 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .aout{font-size:13.5px;line-height:1.6;color:var(--ink2)}.aout .li{display:block;padding-left:14px;position:relative}.aout .li::before{content:'•';position:absolute;left:2px;color:var(--lilac)}
 .aacts{display:grid;gap:6px}.aact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(168,85,247,.08);font-size:13px}
 .aact i{margin-right:6px;color:var(--lilac)}
+
+/* Marketing → Listas */
+.lists{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;align-items:start}
+.lside{position:sticky;top:12px}
+.litem{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:9px 10px;border:0;border-radius:10px;background:none;color:var(--ink);cursor:pointer;font:13px var(--f-ui)}
+.litem i{font-size:18px;color:var(--lilac)}.litem span{display:grid}.litem b{font-weight:500;color:var(--hi)}.litem small{color:var(--ink3);font-size:11px}
+.litem:hover{background:var(--fill)}.litem.on{background:var(--on);box-shadow:inset 0 0 0 1px var(--line)}
+.lquick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.lquick .pill{font-size:12px;padding:5px 9px;border-radius:999px;border:0;background:var(--fill);color:var(--ink2);cursor:pointer;box-shadow:var(--hair)}
+.lposts{font-size:12px;line-height:1.6;max-width:360px}.lposts a{color:var(--sky)}
+@media (max-width:900px){.lists{grid-template-columns:1fr}.lside{position:static}}

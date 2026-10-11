@@ -18,7 +18,7 @@ Admin.tab('marketing', (A) => {
 
   const VIEWS = [['resumen', 'Resumen', 'ph-chart-line-up'], ['contactos', 'Clientes y leads', 'ph-address-book'], ['oportunidades', 'Oportunidades', 'ph-funnel'],
     ['campanas', 'Campañas', 'ph-megaphone'], ['tareas', 'Tareas y automatizaciones', 'ph-check-square'],
-    ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
+    ['listas', 'Listas', 'ph-list-bullets'], ['herramientas', 'Suscripciones y herramientas', 'ph-plugs'], ['informes', 'Informes', 'ph-file-text'],
     ['tarjetas', 'Tarjetas', 'ph-identification-card']];
   // Las tarjetas de presentación son de Diwilo (las de cada negocio viven en su app). Los links de rastreo están en Campañas.
   const DIWILO_ONLY = new Set(['tarjetas']);
@@ -168,6 +168,7 @@ Admin.tab('marketing', (A) => {
           { label: 'Centro de costo', html: (r, R) => refName(R, 'cost_centers', r.cost_center_id) }] }).load();
     }
     if (view === 'informes') return reports(el);
+    if (view === 'listas') return lists(el);
   }
 
   // Crea de una vez todas las tareas de una plantilla (para un cliente o una campaña).
@@ -422,6 +423,66 @@ Admin.tab('marketing', (A) => {
     camps.load();
     spend.load();
     if (org === 'diwilo') { try { allLinks = await A.mount('links', $('[data-all]', el)); } catch {} }
+  }
+
+  // Listas que vigilan y completan los agentes (competidores, fuentes, temas, tendencias, prospectos…)
+  const LKIND = { competidores: ['Competidores', 'ph-binoculars'], fuentes: ['Fuentes', 'ph-rss'], temas: ['Temas', 'ph-lightbulb'], tendencias: ['Tendencias', 'ph-trend-up'], prospectos: ['Prospectos', 'ph-target'], otra: ['Lista', 'ph-list-bullets'] };
+  const LQUICK = [['Competidores', 'competidores', 'Empresas de la competencia: su sitio y su blog. Los agentes revisan qué publican.'], ['Tendencias', 'tendencias', 'Lo que los agentes encuentran en la web sobre el nicho.'],
+    ['Fuentes', 'fuentes', 'Blogs, medios y newsletters que vale la pena leer.'], ['Temas para el blog', 'temas', 'Ideas de artículos por escribir.'], ['Prospectos', 'prospectos', 'Empresas a las que les queremos vender.']];
+  async function lists(el) {
+    el.innerHTML = '<div class="lists"><aside class="card lside"><div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>Listas</h2><button class="btn sm pri" data-newlist><i class="ph-light ph-plus"></i>Nueva</button></div><div data-ls></div></aside><section data-items></section></div>';
+    let current = null;
+    async function loadLists() {
+      const { rows } = await api(`${P()}/lists`);
+      const counts = {};
+      await Promise.all(rows.map(async (l) => { counts[l.id] = (await api(`${P()}/list_items?f_list_id=${l.id}&limit=1000`)).rows.filter((x) => x.status !== 'descartado').length; }));
+      const have = new Set(rows.map((r) => r.kind));
+      $('[data-ls]', el).innerHTML = (rows.length ? rows.map((l) => `<button class="litem ${l.id === current ? 'on' : ''}" data-l="${l.id}"><i class="ph-light ${LKIND[l.kind]?.[1] || 'ph-list-bullets'}"></i><span><b>${esc(l.name)}</b><small>${esc(LKIND[l.kind]?.[0] || l.kind)} · ${num(counts[l.id])}</small></span></button>`).join('') : '<p class="muted" style="font-size:13px;margin:0 0 8px">Aún no hay listas.</p>')
+        + `<div class="lquick">${LQUICK.filter(([, k]) => !have.has(k)).map(([n, k]) => `<button class="pill" data-quick="${k}">+ ${esc(n)}</button>`).join('')}</div>`;
+      if (!current && rows[0]) { current = rows[0].id; $(`[data-l="${current}"]`, el)?.classList.add('on'); }
+      if (current && rows.some((r) => r.id === current)) showItems(rows.find((r) => r.id === current)); else $('[data-items]', el).innerHTML = '<div class="card"><p class="muted" style="margin:0">Crea una lista para empezar. Por ejemplo «Competidores» con el sitio de cada empresa: el agente de blog revisará qué publican.</p></div>';
+      el._rows = rows;
+    }
+    function showItems(l) {
+      const host = $('[data-items]', el);
+      host.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row" style="justify-content:space-between"><div><h2><i class="ph-light ${LKIND[l.kind]?.[1] || 'ph-list-bullets'}"></i> ${esc(l.name)}</h2>${l.description ? `<p class="muted" style="margin:4px 0 0;font-size:13px">${esc(l.description)}</p>` : ''}</div>
+        <div class="row"><button class="btn sm" data-check title="Lee los sitios o feeds de la lista y trae sus últimas publicaciones"><i class="ph-light ph-arrows-clockwise"></i>Revisar ahora</button><button class="btn sm" data-editlist><i class="ph-light ph-pencil-simple"></i></button></div></div></div><div data-t></div>`;
+      const t = H.table({ el: $('[data-t]', host), org: () => org, entity: 'list_items', title: 'elemento', newText: 'Agregar', fixed: { list_id: l.id },
+        fields: [{ k: 'title', label: l.kind === 'competidores' ? 'Empresa' : 'Título', required: true }, { k: 'url', label: l.kind === 'competidores' ? 'Sitio o blog' : 'Enlace', type: 'url' },
+          { k: 'feed_url', label: 'Feed RSS', type: 'url', hint: 'opcional: se busca solo al revisar' }, { k: 'status', label: 'Estado', type: 'select', options: [['activo', 'Activo'], ['revisado', 'Revisado'], ['descartado', 'Descartado']] },
+          { k: 'score', label: 'Puntaje', type: 'int', hint: 'relevancia 1–10' }, { k: 'notes', label: 'Notas', type: 'long' }, { k: 'list_id', label: 'Lista', type: 'select', options: [[l.id, l.name]] }],
+        defaults: () => ({ list_id: l.id }), filters: [{ k: 'status', options: [['', 'Todos'], ['activo', 'Activos'], ['revisado', 'Revisados'], ['descartado', 'Descartados']] }],
+        empty: l.kind === 'competidores' ? 'Agrega cada empresa con su sitio o blog. «Revisar ahora» trae lo último que publicaron.' : 'Sin elementos. Agrégalos tú o deja que los agentes los completen.',
+        columns: [
+          { label: l.kind === 'competidores' ? 'Empresa' : 'Elemento', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.title)}</b>${r.url ? `<br><a href="${esc(r.url)}" target="_blank" rel="noopener" data-stop style="font-size:12px">${esc(r.url.replace(/^https?:\/\//, '').slice(0, 48))}</a>` : ''}${r.notes ? `<br><span class="muted clamp2">${esc(r.notes)}</span>` : ''}` },
+          { label: 'Lo último que publicaron', html: (r) => { const d = r.data ? JSON.parse(r.data).ultimas || [] : []; return d.length ? `<div class="lposts">${d.slice(0, 3).map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" data-stop>${esc(x.titulo)}</a>${x.fecha ? ` <span class="muted">${esc(x.fecha)}</span>` : ''}`).join('<br>')}</div>` : '<span class="muted">—</span>'; } },
+          { label: 'Revisado', html: (r) => (r.last_checked_at ? fmtDate(r.last_checked_at) : '<span class="muted">—</span>') },
+          { label: 'Estado', html: (r) => chip(r.status === 'activo' ? 'ok' : r.status === 'revisado' ? 'soon' : 'free', r.status) + (r.score != null ? ` <span class="tag">${r.score}</span>` : '') }],
+        onChanged: () => loadLists() });
+      t.load();
+      $('[data-check]', host).onclick = async (e) => {
+        e.currentTarget.disabled = true; toast('Revisando los sitios de la lista…');
+        try { const r = await api(`${P()}/lists/${l.id}/check`, { method: 'POST' }); toast(`${r.revisados} sitios revisados`); t.load(); } catch (x) { toast(x.message); }
+        e.currentTarget.disabled = false;
+      };
+      $('[data-editlist]', host).onclick = async () => {
+        const out = await H.form({ title: 'Editar lista', org, values: l, fields: [{ k: 'name', label: 'Nombre', required: true }, { k: 'kind', label: 'Tipo', type: 'select', options: Object.entries(LKIND).map(([k, [n]]) => [k, n]) }, { k: 'description', label: 'Descripción', type: 'long' }],
+          onDelete: () => api(`${P()}/lists/${l.id}`, { method: 'DELETE' }) });
+        if (out === 'deleted') { current = null; toast('Lista borrada'); return loadLists(); }
+        if (out) { await api(`${P()}/lists/${l.id}`, { method: 'PATCH', body: out }); toast('Lista guardada'); loadLists(); }
+      };
+    }
+    el.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-l]');
+      if (b) { current = Number(b.dataset.l); el.querySelectorAll('.litem').forEach((x) => x.classList.toggle('on', x === b)); return showItems(el._rows.find((r) => r.id === current)); }
+      const q = e.target.closest('[data-quick]');
+      if (q) { const [n, k, d] = LQUICK.find((x) => x[1] === q.dataset.quick); const r = await api(`${P()}/lists`, { method: 'POST', body: { name: n, kind: k, description: d } }); current = r.id; toast(`Lista «${n}» creada`); return loadLists(); }
+      if (e.target.closest('[data-newlist]')) {
+        const out = await H.form({ title: 'Nueva lista', org, values: { kind: 'otra' }, fields: [{ k: 'name', label: 'Nombre', required: true }, { k: 'kind', label: 'Tipo', type: 'select', options: Object.entries(LKIND).map(([k, [n]]) => [k, n]) }, { k: 'description', label: 'Para qué es', type: 'long' }] });
+        if (out) { const r = await api(`${P()}/lists`, { method: 'POST', body: out }); current = r.id; toast('Lista creada'); loadLists(); }
+      }
+    });
+    loadLists();
   }
 
   async function reports(el) {

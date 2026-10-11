@@ -231,3 +231,11 @@ CREATE TABLE IF NOT EXISTS ai_agent_runs (
   output TEXT, actions TEXT NOT NULL DEFAULT '[]', used TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_ai_agent_runs ON ai_agent_runs(agent_id, started_at);
+
+-- ---------- Listas de Marketing (competidores, fuentes, temas, tendencias…; también se crean solas) ----------
+CREATE TABLE IF NOT EXISTS mk_lists (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL, name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'otra', description TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS mk_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL, list_id INTEGER NOT NULL,
+  title TEXT NOT NULL, url TEXT, feed_url TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'activo', score INTEGER, data TEXT,
+  last_checked_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_mk_list_items ON mk_list_items(org_id, list_id, updated_at);
