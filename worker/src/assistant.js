@@ -1,5 +1,5 @@
 /**
- * IA Diwilo: asistente del panel (/admin, botón flotante a la izquierda).
+ * IA Diwilo: asistente del panel (/admin, botón flotante abajo a la derecha).
  * Responde con los datos reales de Diwilo (sitio, negocios de las apps, marketing, finanzas) usando herramientas.
  * Las de consulta se ejecutan solas; las que cambian algo NO se ejecutan: vuelven como propuesta y el panel pide
  * confirmar (POST /admin/api/assistant/run). El mismo registro TOOLS se puede publicar por MCP más adelante.
@@ -16,7 +16,7 @@ const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all(
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');
 
 // Secciones del panel a las que el asistente puede llevar (botón «Abrir»).
-const SECTIONS = { resumen: 'En vivo', negocios: 'Negocios', marketing: 'Marketing', finanzas: 'Finanzas', blog: 'Blog', chats: 'Chats IA', api: 'Integraciones', ajustes: 'Ajustes del chat' };
+const SECTIONS = { resumen: 'En vivo', negocios: 'Negocios', marketing: 'Marketing', finanzas: 'Finanzas', blog: 'Blog', ia: 'Integraciones e IA (chat del sitio, sus ajustes, API y webhooks)' };
 
 /* ---------------- herramientas ---------------- */
 // write: true = cambia datos -> requiere confirmación. args: descripción para el modelo.

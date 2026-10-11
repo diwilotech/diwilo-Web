@@ -143,9 +143,9 @@
   }
 
   // Pestañas que ahora viven dentro de otra (enlaces viejos y última pestaña recordada).
-  const MOVED = { links: ['marketing', 'campanas'], cards: ['marketing', 'tarjetas'], leads: ['marketing', 'contactos'] };
+  const MOVED = { links: ['marketing', 'campanas'], cards: ['marketing', 'tarjetas'], leads: ['marketing', 'contactos'], chats: ['ia', 'chats'], ajustes: ['ia', 'ajustes'], api: ['ia', 'api'] };
   async function go(id) {
-    if (MOVED[id]) { try { sessionStorage.setItem('dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
+    if (MOVED[id]) { try { sessionStorage.setItem(MOVED[id][0] === 'ia' ? 'dwl_ia_view' : 'dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
     if (!$(`[data-section="${id}"]`)) id = 'resumen';
     if (current && current !== id) tabs[current]?.hide?.();
     current = id;

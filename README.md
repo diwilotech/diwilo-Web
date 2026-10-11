@@ -169,7 +169,7 @@ administrador dentro de cada app (Personal / Equipo).
 
 ## IA Diwilo (asistente del panel)
 
-Botón flotante abajo a la izquierda en `/admin`. Responde con los datos reales usando herramientas
+Botón flotante abajo a la derecha en `/admin`; también desde «Integraciones e IA» (que reúne las conversaciones del chat del sitio, sus ajustes, API y webhooks). Responde con los datos reales usando herramientas
 (`worker/src/assistant.js`, registro `TOOLS`): estado del sitio, leads, negocios de las apps (vencimientos, dueños),
 organizaciones, resumen de marketing y de finanzas, tareas y contactos. Las herramientas marcadas `write`
 (crear tarea, contacto, campaña, movimiento, gasto recurrente, cambiar etapa, marcar tarea hecha) **no se ejecutan**:
