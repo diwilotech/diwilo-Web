@@ -9,6 +9,7 @@
  *   GET    /admin/api/agents/:id/runs                        últimas ejecuciones
  *   POST   /admin/api/agents/runs/:runId/actions/:i          { approve: true|false } aprobar o descartar una acción propuesta
  * runAgentsDaily(env, callAI) la corre el cron diario (diarios todos los días, semanales los lunes).
+ * IA Diwilo también puede ver, crear y poner a trabajar agentes (herramientas al final de este archivo, solo para IA Diwilo).
  */
 import { TOOLS, agentLoop, toolsText } from './assistant.js';
 
@@ -71,7 +72,7 @@ function clean(b, partial) {
   const out = {};
   if (!partial || 'name' in b) { out.name = clip(b.name, 80); if (!out.name) throw new Error('El agente necesita un nombre'); }
   if (!partial || 'instructions' in b) { out.instructions = clip(b.instructions, 6000); if (!out.instructions) throw new Error('Escribe las instrucciones del agente'); }
-  if (!partial || 'tools' in b) out.tools = JSON.stringify((Array.isArray(b.tools) ? b.tools : []).filter((t) => TOOLS[t]).slice(0, 20));
+  if (!partial || 'tools' in b) out.tools = JSON.stringify((Array.isArray(b.tools) ? b.tools : []).filter((t) => TOOLS[t] && !TOOLS[t].assistantOnly).slice(0, 20));
   if (!partial || 'schedule' in b) out.schedule = ['manual', 'diario', 'semanal'].includes(b.schedule) ? b.schedule : 'manual';
   if (!partial || 'autonomy' in b) out.autonomy = b.autonomy === 'ejecutar' ? 'ejecutar' : 'proponer';
   if (!partial || 'org_id' in b) out.org_id = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.org_id || '') ? b.org_id : 'diwilo';
@@ -140,7 +141,7 @@ export async function agentsApi(req, env, path, adminEmail, callAI) {
       return json({
         agents: results.map((a) => ({ ...shape(a), pending_runs: pmap[a.id] || 0 })),
         templates: Object.entries(TEMPLATES).map(([key, t]) => ({ key, ...t })),
-        tools: Object.entries(TOOLS).map(([name, t]) => ({ name, desc: t.desc, write: !!t.write })),
+        tools: Object.entries(TOOLS).filter(([, t]) => !t.assistantOnly).map(([name, t]) => ({ name, desc: t.desc, write: !!t.write })),
       });
     }
     if (!parts.length && M === 'POST') {
@@ -190,3 +191,58 @@ export async function agentsApi(req, env, path, adminEmail, callAI) {
 }
 
 export { READ };
+
+/* ---------------- herramientas de IA Diwilo para manejar agentes ---------------- */
+// Se registran en el mismo TOOLS del asistente. assistantOnly: los agentes no las pueden usar (un agente no crea agentes).
+async function findAgent(env, a) {
+  await ensureTables(env);
+  if (a.id) return env.DB.prepare('SELECT * FROM ai_agents WHERE id = ?').bind(Number(a.id)).first();
+  if (a.nombre) return env.DB.prepare('SELECT * FROM ai_agents WHERE lower(name) LIKE ? ORDER BY active DESC LIMIT 1').bind(`%${String(a.nombre).toLowerCase()}%`).first();
+  return null;
+}
+const SCHED_TXT = { manual: 'a mano', diario: 'cada día', semanal: 'cada lunes' };
+Object.assign(TOOLS, {
+  ver_agentes: {
+    assistantOnly: true, desc: 'Agentes de IA creados: qué hacen, sus herramientas, cuándo trabajan, su permiso, su última ejecución y si tienen acciones por aprobar. También las plantillas disponibles.', args: '{}',
+    async run(env) {
+      await ensureTables(env);
+      const { results } = await env.DB.prepare('SELECT * FROM ai_agents ORDER BY active DESC, name').all();
+      const pend = Object.fromEntries((await env.DB.prepare("SELECT agent_id, COUNT(*) n FROM ai_agent_runs WHERE status = 'por aprobar' GROUP BY agent_id").all()).results.map((p) => [p.agent_id, p.n]));
+      return {
+        agentes: results.map((a) => ({ id: a.id, nombre: a.name, activo: !!a.active, trabaja: SCHED_TXT[a.schedule], permiso: a.autonomy === 'ejecutar' ? 'actúa solo' : 'propone',
+          organizacion: a.org_id, herramientas: JSON.parse(a.tools || '[]'), instrucciones: a.instructions.slice(0, 300), ejecuciones: a.runs,
+          ultima: a.last_run_at ? new Date(a.last_run_at - 5 * 3600000).toISOString().slice(0, 16).replace('T', ' ') : null, por_aprobar: pend[a.id] || 0 })),
+        plantillas: Object.entries(TEMPLATES).map(([k, t]) => ({ plantilla: k, nombre: t.name })),
+        herramientas_para_agentes: Object.entries(TOOLS).filter(([, t]) => !t.assistantOnly).map(([n, t]) => `${n}${t.write ? ' (acción)' : ''}`),
+      };
+    },
+  },
+  crear_agente: {
+    write: true, assistantOnly: true,
+    desc: 'Crea un agente de IA. Elige solo las herramientas que necesita (ver_agentes las lista). Por seguridad usa permiso "proponer" salvo que el administrador pida que actúe solo. Puede partir de una plantilla (blog, leads, cobranza, renovaciones, analista).',
+    args: '{ "nombre": texto, "instrucciones": "rol, qué revisa, qué hace y cómo responde", "herramientas": ["nombre", ...], "horario"?: "manual"|"diario"|"semanal", "permiso"?: "proponer"|"ejecutar", "org"?: id, "plantilla"?: texto }',
+    summary: (a) => `Crear el agente «${a.nombre || TEMPLATES[a.plantilla]?.name || 'nuevo'}» (${SCHED_TXT[a.horario] || SCHED_TXT[TEMPLATES[a.plantilla]?.schedule] || 'a mano'}, ${(a.permiso || 'proponer') === 'ejecutar' ? 'actúa solo' : 'propone y tú apruebas'}) con ${(a.herramientas || TEMPLATES[a.plantilla]?.tools || []).length} herramientas: ${(a.herramientas || TEMPLATES[a.plantilla]?.tools || []).join(', ')}`,
+    async run(env, a, ctx) {
+      await ensureTables(env);
+      const base = a.plantilla && TEMPLATES[a.plantilla] ? { ...TEMPLATES[a.plantilla], template: a.plantilla } : {};
+      const row = clean({ ...base, ...(a.nombre ? { name: a.nombre } : {}), ...(a.instrucciones ? { instructions: a.instrucciones } : {}),
+        ...(a.herramientas ? { tools: a.herramientas } : {}), schedule: a.horario || base.schedule || 'manual', autonomy: a.permiso === 'ejecutar' ? 'ejecutar' : 'proponer',
+        org_id: a.org || ctx.org || 'diwilo', active: true }, false);
+      if (row.tools === '[]') throw new Error('El agente necesita al menos una herramienta válida');
+      const t = now(), cols = Object.keys(row);
+      const r = await env.DB.prepare(`INSERT INTO ai_agents (${cols.join(', ')}, created_at, updated_at) VALUES (${cols.map(() => '?').join(', ')}, ?, ?)`).bind(...Object.values(row), t, t).run();
+      return { id: r.meta.last_row_id, nombre: row.name, herramientas: JSON.parse(row.tools), donde: 'Integraciones e IA → Agentes' };
+    },
+  },
+  ejecutar_agente: {
+    write: true, assistantOnly: true, desc: 'Pone a trabajar ahora a un agente (por id o por nombre), con un pedido opcional para esta vez. Si el agente «propone», sus acciones quedan por aprobar en su historial.',
+    args: '{ "id"?: número, "nombre"?: texto, "pedido"?: texto }',
+    summary: (a) => `Poner a trabajar ahora al agente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}${a.pedido ? ` con el pedido: «${a.pedido}»` : ''}`,
+    async run(env, a, ctx) {
+      const agent = await findAgent(env, a);
+      if (!agent) throw new Error('No encontré ese agente');
+      const r = await runAgent(env, agent, { trigger: 'manual', pedido: String(a.pedido || '').slice(0, 1000), callAI: ctx.callAI });
+      return { agente: agent.name, estado: r.status, resultado: r.output, acciones: r.actions.map((x) => `${x.status}: ${x.summary}`) };
+    },
+  },
+});

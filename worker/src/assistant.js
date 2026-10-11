@@ -122,7 +122,13 @@ Escribe en español de Colombia, claro y útil, sin relleno ni promesas exagerad
   crear_tarea: {
     write: true, desc: 'Crea una tarea de marketing.', args: '{ "titulo": texto, "para"?: "AAAA-MM-DD", "contacto_id"?: número, "responsable"?: texto, "org"?: id }',
     summary: (a) => `Crear la tarea «${a.titulo}»${a.para ? ` para el ${a.para}` : ''}${a.responsable ? ` (responsable: ${a.responsable})` : ''}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'tasks', { title: a.titulo, due_date: a.para || today(), contact_id: a.contacto_id, assignee: a.responsable }, ctx.callAI),
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      // No duplicar: si ya hay una tarea pendiente con el mismo título, no se crea otra (útil para agentes diarios)
+      const dup = await env.DB.prepare('SELECT id FROM mk_tasks WHERE org_id = ? AND done = 0 AND lower(trim(title)) = lower(trim(?))').bind(org, String(a.titulo || '')).first();
+      if (dup) return { ya_existia: dup.id, nota: 'Ya había una tarea pendiente igual; no se creó otra.' };
+      return hubCreate(env, org, 'tasks', { title: a.titulo, due_date: a.para || today(), contact_id: a.contacto_id, assignee: a.responsable }, ctx.callAI);
+    },
   },
   marcar_tarea_hecha: {
     write: true, desc: 'Marca una tarea como hecha.', args: '{ "id": número, "org"?: id }',
@@ -173,6 +179,7 @@ Reglas:
 - Usa herramientas para cualquier dato; nunca inventes cifras, nombres ni fechas. Si una herramienta falla o no hay datos, dilo.
 - Las ACCIONES no se ejecutan hasta que el administrador confirme: propónlas con {"tool":...} una a la vez.
 - No puedes borrar, archivar, cambiar dueños ni registrar pagos de suscripciones: indica la sección del panel donde se hace.
+- Agentes: con ver_agentes conoces los que hay; para crear uno, arma instrucciones claras (rol, qué revisa, qué hace, cómo responde), elige solo las herramientas necesarias y usa permiso «proponer» salvo que pidan que actúe solo.
 - Respuestas en español de Colombia, claras y cortas (máximo 8 líneas), con cifras en pesos ($1.234.567). Usa viñetas si ayudan.`;
 }
 
@@ -257,7 +264,7 @@ export async function assistantApi(req, env, path, adminEmail, callAI) {
     try {
       const result = await tool.run(env, b.args || {}, { ...ctx, org: b.org || ctx.org });
       await env.DB.prepare('INSERT INTO events (ts, type, path, label) VALUES (?, ?, ?, ?)').bind(Date.now(), 'admin', '/admin', `${adminEmail}: IA Diwilo · ${tool.summary(b.args || {})}`.slice(0, 300)).run().catch(() => {});
-      return json({ ok: true, result, message: `Listo: ${tool.summary(b.args || {})}.` });
+      return json({ ok: true, result, message: result?.ya_existia ? `No se creó: ${result.nota}` : `Listo: ${tool.summary(b.args || {})}.` });
     } catch (e) { return json({ error: e.message || 'No se pudo hacer' }, e.status || 500); }
   }
 

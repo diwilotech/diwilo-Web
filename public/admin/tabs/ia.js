@@ -19,8 +19,8 @@ Admin.tab('ia', (A) => {
         Las acciones que cambian datos te piden confirmar antes de ejecutarse y quedan en «Actividad en tiempo real».</p>
         <button class="btn pri" data-open><i class="ph-light ph-chat-circle-dots"></i>Abrir IA Diwilo</button></div>
       <div class="card"><h2>Qué puede hacer</h2>
-        <div class="ia-caps"><b>Consulta</b><span>Estado del sitio, leads, negocios y vencimientos, organizaciones, resumen de marketing y de finanzas, tareas, contactos, el blog y lo que preguntan los clientes.</span>
-        <b>Con tu confirmación</b><span>Crear tareas, contactos y campañas; registrar ingresos, gastos y gastos recurrentes; cambiar la etapa de un contacto; marcar tareas hechas; escribir borradores del blog.</span>
+        <div class="ia-caps"><b>Consulta</b><span>Estado del sitio, leads, negocios y vencimientos, organizaciones, resumen de marketing y de finanzas, tareas, contactos, el blog, lo que preguntan los clientes y tus agentes.</span>
+        <b>Con tu confirmación</b><span>Crear tareas, contactos y campañas; registrar ingresos, gastos y gastos recurrentes; cambiar la etapa de un contacto; marcar tareas hechas; escribir borradores del blog; crear agentes y ponerlos a trabajar.</span>
         <b>No hace</b><span>Borrar, archivar negocios, cambiar dueños ni registrar pagos de suscripciones.</span></div></div>
       <div class="card"><h2>Modelo de IA</h2><p class="muted" style="font-size:13px;line-height:1.6" data-provider>…</p></div>
       <div class="card"><h2>Por MCP (próximo paso)</h2><p class="muted" style="font-size:13px;line-height:1.6">Las mismas herramientas se pueden abrir por MCP para usar Diwilo desde Claude Desktop u otra IA, con una clave de API de «API y webhooks».</p></div></div>`;
