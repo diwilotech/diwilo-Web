@@ -65,11 +65,20 @@ Admin.tab('ia', (A) => {
       if (e.target.closest('[data-run]')) {
         const pedido = await A.ask({ title: `Ejecutar «${a.name}»`, text: 'Opcional: algo puntual para esta vez (por ejemplo «escribe sobre facturación electrónica para restaurantes»).', input: true, placeholder: 'Déjalo vacío para que siga sus instrucciones', ok: 'Ejecutar ahora' });
         if (pedido === null) return;
-        const b = card.querySelector('[data-run]'); b.disabled = true; b.innerHTML = '<i class="ph-light ph-spinner"></i>Trabajando…';
-        toast(`${a.name} está trabajando… puede tardar un minuto`);
-        try { await A.api(`agents/${a.id}/run`, { method: 'POST', body: { pedido } }); openRuns = a.id; toast('Listo'); }
-        catch (x) { toast(x.message); }
-        load();
+        const b = card.querySelector('[data-run]'); b.disabled = true; b.innerHTML = '<i class="ph-light ph-circle-notch spin"></i>Trabajando…';
+        const box = $('[data-runs]', el);
+        box.onclick = null;
+        box.innerHTML = '<div class="card"><div data-prog></div></div>';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const p = A.progress($('[data-prog]', box), a.name);
+        try {
+          const r = await A.stream(`agents/${a.id}/run`, { pedido }, p.update);
+          const pend = r.actions.filter((x) => x.status === 'pendiente').length;
+          p.finish(r.status !== 'error', pend ? `Terminado · ${pend} acción${pend === 1 ? '' : 'es'} por aprobar` : undefined);
+          toast('Listo');
+        } catch (x) { p.finish(false, x.message); toast(x.message); }
+        openRuns = a.id;
+        setTimeout(load, 1800);
       }
     });
     async function showRuns(id) {

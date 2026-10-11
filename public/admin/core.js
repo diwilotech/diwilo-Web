@@ -183,8 +183,73 @@
     } catch {}
   }
 
+  // Llamada que recibe el avance en vivo (una línea JSON por paso) y devuelve el resultado final.
+  async function stream(path, body, onEvent) {
+    const r = await fetch('/admin/api/' + path, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ ...body, stream: true }) });
+    if (r.status === 401) { showLogin(); throw new Error('sesión'); }
+    if (!r.ok || !r.body) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'Error'); }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = '', result, failed;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line) continue;
+        let ev; try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === 'fin') result = ev.result;
+        else if (ev.type === 'error') failed = ev.error;
+        else try { onEvent(ev); } catch {}
+      }
+    }
+    if (failed) throw new Error(failed);
+    if (result === undefined) throw new Error('Se cortó la conexión. Revisa el resultado en un momento.');
+    return result;
+  }
+
+  // Barra de progreso con lo que va haciendo la IA y lo que ya hizo.
+  // const p = progress(contenedor, 'Agente de blog'); p.update(evento); p.finish(true|false, 'texto')
+  function progress(host, title = 'Trabajando') {
+    const t0 = Date.now(), ICON = { consultada: 'ph-check-circle', hecha: 'ph-check-circle', propuesta: 'ph-hourglass-medium', error: 'ph-warning' };
+    host.innerHTML = `<div class="prog"><div class="prog-head"><i class="ph-light ph-circle-notch spin"></i><b>${esc(title)}</b><span class="prog-now">Empezando…</span><span class="prog-time">0:00</span></div>
+      <div class="prog-bar"><i></i></div><ol class="prog-steps"></ol></div>`;
+    const box = $('.prog', host), bar = $('.prog-bar i', box), now = $('.prog-now', box), list = $('.prog-steps', box), clock = $('.prog-time', box);
+    let step = 0, done = 0, live = null;
+    const tick = () => { const s = Math.round((Date.now() - t0) / 1000); clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+    const timer = setInterval(tick, 1000);
+    // No se sabe cuántos pasos tomará: la barra avanza rápido al principio y se frena cerca del final
+    const pct = () => Math.min(94, Math.round(100 * (1 - Math.exp(-(step + done) / 9))));
+    const draw = () => { bar.style.width = `${pct()}%`; };
+    const add = (cls, icon, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i class="ph-light ${icon}"></i><span>${esc(text)}</span>`; list.appendChild(li); list.scrollTop = list.scrollHeight; return li; };
+    draw();
+    return {
+      update(ev) {
+        if (ev.type === 'pensando') { step = ev.step; now.textContent = `Paso ${ev.step} · pensando qué sigue`; }
+        if (ev.type === 'usando') { live = add('now', 'ph-circle-notch spin', ev.label); now.textContent = `Paso ${step} · ${ev.label}`; }
+        if (ev.type === 'paso') {
+          done++;
+          const li = live && ev.status !== 'propuesta' ? live : add('', '', ev.label);
+          live = null;
+          li.className = ev.status; li.querySelector('i').className = `ph-light ${ICON[ev.status] || 'ph-check-circle'}`;
+          if (ev.status === 'propuesta') li.insertAdjacentHTML('beforeend', '<small>por aprobar</small>');
+          if (ev.error) li.insertAdjacentHTML('beforeend', `<small>${esc(ev.error)}</small>`);
+        }
+        draw();
+      },
+      finish(ok = true, text) {
+        clearInterval(timer); tick();
+        box.classList.add(ok ? 'ok' : 'fail'); bar.style.width = '100%';
+        $('.prog-head i', box).className = `ph-light ${ok ? 'ph-check-circle' : 'ph-warning'}`;
+        now.textContent = text || (ok ? `Terminado en ${step} paso${step === 1 ? '' : 's'}` : 'No terminó');
+        if (live) { live.className = 'error'; live.querySelector('i').className = 'ph-light ph-warning'; }
+      },
+    };
+  }
+
   window.Admin = {
-    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, refreshLeadBadge, ask, sure, mount, unmount,
+    $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, stream, progress, qrSvg, copy, formData, setBadge, barChart, rank, go, refreshBizBadge, refreshLeadBadge, ask, sure, mount, unmount,
     tab(id, factory) { factories[id] = factory; },
   };
 

@@ -61,12 +61,13 @@
   async function ask(q) {
     q = q.trim(); if (!q) return;
     hist.push({ role: 'user', content: q }); save(); draw();
-    const wait = document.createElement('div'); wait.className = 'ia-msg assistant ia-wait'; wait.innerHTML = '<span></span><span></span><span></span>';
+    const wait = document.createElement('div'); wait.className = 'ia-msg assistant ia-live';
     log.appendChild(wait); log.scrollTop = log.scrollHeight;
+    const p = Admin.progress(wait, 'IA Diwilo');
     form.querySelector('button').disabled = true;
     try {
       const messages = hist.filter((m) => !m.pending || m.done).map((m) => ({ role: m.role, content: m.content + (m.done ? `\n(${m.done})` : '') }));
-      const r = await api('assistant', { method: 'POST', body: { messages, context: ctx() } });
+      const r = await Admin.stream('assistant', { messages, context: ctx() }, (ev) => { p.update(ev); log.scrollTop = log.scrollHeight; });
       hist.push({ role: 'assistant', content: r.reply, open: r.open, pending: r.pending, used: r.used });
     } catch (x) { hist.push({ role: 'assistant', content: `No pude responder: ${x.message}` }); }
     form.querySelector('button').disabled = false;

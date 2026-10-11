@@ -386,7 +386,7 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .arun{padding:12px 0;box-shadow:inset 0 -1px 0 var(--edge);display:grid;gap:8px}
 .aout{font-size:13.5px;line-height:1.6;color:var(--ink2)}.aout .li{display:block;padding-left:14px;position:relative}.aout .li::before{content:'•';position:absolute;left:2px;color:var(--lilac)}
 .aacts{display:grid;gap:6px}.aact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(168,85,247,.08);font-size:13px}
-.aact i{margin-right:6px;color:var(--lilac)}
+.aact i{margin-right:6px;color:var(--lilac)}.aact>span:first-child{min-width:0;overflow-wrap:anywhere}
 
 /* Marketing → Listas */
 .lists{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;align-items:start}
@@ -397,3 +397,26 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .lquick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.lquick .pill{font-size:12px;padding:5px 9px;border-radius:999px;border:0;background:var(--fill);color:var(--ink2);cursor:pointer;box-shadow:var(--hair)}
 .lposts{font-size:12px;line-height:1.6;max-width:360px}.lposts a{color:var(--sky)}
 @media (max-width:900px){.lists{grid-template-columns:1fr}.lside{position:static}}
+
+/* Barra de progreso de la IA (agentes e IA Diwilo) */
+.prog{display:grid;gap:10px}
+.prog-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}.prog-head>i{color:var(--lilac);font-size:18px}
+.prog-now{color:var(--mut,#9aa0b4);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prog-time{font-variant-numeric:tabular-nums;color:var(--mut,#9aa0b4);font-size:12px}
+.prog-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.prog-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--violet),var(--lilac));transition:width .6s ease;position:relative;overflow:hidden}
+.prog:not(.ok):not(.fail) .prog-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:progShine 1.4s linear infinite}
+.prog.ok .prog-bar i{background:var(--good)}.prog.ok .prog-head>i{color:var(--good)}
+.prog.fail .prog-bar i{background:var(--bad)}.prog.fail .prog-head>i{color:var(--bad)}
+.prog-steps{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:220px;overflow:auto;font-size:12.5px}
+.prog-steps li{display:flex;gap:7px;align-items:flex-start;line-height:1.35}.prog-steps li i{margin-top:1px;flex:none}
+.prog-steps li span{min-width:0;overflow-wrap:anywhere}
+.prog-steps li small{margin-left:auto;flex:none;padding-left:8px;color:var(--warn)}
+.prog-steps li.now{color:#fff}.prog-steps li.now i{color:var(--lilac)}
+.prog-steps li.consultada i,.prog-steps li.hecha i{color:var(--good)}.prog-steps li.consultada{color:var(--mut,#9aa0b4)}
+.prog-steps li.propuesta i{color:var(--warn)}.prog-steps li.error i,.prog-steps li.error small{color:var(--bad)}
+.spin{display:inline-block;animation:progSpin 1s linear infinite}
+.ia-msg.ia-live{width:100%;max-width:none}
+@keyframes progShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes progSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin,.prog-bar i::after{animation:none}}

@@ -11,7 +11,7 @@
  * runAgentsDaily(env, callAI) la corre el cron diario (diarios todos los días, semanales los lunes).
  * IA Diwilo también puede ver, crear y poner a trabajar agentes (herramientas al final de este archivo, solo para IA Diwilo).
  */
-import { TOOLS, agentLoop, toolsText } from './assistant.js';
+import { TOOLS, agentLoop, toolsText, streamSteps } from './assistant.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const now = () => Date.now();
@@ -85,7 +85,7 @@ function clean(b, partial) {
 const shape = (a) => ({ ...a, tools: JSON.parse(a.tools || '[]') });
 
 // Ejecuta un agente y guarda la ejecución.
-export async function runAgent(env, agent, { trigger = 'manual', pedido = '', callAI }) {
+export async function runAgent(env, agent, { trigger = 'manual', pedido = '', callAI, onStep }) {
   await ensureTables(env);
   const tools = JSON.parse(agent.tools || '[]');
   const ctx = { tab: 'agentes', org: agent.org_id, callAI };
@@ -108,7 +108,7 @@ CÓMO RESPONDER: SIEMPRE un único objeto JSON y nada más:
 Usa las herramientas para cualquier dato; nunca inventes cifras, nombres ni fechas. No puedes borrar, archivar, cambiar dueños ni registrar pagos.`;
   const history = [{ role: 'user', content: pedido ? `Trabaja ahora. Pedido del administrador para esta vez: ${pedido}` : 'Trabaja ahora según tus instrucciones.' }];
   let r;
-  try { r = await agentLoop(env, { system, history, allowed: tools, ctx, mode: agent.autonomy === 'ejecutar' ? 'ejecutar' : 'proponer', maxSteps: 16 }); }
+  try { r = await agentLoop(env, { system, history, allowed: tools, ctx, mode: agent.autonomy === 'ejecutar' ? 'ejecutar' : 'proponer', maxSteps: 16, onStep }); }
   catch (e) { r = { reply: `No pude terminar: ${e.message}`, actions: [], used: [], failed: true }; }
   const status = r.failed ? 'error' : r.actions.some((a) => a.status === 'pendiente') ? 'por aprobar' : 'lista';
   await env.DB.batch([
@@ -181,7 +181,10 @@ export async function agentsApi(req, env, path, adminEmail, callAI) {
       await env.DB.batch([env.DB.prepare('DELETE FROM ai_agent_runs WHERE agent_id = ?').bind(id), env.DB.prepare('DELETE FROM ai_agents WHERE id = ?').bind(id)]);
       return json({ ok: true });
     }
-    if (parts[1] === 'run' && M === 'POST') return json(await runAgent(env, agent, { trigger: 'manual', pedido: clip(body.pedido, 1000) || '', callAI }));
+    if (parts[1] === 'run' && M === 'POST') {
+      const go = (onStep) => runAgent(env, agent, { trigger: 'manual', pedido: clip(body.pedido, 1000) || '', callAI, onStep });
+      return body.stream ? streamSteps(go) : json(await go());
+    }
     if (parts[1] === 'runs' && M === 'GET') {
       const { results } = await env.DB.prepare('SELECT * FROM ai_agent_runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 20').bind(id).all();
       return json({ runs: results.map((r) => ({ ...r, actions: JSON.parse(r.actions || '[]'), used: JSON.parse(r.used || '[]') })) });
