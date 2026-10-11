@@ -218,3 +218,16 @@ CREATE TABLE IF NOT EXISTS fin_bank_lines (
   imported_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_fin_bank_org ON fin_bank_lines(org_id, account_id, date);
+
+-- ---------- Agentes de IA (también se crean solas desde worker/src/agents.js) ----------
+CREATE TABLE IF NOT EXISTS ai_agents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, template TEXT, instructions TEXT NOT NULL,
+  tools TEXT NOT NULL DEFAULT '[]', schedule TEXT NOT NULL DEFAULT 'manual', org_id TEXT NOT NULL DEFAULT 'diwilo',
+  autonomy TEXT NOT NULL DEFAULT 'proponer', active INTEGER NOT NULL DEFAULT 1, last_run_at INTEGER, runs INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_agent_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id INTEGER NOT NULL, trigger TEXT NOT NULL, status TEXT NOT NULL,
+  output TEXT, actions TEXT NOT NULL DEFAULT '[]', used TEXT, started_at INTEGER NOT NULL, finished_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ai_agent_runs ON ai_agent_runs(agent_id, started_at);

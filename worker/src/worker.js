@@ -11,6 +11,7 @@ import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
 import { purgeArchived } from './platform.js';
 import { runHubsDaily } from './hubs.js';
+import { runAgentsDaily } from './agents.js';
 import { callAI } from './index.js';
 
 const PAGES = {
@@ -38,5 +39,7 @@ export default {
     ctx.waitUntil(purgeArchived(env));
     // Hubs: gastos recurrentes que vencen y automatizaciones de marketing
     ctx.waitUntil(runHubsDaily(env, callAI));
+    // Agentes de IA programados (diarios; los semanales los lunes)
+    ctx.waitUntil(runAgentsDaily(env, callAI));
   },
 };

@@ -393,6 +393,13 @@ export async function blogAdmin(req, env, path, url, email) {
   }
 }
 
+// Borrador escrito por un agente (Integraciones e IA → Agentes). Nunca se publica solo: queda en Blog → Borradores.
+export async function createDraft(env, b) {
+  let base = slugify(b.slug || b.title) || `borrador-${Date.now().toString(36)}`, slug = base;
+  for (let i = 2; await env.DB.prepare('SELECT 1 FROM posts WHERE slug = ?').bind(slug).first(); i++) slug = `${base}-${i}`;
+  return savePost(env.DB, { ...b, slug, status: 'draft', published_at: null });
+}
+
 async function savePost(db, b) {
   const title = clip(b.title, 200);
   if (!title) throw new Error('El título es obligatorio');

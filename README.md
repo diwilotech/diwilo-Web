@@ -176,3 +176,11 @@ organizaciones, resumen de marketing y de finanzas, tareas y contactos. Las herr
 vuelven como propuesta y el panel pide «Confirmar» (`POST /admin/api/assistant/run`, queda en «Actividad en tiempo real»).
 No puede borrar, archivar, cambiar dueños ni registrar pagos. El mismo registro `TOOLS` se puede publicar por MCP
 (para Claude Desktop u otras IA) con una clave de API.
+
+## Agentes de IA
+
+Integraciones e IA → Agentes (`worker/src/agents.js`). Cada agente tiene rol e instrucciones, las herramientas de IA Diwilo
+que puede usar, cuándo trabaja (a mano, cada día o cada lunes, desde el cron), para qué organización y su permiso:
+**propone** (sus acciones quedan «por aprobar» en su historial) o **actúa solo**. Plantillas: blog (busca temas en lo que
+preguntan leads y chat y deja un borrador escrito en Blog; nunca publica), seguimiento de leads, cobranza, renovaciones de
+negocios y analista semanal. Tablas `ai_agents` y `ai_agent_runs` (se crean solas; también en `worker/hubs.sql`).

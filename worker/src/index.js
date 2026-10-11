@@ -21,6 +21,7 @@ import { platformApi } from './platform.js';
 import { blogAdmin } from './blog.js';
 import { hubsApi, hubLeadCreated, hubLeadStatus } from './hubs.js';
 import { assistantApi } from './assistant.js';
+import { agentsApi } from './agents.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -525,6 +526,7 @@ async function adminApi(req, env, path, url) {
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
   if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI);
+  if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI);
   if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;

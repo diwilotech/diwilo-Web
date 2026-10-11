@@ -370,3 +370,20 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .ia-caps{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13px;line-height:1.5}
 .ia-caps b{color:var(--hi);font-weight:500;white-space:nowrap}.ia-caps span{color:var(--ink2)}
 .card h2 i{color:var(--lilac)}
+
+/* Integraciones e IA → Agentes */
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.acard{display:grid;gap:10px;align-content:start}.acard.off{opacity:.6}.acard b{color:var(--hi);font-weight:500}
+.aico{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#a855f7,#6d28d9);color:#fff;font-size:19px;flex:none}
+.aitext{margin:0;font-size:12.5px;line-height:1.5;min-height:38px}
+.tplgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px}
+.tplbtn{display:grid;gap:6px;text-align:left;padding:14px;border-radius:14px;border:0;cursor:pointer;background:var(--fill);color:var(--ink);box-shadow:var(--hair);font:13px var(--f-ui)}
+.tplbtn i{font-size:22px;color:var(--lilac)}.tplbtn b{color:var(--hi);font-weight:500}.tplbtn span{font-size:12px;color:var(--ink3);line-height:1.45}
+.tplbtn:hover{box-shadow:inset 0 0 0 1px var(--line)}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-top:6px}
+.tchk{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:10px;background:var(--fill);font-size:12px;cursor:pointer}
+.tchk b{display:block;color:var(--hi);font-weight:500;text-transform:capitalize}.tchk small{color:var(--ink3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.arun{padding:12px 0;box-shadow:inset 0 -1px 0 var(--edge);display:grid;gap:8px}
+.aout{font-size:13.5px;line-height:1.6;color:var(--ink2)}.aout .li{display:block;padding-left:14px;position:relative}.aout .li::before{content:'•';position:absolute;left:2px;color:var(--lilac)}
+.aacts{display:grid;gap:6px}.aact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(168,85,247,.08);font-size:13px}
+.aact i{margin-right:6px;color:var(--lilac)}
