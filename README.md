@@ -166,3 +166,13 @@ Primera vez (o si cambian las tablas): `npx wrangler d1 execute diwilo-admin-db 
 **Usuarios de las apps:** desde Negocios solo se maneja al **dueño** (uno por negocio): asignarlo o pasar la propiedad,
 su correo, su link de contraseña y «Entrar como dueño». Los administradores y el personal los crea el dueño o un
 administrador dentro de cada app (Personal / Equipo).
+
+## IA Diwilo (asistente del panel)
+
+Botón flotante abajo a la izquierda en `/admin`. Responde con los datos reales usando herramientas
+(`worker/src/assistant.js`, registro `TOOLS`): estado del sitio, leads, negocios de las apps (vencimientos, dueños),
+organizaciones, resumen de marketing y de finanzas, tareas y contactos. Las herramientas marcadas `write`
+(crear tarea, contacto, campaña, movimiento, gasto recurrente, cambiar etapa, marcar tarea hecha) **no se ejecutan**:
+vuelven como propuesta y el panel pide «Confirmar» (`POST /admin/api/assistant/run`, queda en «Actividad en tiempo real»).
+No puede borrar, archivar, cambiar dueños ni registrar pagos. El mismo registro `TOOLS` se puede publicar por MCP
+(para Claude Desktop u otras IA) con una clave de API.

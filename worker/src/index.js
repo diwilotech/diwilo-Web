@@ -20,6 +20,7 @@ import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
 import { blogAdmin } from './blog.js';
 import { hubsApi, hubLeadCreated, hubLeadStatus } from './hubs.js';
+import { assistantApi } from './assistant.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -250,7 +251,7 @@ async function mcpServer(req, env, ctx) {
   }
 }
 
-export async function callAI(env, system, history) {
+export async function callAI(env, system, history, { maxTokens = 400, temperature = 0.5 } = {}) {
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
   if (env.GEMINI_API_KEY) {
     const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -260,7 +261,7 @@ export async function callAI(env, system, history) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        generationConfig: { maxOutputTokens: 400, temperature: 0.5 }
+        generationConfig: { maxOutputTokens: maxTokens, temperature }
       })
     });
     if (r.ok) {
@@ -272,9 +273,11 @@ export async function callAI(env, system, history) {
   }
   const out = await env.AI.run(env.AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
     messages: [{ role: 'system', content: system }, ...history],
-    max_tokens: 400, temperature: 0.5
+    max_tokens: maxTokens, temperature
   });
-  return String(out?.response ?? out?.choices?.[0]?.message?.content ?? '').trim();
+  const res = out?.response ?? out?.choices?.[0]?.message?.content ?? '';
+  // Workers AI entrega ya convertido en objeto lo que el modelo escribió como JSON
+  return (typeof res === 'string' ? res : JSON.stringify(res)).trim();
 }
 
 async function apiChat(req, env, ctx) {
@@ -521,6 +524,7 @@ async function adminApi(req, env, path, url) {
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
+  if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI);
   if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;

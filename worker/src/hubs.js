@@ -721,3 +721,17 @@ async function route(req, env, path, url, callAI) {
   if (M === 'DELETE') return json(await remove(env, org, a, def, id));
   return json({ error: 'no encontrado' }, 404);
 }
+
+// ---- Para el asistente IA del panel (assistant.js): mismas reglas que la API del panel ----
+export const hubSummary = (env, org, kind, params = {}) => {
+  const url = new URL('https://x/'); for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v);
+  return kind === 'finanzas' ? financeSummary(env, org, url) : marketingSummary(env, org, url);
+};
+export async function hubCreate(env, org, entity, body, callAI) {
+  if (!(await orgExists(env, org))) throw new HubError(404, 'Organización no encontrada');
+  return create(env, org, entity, ENTITIES[entity], body, { onNewContact: (e, o, ct) => onNewContact(e, o, ct, callAI) });
+}
+export async function hubUpdate(env, org, entity, id, body) {
+  return update(env, org, entity, ENTITIES[entity], id, body);
+}
+export const hubOrgs = (env) => listOrgs(env);
