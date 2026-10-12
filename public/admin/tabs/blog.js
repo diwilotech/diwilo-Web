@@ -212,7 +212,7 @@ Admin.tab('blog', (A) => {
       if (post.cover) post.cover_url = post.cover; post.cover = undefined;
       $('#pDate').value = toLocalInput(post.published_at); $('#pSlug').value = post.slug; slugTouchedP = true;
       $('#pTitleHead').textContent = 'Editar entrada'; $('#pDelete').hidden = false;
-      postSaved = snapP(); refresh();
+      refresh(); postSaved = snapP(); $('#pDirty').hidden = true; // la foto se toma después de releer el formulario (la fecha queda en minutos)
       const st = postState(post)[0];
       toast(st === 'pub' ? 'Publicada en el blog' : st === 'sched' ? `Programada para el ${fmtDate(post.published_at)}` : 'Borrador guardado');
     } catch (x) { $('#pErr').textContent = x.message; }
