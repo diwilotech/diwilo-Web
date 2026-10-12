@@ -15,6 +15,7 @@
  *   POST   /admin/api/blog/images          { data, post_id? } → { id, url }
  *   GET    /admin/api/blog/meta            categorías y autores usados
  */
+import { generateCover } from './images.js';
 import { renderMarkdown, plainText, slugify } from '../../public/assets/js/md.js';
 import { HEAD, NAV, FOOTER } from './shell.js';
 import { adminEmail } from './access.js';
@@ -371,6 +372,12 @@ export async function blogAdmin(req, env, path, url, email) {
       ]);
       return json({ categories: cats.results.map((c) => c.category), authors: [...new Set([DEFAULT_AUTHOR, ...authors.results.map((a) => a.author)])], defaultAuthor: DEFAULT_AUTHOR, editor: email });
     }
+    // Portada generada con IA desde el editor: devuelve la imagen para que el editor la muestre (se guarda al guardar la entrada)
+    if (sub === 'portada-ia' && M === 'POST') {
+      const b = await body(5000);
+      if (!clip(b.title, 200)) throw new Error('Escribe primero el título');
+      return json({ cover: await generateCover(env, { title: b.title, idea: clip(b.idea, 400) || clip(b.excerpt, 300) || '', source: 'blog (editor)' }) });
+    }
     if (sub === 'images' && M === 'POST') {
       const b = await body(3_000_000);
       if (!DATA_IMG.test(b.data || '') || b.data.length > 2_800_000) return json({ error: 'La imagen no es válida o pesa más de 2 MB' }, 400);
@@ -394,6 +401,13 @@ export async function blogAdmin(req, env, path, url, email) {
 }
 
 // Borrador escrito por un agente (Integraciones e IA → Agentes). Nunca se publica solo: queda en Blog → Borradores.
+// Cambia solo la portada de una entrada (la usan IA Diwilo y los agentes)
+export async function setPostCover(env, id, dataUrl) {
+  if (!DATA_IMG.test(dataUrl) || dataUrl.length > 2_800_000) throw new Error('La portada no es válida o pesa más de 2 MB');
+  const r = await env.DB.prepare('UPDATE posts SET cover_data = ?, updated_at = ? WHERE id = ?').bind(dataUrl, now(), id).run();
+  if (!r.meta.changes) throw new Error('No encontré esa entrada');
+}
+
 export async function createDraft(env, b) {
   let base = slugify(b.slug || b.title) || `borrador-${Date.now().toString(36)}`, slug = base;
   for (let i = 2; await env.DB.prepare('SELECT 1 FROM posts WHERE slug = ?').bind(slug).first(); i++) slug = `${base}-${i}`;

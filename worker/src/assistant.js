@@ -9,8 +9,9 @@
  */
 import { APPS, listAppBusinesses } from './platform.js';
 import { hubSummary, hubCreate, hubUpdate, hubOrgs, ensureListTables, checkList } from './hubs.js';
-import { readPage, readFeed, news } from './web.js';
-import { createDraft } from './blog.js';
+import { readPage, readFeed, news, search, realUrl } from './web.js';
+import { createDraft, setPostCover } from './blog.js';
+import { generateCover } from './images.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const today = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
@@ -117,6 +118,53 @@ export const TOOLS = {
     desc: 'Noticias recientes en la web sobre un tema (Google Noticias, Colombia y Latinoamérica). Sirve para ver tendencias del nicho.', args: '{ "consulta": "tema", "limite"?: número }',
     run: (env, a) => news(a.consulta, Math.min(20, Number(a.limite) || 12)),
   },
+  buscar_web: {
+    desc: 'Busca en la web (guías, artículos y noticias) y devuelve títulos, enlaces reales y un fragmento. Útil para ver qué se está publicando sobre un tema.', args: '{ "consulta": "tema" }',
+    run: (env, a) => search(a.consulta, 8),
+  },
+  investigar_tema: {
+    desc: 'Investigación PROFUNDA de un tema antes de escribir: busca en la web y noticias, lee los artículos completos (también los de la competencia que traten el tema) y devuelve notas con datos, pasos, herramientas, costos, errores comunes, preguntas frecuentes y fuentes. Úsala SIEMPRE antes de escribir un artículo del blog.',
+    args: '{ "tema": "tema concreto", "preguntas"?: "qué debe quedar claro (por ejemplo: costos, cómo se configura, límites)" }',
+    async run(env, a, ctx) {
+      const tema = String(a.tema || '').trim().slice(0, 150);
+      if (!tema) throw new Error('Dime qué tema investigar');
+      const say = (t) => ctx.onStep?.({ type: 'sub', label: t });
+      say('Buscando fuentes');
+      const words = tema.toLowerCase().split(/[^a-záéíóúñü0-9]+/).filter((w) => w.length > 4);
+      const [web, nws, comp] = await Promise.all([
+        search(tema, 8).catch(() => ({ resultados: [] })),
+        news(tema, 6).catch(() => ({ noticias: [] })),
+        // Artículos de la competencia (de las listas de Marketing) que hablen del tema
+        env.DB.prepare("SELECT i.data FROM mk_list_items i JOIN mk_lists l ON l.id = i.list_id WHERE l.org_id = ? AND l.kind = 'competidores' AND i.data IS NOT NULL").bind(ctx.org || 'diwilo').all()
+          .then((r) => r.results.flatMap((x) => { try { return JSON.parse(x.data).ultimas || []; } catch { return []; } })
+            .filter((x) => words.some((w) => String(x.titulo || '').toLowerCase().includes(w))).slice(0, 2).map((x) => ({ titulo: x.titulo, url: x.url, competencia: true })))
+          .catch(() => []),
+      ]);
+      const cands = [...comp, ...web.resultados, ...await Promise.all(nws.noticias.slice(0, 3).map(async (n) => ({ titulo: n.titulo, url: await realUrl(n.url) })))];
+      const seen = new Set(), pick = [];
+      for (const c of cands) { let h; try { h = new URL(c.url).hostname; } catch { continue; } if (seen.has(h) || /news\.google\.com/.test(h)) continue; seen.add(h); pick.push(c); if (pick.length >= 5) break; }
+      say(`Leyendo ${pick.length} artículos`);
+      const pages = (await Promise.allSettled(pick.map((c) => readPage(c.url, { max: 5500 }).then((p) => ({ ...c, titulo: p.titulo || c.titulo, url: p.url, texto: p.texto })))))
+        .filter((r) => r.status === 'fulfilled' && r.value.texto.length > 600).map((r) => r.value).slice(0, 4);
+      if (!pages.length) return { tema, nota: 'No pude leer artículos sobre ese tema. Prueba con otra forma de decirlo.', resultados: web.resultados.slice(0, 5) };
+      say('Sacando lo importante de cada fuente');
+      const fuentes = pages.map((p, i) => ({ n: i + 1, titulo: p.titulo, url: p.url, competencia: !!p.competencia }));
+      const notas = String(await ctx.callAI(env, `Eres investigador de contenidos para el blog de Diwilo (automatización, datos e IA para pymes en Colombia).
+Con SOLO los textos que te doy, escribe notas de investigación en español, en Markdown, con estas secciones:
+## Lo esencial (5-7 viñetas)
+## Datos, cifras y fechas (cada una con su fuente [n])
+## Cómo se hace, paso a paso (concreto: qué se configura, qué se necesita)
+## Herramientas, planes y costos mencionados
+## Errores comunes y límites
+## Preguntas que se haría un dueño de negocio (con su respuesta si está en las fuentes)
+## Lo que las fuentes NO explican bien (oportunidad para nuestro artículo)
+No inventes nada que no esté en los textos. Cita con [n].`,
+      [{ role: 'user', content: `Tema: ${tema}${a.preguntas ? `\nDebe quedar claro: ${a.preguntas}` : ''}\n\n${pages.map((p, i) => `[${i + 1}] ${p.titulo} (${p.url})${p.competencia ? ' — artículo de la competencia' : ''}\n${p.texto}`).join('\n\n---\n\n')}` }],
+      { maxTokens: 1800, temperature: 0.2 }) || '').trim();
+      ctx.research = { tema, notas, fuentes };
+      return { tema, fuentes, notas, nota: 'Estas notas se le pasan solas al redactor si escribes el artículo con blog_crear_borrador.' };
+    },
+  },
   ver_listas: {
     desc: 'Listas de Marketing de una organización (competidores, fuentes, temas, tendencias, prospectos…) con cuántos elementos tiene cada una.', args: '{ "org"?: id }',
     async run(env, a, ctx) {
@@ -167,18 +215,44 @@ export const TOOLS = {
       task_title: Array.isArray(a.pasos) && a.pasos.length ? JSON.stringify(a.pasos.map((x) => ({ t: String(x.t || ''), d: Number(x.d) || 0 })).filter((x) => x.t)) : '', active: true }, ctx.callAI),
   },
   blog_crear_borrador: {
-    write: true, desc: 'Escribe un artículo completo para el blog y lo deja como BORRADOR (nunca se publica solo). Tú das el tema; el texto lo redacta el sistema.',
-    args: '{ "titulo": texto, "enfoque": "de qué trata, para quién y qué debe responder", "categoria"?: texto, "etiquetas"?: "a, b, c", "palabras"?: número }',
-    summary: (a) => `Escribir el borrador «${a.titulo}»${a.categoria ? ` (${a.categoria})` : ''} para el blog`,
+    write: true, desc: 'Escribe un artículo completo y PROFUNDO para el blog con su imagen de portada y lo deja como BORRADOR (nunca se publica solo). Antes usa investigar_tema: sus notas y fuentes se le pasan solas al redactor.',
+    args: '{ "titulo": texto, "enfoque": "de qué trata, para quién y qué debe responder", "categoria"?: texto, "etiquetas"?: "a, b, c", "palabras"?: número, "idea_portada"?: "qué mostrar en la imagen", "portada"?: true|false }',
+    summary: (a) => `Escribir el borrador «${a.titulo}»${a.categoria ? ` (${a.categoria})` : ''} para el blog${a.portada === false ? '' : ', con portada'}${a._investigacion ? ` · con investigación de ${a._investigacion.fuentes.length} fuentes` : ''}`,
+    // Al proponer, la investigación se guarda con la acción para que esté cuando la apruebes
+    prepare(a, ctx) { if (ctx.research && !a._investigacion) a._investigacion = ctx.research; return a; },
     async run(env, a, ctx) {
-      const words = Math.min(1400, Math.max(500, Number(a.palabras) || 900));
+      const inv = a._investigacion || ctx.research || null;
+      const words = Math.min(2200, Math.max(700, Number(a.palabras) || (inv ? 1500 : 1000)));
+      const say = (t) => ctx.onStep?.({ type: 'sub', label: t });
+      say('Redactando el artículo');
       const system = `Eres el redactor del blog de Diwilo (Medellín): software de datos, automatización y agentes de IA para empresas, y apps propias (CD Pedidos, CD Nutrición, CD Citas, CD Residentes, CD Academia).
-Escribe en español de Colombia, claro y útil, sin relleno ni promesas exageradas. Formato Markdown: un párrafo de entrada, secciones con ## y ###, listas cuando ayuden y, al final, una sección corta que invite a hablar con Diwilo (enlace /contacto). No pongas el título como # al inicio. Unas ${words} palabras. No inventes cifras ni casos de clientes.`;
-      const content = String(await ctx.callAI(env, system, [{ role: 'user', content: `Título: ${a.titulo}\nEnfoque: ${a.enfoque || ''}` }], { maxTokens: 2600, temperature: 0.6 }) || '').replace(/^#\s+.*\n+/, '').trim();
+Escribe en español de Colombia para dueños de pymes: claro, concreto y útil, sin relleno ni promesas exageradas. Profundiza: explica el cómo (pasos, qué se configura, qué se necesita, cuánto cuesta y cuánto tarda), da ejemplos de negocios reales del contexto colombiano (restaurante, consultorio, tienda, conjunto residencial), advierte errores y límites, y responde las dudas típicas.
+Formato Markdown: párrafo de entrada que diga qué se va a aprender; secciones con ## y ###; listas numeradas para pasos; una tabla si compara opciones o costos; una sección «## Preguntas frecuentes» con 3-5 preguntas en ###; cierre corto que invite a hablar con Diwilo (enlace /contacto)${inv ? '; y al final «## Fuentes» con las fuentes usadas como lista de enlaces Markdown' : ''}.
+No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los datos de las notas de investigación y no inventes cifras: si un dato no está en las notas, no lo pongas.' : 'No inventes cifras ni casos de clientes.'}`;
+      const user = `Título: ${a.titulo}\nEnfoque: ${a.enfoque || ''}${inv ? `\n\nNOTAS DE INVESTIGACIÓN (tema: ${inv.tema})\n${String(inv.notas).slice(0, 9000)}\n\nFUENTES\n${inv.fuentes.map((f) => `[${f.n}] ${f.titulo} — ${f.url}`).join('\n')}` : ''}`;
+      const content = String(await ctx.callAI(env, system, [{ role: 'user', content: user }], { maxTokens: 4000, temperature: 0.55 }) || '').replace(/^#\s+.*\n+/, '').trim();
       if (content.length < 400) throw new Error('La IA no alcanzó a escribir el artículo');
       const excerpt = content.split(/\n{2,}/).find((p) => p && !p.startsWith('#'))?.replace(/[*_`>#]/g, '').slice(0, 300) || '';
-      const r = await createDraft(env, { title: a.titulo, excerpt, content, category: a.categoria, tags: a.etiquetas, author: 'Diwilo', seo_desc: excerpt.slice(0, 160) });
-      return { id: r.id, slug: r.slug, estado: 'borrador', palabras: content.split(/\s+/).length };
+      let cover, coverNote;
+      if (a.portada !== false) {
+        say('Creando la imagen de portada');
+        try { cover = await generateCover(env, { title: a.titulo, idea: a.idea_portada || a.enfoque || '', source: ctx.source || 'blog' }); }
+        catch (e) { coverNote = `Sin portada: ${e.message}`; }
+      }
+      const r = await createDraft(env, { title: a.titulo, excerpt, content, category: a.categoria, tags: a.etiquetas, author: 'Diwilo', seo_desc: excerpt.slice(0, 160), ...(cover ? { cover } : {}) });
+      return { id: r.id, slug: r.slug, estado: 'borrador', palabras: content.split(/\s+/).length, portada: cover ? 'sí' : (coverNote || 'no'), fuentes: inv ? inv.fuentes.length : 0 };
+    },
+  },
+  blog_crear_portada: {
+    write: true, desc: 'Crea con IA la imagen de portada de una entrada del blog que ya existe (por id o título) y la reemplaza.',
+    args: '{ "id"?: número, "titulo"?: texto, "idea"?: "qué mostrar en la imagen" }',
+    summary: (a) => `Crear con IA la portada de la entrada ${a.titulo ? `«${a.titulo}»` : `#${a.id}`}`,
+    async run(env, a, ctx) {
+      const post = a.id ? await env.DB.prepare('SELECT id, title, excerpt FROM posts WHERE id = ?').bind(Number(a.id)).first()
+        : await env.DB.prepare('SELECT id, title, excerpt FROM posts WHERE lower(title) LIKE ? ORDER BY updated_at DESC LIMIT 1').bind(`%${String(a.titulo || '').toLowerCase()}%`).first();
+      if (!post) throw new Error('No encontré esa entrada del blog');
+      await setPostCover(env, post.id, await generateCover(env, { title: post.title, idea: a.idea || post.excerpt || '', source: ctx.source || 'blog' }));
+      return { id: post.id, titulo: post.title, portada: 'lista' };
     },
   },
   crear_tarea: {
@@ -237,6 +311,7 @@ function systemPrompt(ctx) {
   return `Eres «IA Diwilo», el asistente del panel de administración de Diwilo (empresa de software, datos y automatización en Medellín).
 Ayudas al administrador a entender y gestionar: el sitio (visitas, leads, chats), los negocios de las apps (Pedidos, Nutrición, Citas, Residentes, Academia), Marketing y Finanzas.
 Cómo está organizado: AUTOMATIZACIONES = reglas fijas sin IA en Marketing (cuando pasa X → crear tareas/oportunidad). AGENTES = trabajadores de IA con rol, herramientas y horario (Integraciones e IA → Agentes). LISTAS = datos que vigilan los agentes en Marketing (competidores, fuentes, temas, tendencias, prospectos). Tú (IA Diwilo) los creas y editas cuando te lo piden.
+BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas y crea la portada. Para ponerle o cambiarle la imagen a una entrada existente usa blog_crear_portada.
 Hoy es ${today()} (hora de Colombia). El administrador está en la sección «${SECTIONS[ctx.tab] || ctx.tab || 'En vivo'}». Organización activa en Marketing/Finanzas: ${ctx.org} ("diwilo" = la operación de Diwilo).
 
 HERRAMIENTAS
@@ -294,6 +369,7 @@ function parseReply(text) {
 // 'proponer' (anota las acciones como pendientes y sigue) o 'ejecutar' (hace las acciones permitidas y sigue).
 export async function agentLoop(env, { system, history, allowed, ctx, mode = 'chat', maxSteps = 6, onStep = () => {} }) {
   const used = [], actions = [], seen = new Set();
+  ctx.onStep = onStep; // las herramientas largas (investigar, redactar) cuentan su avance
   const can = (n) => TOOLS[n] && (!allowed || allowed.includes(n));
   let wasted = 0; // pasos perdidos (repetir lo mismo o pedir herramientas que no tiene): al tercero se detiene para no gastar
   const waste = (msg) => { wasted++; history.push({ role: 'user', content: msg }); return wasted >= 3; };
@@ -305,7 +381,7 @@ export async function agentLoop(env, { system, history, allowed, ctx, mode = 'ch
     const results = history.map((m, i) => (m.role === 'user' && m.content.startsWith('Resultado de ') ? i : -1)).filter((i) => i >= 0);
     for (const i of results.slice(0, -2)) if (history[i].content.length > 1400) history[i] = { ...history[i], content: history[i].content.slice(0, 1200) + '…\n(recortado para ahorrar: ya lo leíste)' };
     try { out = await ctx.callAI(env, system, history, { maxTokens: 900, temperature: 0.2 }); }
-    catch (e) { return { reply: e.budget ? e.message : 'La IA no respondió en este momento. Intenta de nuevo.', used, actions, stopped: !!e.budget }; }
+    catch (e) { if (!e.budget) console.error('IA', e.message); return { reply: e.budget ? e.message : 'La IA no respondió en este momento. Intenta de nuevo.', used, actions, stopped: !!e.budget }; }
     const r = parseReply(out);
     if (r.tool && can(r.tool)) {
       const tool = TOOLS[r.tool], args = r.args && typeof r.args === 'object' ? r.args : {};
@@ -317,6 +393,7 @@ export async function agentLoop(env, { system, history, allowed, ctx, mode = 'ch
         continue;
       }
       seen.add(key);
+      if (tool.prepare) { try { tool.prepare(args, ctx); } catch {} }
       let summary; try { summary = tool.summary ? tool.summary(args) : r.tool; } catch { summary = r.tool; }
       let result;
       if (tool.write && mode === 'chat') return { reply: r.respuesta || 'Esto es lo que voy a hacer. ¿Lo confirmas?', pending: { tool: r.tool, args, org: args.org || ctx.org, summary }, used, actions };
@@ -349,7 +426,7 @@ const DOING = {
   marketing_resumen: 'Leyendo el resumen de marketing', finanzas_resumen: 'Leyendo las finanzas', tareas_pendientes: 'Revisando las tareas pendientes', buscar_contactos: 'Buscando contactos',
   blog_resumen: 'Revisando el blog', temas_de_clientes: 'Leyendo qué preguntan los clientes', leer_pagina: 'Leyendo una página', leer_feed: 'Leyendo un blog',
   noticias_web: 'Buscando noticias', ver_listas: 'Revisando las listas', leer_lista: 'Leyendo una lista', revisar_competidores: 'Revisando a la competencia',
-  ver_automatizaciones: 'Revisando las automatizaciones', ver_agentes: 'Revisando los agentes', ejecutar_agente: 'Poniendo a trabajar un agente',
+  ver_automatizaciones: 'Revisando las automatizaciones', buscar_web: 'Buscando en la web', investigar_tema: 'Investigando a fondo', ver_agentes: 'Revisando los agentes', ejecutar_agente: 'Poniendo a trabajar un agente',
 };
 function doing(name, args) {
   const detail = Object.values(args || {}).find((v) => typeof v === 'string' && v.trim());
@@ -379,7 +456,7 @@ export { parseReply, SECTIONS };
 export async function assistantApi(req, env, path, adminEmail, callAI, execCtx) {
   const b = await req.json().catch(() => ({}));
   const ai = (e, s, h, o = {}) => callAI(e, s, h, { source: 'ia-diwilo', ...o });
-  const ctx = { tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI: ai, rawAI: callAI };
+  const ctx = { source: 'ia-diwilo', tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI: ai, rawAI: callAI };
 
   // Ejecutar una acción que el administrador confirmó
   if (path === '/admin/api/assistant/run') {

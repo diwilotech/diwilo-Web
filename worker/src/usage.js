@@ -14,6 +14,8 @@ const DEFAULTS = {
   daily_limit: 1500000, // tokens por día entre todo; al llegar, la IA se pausa hasta mañana (el chat del sitio pasa a WhatsApp)
   run_limit: 150000,    // tokens por ejecución de un agente; al llegar, el agente para y entrega lo que alcanzó
   usd_cop: 4000,
+  images_daily: 20,     // portadas generadas con IA por día
+  image_usd: 0.0007,    // costo estimado por imagen (FLUX.1 schnell 1024×1024, 6 pasos)
   prices: { gemini: { in: 0.30, out: 2.50 }, 'workers-ai': { in: 0.29, out: 2.25 } },
 };
 
@@ -38,6 +40,11 @@ export async function usageSettings(env) {
 }
 
 export class BudgetError extends Error { constructor(m) { super(m); this.budget = true; } }
+export const QUOTA_MSG = 'Se acabó la cuota gratis diaria de Workers AI de Cloudflare (10.000 neuronas). Se renueva a las 7:00 p. m. (hora Colombia). Para no depender de ella: plan Workers Paid de Cloudflare o una clave de Gemini.';
+
+// Neuronas estimadas de Workers AI (la unidad con la que Cloudflare cobra y mide la cuota gratis diaria de 10.000):
+// Llama 3.3 70B fp8-fast ≈ 26.668 por millón de tokens leídos y 204.805 por millón escritos; FLUX.1 schnell 1024×1024 a 6 pasos ≈ 77 por imagen.
+const neurons = (rows) => Math.round(rows.reduce((t, r) => t + (r.provider === 'workers-ai' ? (r.tokens_in * 26668 + r.tokens_out * 204805) / 1e6 : r.provider === 'workers-ai-imagen' ? r.calls * 77 : 0), 0));
 
 let cache = { at: 0, day: '', total: 0, limit: 0 };
 // Lanza BudgetError si ya se gastó el tope del día (se revisa en la base cada 20 s como máximo)
@@ -61,7 +68,10 @@ export async function recordUsage(env, { source = 'otros', provider, tin = 0, to
   } catch (e) { console.error('consumo', e.message); }
 }
 
-const cost = (rows, prices) => rows.reduce((s, r) => { const p = prices[r.provider] || { in: 0, out: 0 }; return s + (r.tokens_in * p.in + r.tokens_out * p.out) / 1e6; }, 0);
+const cost = (rows, s) => rows.reduce((t, r) => {
+  if (r.provider === 'workers-ai-imagen') return t + r.calls * (Number(s.image_usd) || 0);
+  const p = s.prices[r.provider] || { in: 0, out: 0 }; return t + (r.tokens_in * p.in + r.tokens_out * p.out) / 1e6;
+}, 0);
 
 export async function usageApi(req, env) {
   await ensure(env);
@@ -72,6 +82,8 @@ export async function usageApi(req, env) {
     if (b.daily_limit !== undefined) { const n = num(b.daily_limit, 0, 1e9); if (n === null) return json({ error: 'Tope diario no válido' }, 400); put.push(['daily_limit', n]); }
     if (b.run_limit !== undefined) { const n = num(b.run_limit, 5000, 1e8); if (n === null) return json({ error: 'El tope por ejecución debe ser de al menos 5.000 tokens' }, 400); put.push(['run_limit', n]); }
     if (b.usd_cop !== undefined) { const n = num(b.usd_cop, 1000, 20000); if (n === null) return json({ error: 'Tasa del dólar no válida' }, 400); put.push(['usd_cop', n]); }
+    if (b.images_daily !== undefined) { const n = num(b.images_daily, 0, 1000); if (n === null) return json({ error: 'Tope de imágenes no válido' }, 400); put.push(['images_daily', n]); }
+    if (b.image_usd !== undefined) { const n = Number(b.image_usd); if (!(n >= 0 && n < 1)) return json({ error: 'Costo por imagen no válido' }, 400); put.push(['image_usd', n]); }
     if (b.prices && typeof b.prices === 'object') {
       const p = {};
       for (const k of Object.keys(DEFAULTS.prices)) { const x = b.prices[k] || {}; p[k] = { in: Math.max(0, Number(x.in) || 0), out: Math.max(0, Number(x.out) || 0) }; }
@@ -84,7 +96,7 @@ export async function usageApi(req, env) {
   const s = await usageSettings(env);
   const today = day(), month = today.slice(0, 7), from = day(Date.now() - 29 * 86400000);
   const { results: rows } = await env.DB.prepare('SELECT * FROM ai_usage WHERE day >= ? OR day LIKE ? ORDER BY day').bind(from, month + '%').all();
-  const sum = (list) => ({ calls: list.reduce((a, r) => a + r.calls, 0), tokens_in: list.reduce((a, r) => a + r.tokens_in, 0), tokens_out: list.reduce((a, r) => a + r.tokens_out, 0), usd: cost(list, s.prices) });
+  const sum = (list) => ({ calls: list.reduce((a, r) => a + r.calls, 0), tokens_in: list.reduce((a, r) => a + r.tokens_in, 0), tokens_out: list.reduce((a, r) => a + r.tokens_out, 0), usd: cost(list, s), images: list.filter((r) => r.provider === 'workers-ai-imagen').reduce((a, r) => a + r.calls, 0) });
   const group = (list, key) => Object.values(list.reduce((m, r) => { const k = key(r); (m[k] ||= { key: k, rows: [] }).rows.push(r); return m; }, {})).map((g) => ({ key: g.key, ...sum(g.rows) }));
   const monthRows = rows.filter((r) => r.day.startsWith(month)), todayRows = rows.filter((r) => r.day === today);
   const days = [];
@@ -92,7 +104,7 @@ export async function usageApi(req, env) {
   const dayOfMonth = Number(today.slice(8, 10)), daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
   const m = sum(monthRows);
   return json({
-    today: sum(todayRows), month: m, projection_usd: m.usd / dayOfMonth * daysInMonth,
+    today: { ...sum(todayRows), neurons: neurons(todayRows) }, month: m, free_neurons: env.GEMINI_API_KEY ? null : 10000, projection_usd: m.usd / dayOfMonth * daysInMonth,
     days, by_source: group(monthRows, (r) => r.source).sort((a, b) => b.usd - a.usd), by_source_today: group(todayRows, (r) => r.source).sort((a, b) => (b.tokens_in + b.tokens_out) - (a.tokens_in + a.tokens_out)),
     provider: env.GEMINI_API_KEY ? `Gemini (${env.GEMINI_MODEL || 'gemini-2.5-flash'})` : 'Workers AI (Cloudflare)',
     settings: s,

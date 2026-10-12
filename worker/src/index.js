@@ -15,7 +15,7 @@
  *   /admin/api/*           API del panel (public/admin.html)
  *   /admin/api/platform/*  negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas (platform.js)
  */
-import { checkBudget, recordUsage, usageApi } from './usage.js';
+import { checkBudget, recordUsage, usageApi, BudgetError, QUOTA_MSG } from './usage.js';
 import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
@@ -290,10 +290,17 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
     }
     // si Gemini falla, seguimos con Workers AI
   }
-  const out = await env.AI.run(env.AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-    messages: [{ role: 'system', content: system }, ...history],
-    max_tokens: maxTokens, temperature
-  });
+  let out;
+  try {
+    out = await env.AI.run(env.AI_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [{ role: 'system', content: system }, ...history],
+      max_tokens: maxTokens, temperature
+    });
+  } catch (e) {
+    // Plan gratis de Workers AI: 10.000 neuronas al día; al agotarse, error 4006 hasta las 00:00 UTC
+    if (/4006|daily free allocation/i.test(e.message)) throw new BudgetError(QUOTA_MSG);
+    throw e;
+  }
   const res = out?.response ?? out?.choices?.[0]?.message?.content ?? '';
   // Workers AI entrega ya convertido en objeto lo que el modelo escribió como JSON
   const text = (typeof res === 'string' ? res : JSON.stringify(res)).trim();

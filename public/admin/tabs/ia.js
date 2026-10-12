@@ -30,7 +30,7 @@ Admin.tab('ia', (A) => {
   }
   /* ---------- Consumo de IA ---------- */
   const tok = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 2 })} M` : n >= 1000 ? `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : String(n || 0));
-  const SRC = (k) => k === 'chat-sitio' ? 'Chat del sitio' : k === 'ia-diwilo' ? 'IA Diwilo (panel)' : k === 'informes' ? 'Informes de Marketing y Finanzas' : k.startsWith('agente:') ? `Agente «${k.slice(7)}»` : 'Otros';
+  const SRC = (k) => k === 'chat-sitio' ? 'Chat del sitio' : k === 'ia-diwilo' ? 'IA Diwilo (panel)' : k === 'informes' ? 'Informes de Marketing y Finanzas' : k === 'blog (editor)' ? 'Portadas desde el editor del blog' : k.startsWith('agente:') ? `Agente «${k.slice(7)}»` : 'Otros';
   async function usage(el) {
     el.innerHTML = '<p class="muted">Cargando…</p>';
     let u; try { u = await A.api('usage'); } catch (x) { el.innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
@@ -48,6 +48,8 @@ Admin.tab('ia', (A) => {
         <form class="card" data-cfg><h2>Topes y precios</h2>
           <label class="f"><span>Tope diario de tokens (entre todo)</span><input class="in" name="daily_limit" type="number" min="0" step="10000" value="${s.daily_limit}"><small class="muted">Al llegar, IA Diwilo y los agentes se pausan hasta mañana y el chat del sitio pasa a WhatsApp. 0 = sin tope.</small></label>
           <label class="f"><span>Tope por ejecución de un agente</span><input class="in" name="run_limit" type="number" min="5000" step="5000" value="${s.run_limit}"><small class="muted">Si un agente llega aquí, para y entrega lo que alcanzó.</small></label>
+          <div class="row" style="gap:10px;flex-wrap:wrap"><label class="f" style="flex:1;min-width:140px"><span>Imágenes con IA por día</span><input class="in" name="images_daily" type="number" min="0" step="1" value="${s.images_daily}"></label>
+          <label class="f" style="flex:1;min-width:140px"><span>Costo por imagen (US$)</span><input class="in" name="image_usd" type="number" min="0" step="0.0001" value="${s.image_usd}"></label></div>
           <label class="f"><span>Dólar en pesos</span><input class="in" name="usd_cop" type="number" min="1000" step="10" value="${s.usd_cop}"></label>
           <div class="row" style="gap:10px;flex-wrap:wrap">${Object.entries(s.prices).map(([k, v]) => `<label class="f" style="flex:1;min-width:140px"><span>${k === 'gemini' ? 'Gemini' : 'Workers AI'} · US$ por millón (entrada / salida)</span><span class="row" style="gap:6px"><input class="in" name="${k}.in" type="number" step="0.01" min="0" value="${v.in}"><input class="in" name="${k}.out" type="number" step="0.01" min="0" value="${v.out}"></span></label>`).join('')}</div>
           <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri">Guardar</button></div></form>
@@ -62,7 +64,8 @@ Admin.tab('ia', (A) => {
       </div>`;
     H.kpis($('[data-k]', el), [
       ['Tokens hoy', tok(todayT), s.daily_limit ? `${H.meter(todayT, s.daily_limit)}<br>Tope diario: ${tok(s.daily_limit)}` : 'Sin tope diario'],
-      ['Costo hoy', cop(u.today.usd), `${usd(u.today.usd)} · ${H.num(u.today.calls)} llamadas`],
+      ['Costo hoy', cop(u.today.usd), `${usd(u.today.usd)} · ${H.num(u.today.calls)} llamadas${u.today.images ? ` · ${u.today.images} imagen${u.today.images === 1 ? '' : 'es'} de ${s.images_daily}` : ''}`],
+      ...(u.free_neurons ? [['Cuota gratis de Cloudflare hoy', `${H.num(u.today.neurons)}`, `${H.meter(u.today.neurons, u.free_neurons)}<br>de ${H.num(u.free_neurons)} neuronas · se renueva 7:00 p. m.`]] : []),
       ['Tokens del mes', tok(monthT), `${tok(u.month.tokens_in)} leídos · ${tok(u.month.tokens_out)} escritos`],
       ['Costo del mes', cop(u.month.usd), `${usd(u.month.usd)} · proyección ${cop(u.projection_usd)}`],
     ]);
@@ -72,13 +75,13 @@ Admin.tab('ia', (A) => {
         <span>${i % 5 === 4 || i === u.days.length - 1 ? +d.day.slice(8) : ''}</span></div>`; }).join('')}</div>
       <div class="legend"><span><i class="ba"></i>Leídos (entrada)</span><span><i class="bb"></i>Escritos (salida)</span><span class="muted">Día más alto: ${tok(max)} tokens</span></div>`;
     $('[data-src]', el).innerHTML = u.by_source.length ? `<div class="tbl-wrap"><table><thead><tr><th>Origen</th><th>Llamadas</th><th>Tokens</th><th>Costo</th></tr></thead><tbody>
-      ${u.by_source.map((r) => `<tr><td>${esc(SRC(r.key))}</td><td>${H.num(r.calls)}</td><td>${tok(r.tokens_in + r.tokens_out)} <span class="muted" style="font-size:12px">(${tok(Math.round((r.tokens_in + r.tokens_out) / r.calls))} por llamada)</span></td><td>${cop(r.usd)}</td></tr>`).join('')}</tbody></table></div>`
+      ${u.by_source.map((r) => `<tr><td>${esc(SRC(r.key))}</td><td>${H.num(r.calls)}</td><td>${tok(r.tokens_in + r.tokens_out)} <span class="muted" style="font-size:12px">${r.images ? `+ ${r.images} imagen${r.images === 1 ? '' : 'es'}` : `(${tok(Math.round((r.tokens_in + r.tokens_out) / r.calls))} por llamada)`}</span></td><td>${cop(r.usd)}</td></tr>`).join('')}</tbody></table></div>`
       : '<p class="empty">Aún no hay consumo este mes.</p>';
     $('[data-cfg]', el).onsubmit = async (e) => {
       e.preventDefault();
       const f = A.formData(e.target), prices = {};
       Object.keys(s.prices).forEach((k) => { prices[k] = { in: +f[`${k}.in`], out: +f[`${k}.out`] }; });
-      try { await A.api('usage', { method: 'PATCH', body: { daily_limit: +f.daily_limit, run_limit: +f.run_limit, usd_cop: +f.usd_cop, prices } }); toast('Guardado'); usage(el); }
+      try { await A.api('usage', { method: 'PATCH', body: { daily_limit: +f.daily_limit, run_limit: +f.run_limit, usd_cop: +f.usd_cop, images_daily: +f.images_daily, image_usd: +f.image_usd, prices } }); toast('Guardado'); usage(el); }
       catch (x) { toast(x.message); }
     };
   }

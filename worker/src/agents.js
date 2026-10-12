@@ -50,14 +50,16 @@ const READ = ['estado_general', 'leads_recientes', 'negocios', 'organizaciones',
 // Plantillas listas para usar (se pueden editar después).
 export const TEMPLATES = {
   blog: { name: 'Agente de blog', schedule: 'semanal', autonomy: 'ejecutar',
-    tools: ['temas_de_clientes', 'blog_resumen', 'revisar_competidores', 'noticias_web', 'leer_pagina', 'ver_listas', 'leer_lista', 'agregar_a_lista', 'blog_crear_borrador'],
+    tools: ['temas_de_clientes', 'blog_resumen', 'revisar_competidores', 'noticias_web', 'buscar_web', 'investigar_tema', 'leer_pagina', 'ver_listas', 'leer_lista', 'agregar_a_lista', 'blog_crear_borrador', 'blog_crear_portada'],
     instructions: `Eres el editor del blog de Diwilo (software, datos, automatización e IA para pymes en Colombia; apps para restaurantes, nutricionistas, negocios con citas, propiedad horizontal y academias). Cada vez que trabajes:
 1) Mira qué publica la competencia: revisar_competidores con la lista «Competidores» (si no existe, sigue sin ella).
-2) Mira tendencias del nicho con noticias_web (2 o 3 consultas, por ejemplo «automatización pymes Colombia», «inteligencia artificial empresas Colombia», «software restaurantes Colombia»).
+2) Mira tendencias del nicho con noticias_web (máximo 2 consultas, por ejemplo «automatización pymes Colombia», «inteligencia artificial empresas Colombia»).
 3) Cruza eso con lo que preguntan los clientes (temas_de_clientes) y lo que ya publicamos (blog_resumen).
-4) Guarda en la lista «Tendencias» (si existe) las 3 tendencias más útiles con su enlace (agregar_a_lista).
-5) Elige UN tema con intención de compra que no tengamos y escribe el borrador con blog_crear_borrador (título concreto, enfoque claro y quién lo lee).
-6) Responde con: qué está publicando la competencia, las tendencias, el tema elegido y por qué, y 3 ideas para las próximas semanas.` },
+4) Guarda en la lista «Tendencias» (si existe) máximo 2 tendencias útiles con su enlace (agregar_a_lista).
+5) Elige UN tema con intención de compra que no tengamos y hazlo concreto (no «automatización», sino «Cómo automatizar las respuestas de WhatsApp de un restaurante: pasos, costos y errores»).
+6) Investiga ese tema a fondo con investigar_tema (di qué debe quedar claro: pasos, costos, límites, herramientas).
+7) Escribe el borrador con blog_crear_borrador (título concreto, enfoque, para quién es, e idea_portada con lo que debe mostrar la imagen). La investigación se le pasa sola al redactor.
+8) Responde con: qué está publicando la competencia, las tendencias, el tema elegido y por qué, las fuentes que usaste y 3 ideas para las próximas semanas.` },
   leads: { name: 'Seguimiento de leads', schedule: 'diario', autonomy: 'ejecutar',
     tools: ['leads_recientes', 'buscar_contactos', 'tareas_pendientes', 'crear_tarea'],
     instructions: `Revisa los leads del formulario que siguen en estado «nuevo» (leads_recientes con estado nuevo) y las tareas pendientes.
@@ -110,7 +112,7 @@ export async function runAgent(env, agent, { trigger = 'manual', pedido = '', ca
     if (run_limit && tokens >= run_limit) throw new BudgetError(`Paré al llegar al tope de ${Number(run_limit).toLocaleString('es-CO')} tokens por ejecución. Esto es lo que alcancé a hacer.`);
     return callAI(e, sys, h, { source: `agente:${agent.name}`, ...o, onUsage: (u) => { tokens += u.tin + u.tout; step({ type: 'tokens', total: tokens }); } });
   };
-  const ctx = { tab: 'agentes', org: agent.org_id, callAI: ai };
+  const ctx = { tab: 'agentes', org: agent.org_id, callAI: ai, source: `agente:${agent.name}` };
   const started = now();
   const run = await env.DB.prepare("INSERT INTO ai_agent_runs (agent_id, trigger, status, started_at) VALUES (?, ?, 'trabajando', ?)").bind(agent.id, trigger, started).run();
   const runId = run.meta.last_row_id;

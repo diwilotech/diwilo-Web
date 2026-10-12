@@ -195,6 +195,19 @@ Admin.tab('blog', (A) => {
   $('#pCoverFile').addEventListener('change', (e) => { takeCover(e.target.files[0]); e.target.value = ''; });
   ['dragover', 'dragleave', 'drop'].forEach((ev) => $('#pCover').addEventListener(ev, (e) => { e.preventDefault(); $('#pCover').classList.toggle('drag', ev === 'dragover'); if (ev === 'drop') takeCover(e.dataTransfer.files[0]); }));
   $('#pCoverDel').addEventListener('click', () => { post.cover = ''; post.cover_url = null; setCover(''); refresh(); });
+  // Portada con IA: queda en el editor y se guarda al guardar o publicar la entrada
+  $('#pCoverAI').addEventListener('click', async () => {
+    readForm();
+    if (!post.title.trim()) { toast('Escribe primero el título'); $('#pTitle').focus(); return; }
+    const idea = await Admin.ask({ title: 'Generar portada con IA', text: 'Opcional: describe qué debe mostrar la imagen. Si lo dejas vacío, se inspira en el título y el resumen. La imagen no lleva texto.', input: true, placeholder: 'Ej.: dueña de un restaurante respondiendo pedidos por WhatsApp desde el celular', ok: 'Generar' });
+    if (idea === null) return;
+    const b = $('#pCoverAI'); b.disabled = true; b.innerHTML = '<i class="ph-light ph-circle-notch spin"></i>Generando…';
+    try {
+      const r = await api('blog/portada-ia', { method: 'POST', body: { title: post.title, excerpt: post.excerpt, idea } });
+      post.cover = r.cover; setCover(r.cover); refresh(); toast('Portada lista: guarda para conservarla');
+    } catch (x) { toast(x.message); }
+    b.disabled = false; b.innerHTML = `<i class="ph-light ph-magic-wand"></i>${post.cover ? 'Otra portada con IA' : 'Generar portada con IA'}`;
+  });
 
   async function savePost(publish) {
     readForm();

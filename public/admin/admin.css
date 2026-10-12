@@ -427,3 +427,4 @@ form[data-cfg] label.f{margin-bottom:10px}form[data-cfg] label.f small{font-size
 .ubars>div:hover{background:rgba(255,255,255,.04)}
 .ubars i{display:block;background:linear-gradient(180deg,var(--lilac),var(--violet))}.ubars b{display:block;background:rgba(182,217,252,.55);border-radius:3px 3px 0 0}
 .ubars span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--ink3)}
+.prog-steps li small.sub{color:var(--lilac)}

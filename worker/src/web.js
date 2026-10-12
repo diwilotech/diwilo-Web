@@ -34,9 +34,56 @@ const decode = (s) => String(s || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1
 const strip = (html) => decode(String(html || '').replace(/<(script|style|noscript|svg|nav|footer|header|form)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' '));
 const attr = (tag, name) => decode((new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(tag) || [])[1] || '');
 
+// Los enlaces de Google Noticias son redirecciones que no dejan leer el artículo: se pide a Google la dirección real.
+export async function realUrl(u) {
+  const m = /^https:\/\/news\.google\.com\/(?:rss\/)?articles\/([^?#]+)/.exec(String(u || ''));
+  if (!m) return u;
+  try {
+    const { text: page } = await get(`https://news.google.com/articles/${m[1]}`);
+    const sg = /data-n-a-sg="([^"]+)"/.exec(page)?.[1], ts = /data-n-a-ts="([^"]+)"/.exec(page)?.[1];
+    if (!sg || !ts) return u;
+    const inner = JSON.stringify(['garturlreq', [['X', 'X', ['X', 'X'], null, null, 1, 1, 'US:en', null, 1, null, null, null, null, null, 0, 1], 'X', 'X', 1, [1, 1, 1], 1, 1, null, 0, 0, null, 0], m[1], +ts, sg]);
+    const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch('https://news.google.com/_/DotsSplashUi/data/batchexecute', { method: 'POST', signal: ctrl.signal,
+      headers: { 'user-agent': UA, 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: 'f.req=' + encodeURIComponent(JSON.stringify([[['Fbv4je', inner, null, 'generic']]])) }).finally(() => clearTimeout(t));
+    const real = /\\"garturlres\\",\\"(.*?)\\"/.exec(await r.text())?.[1];
+    return real && /^https?:\/\//.test(real) ? real : u;
+  } catch { return u; }
+}
+
+// Búsqueda web (DuckDuckGo Lite, sin clave): resultados orgánicos con su enlace real y un fragmento.
+// Si no responde, se usan las noticias de Google con su enlace real.
+export async function search(query, limit = 8) {
+  const q = String(query || '').trim().slice(0, 150);
+  if (!q) throw new Error('Escribe qué buscar');
+  let results = [];
+  try {
+    const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 9000);
+    const r = await fetch('https://lite.duckduckgo.com/lite/', { method: 'POST', signal: ctrl.signal,
+      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36', 'content-type': 'application/x-www-form-urlencoded', 'accept-language': 'es-CO,es;q=0.9' },
+      body: `q=${encodeURIComponent(q)}&kl=co-es` }).finally(() => clearTimeout(t));
+    const html = await r.text();
+    const snippets = [...html.matchAll(/class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/g)].map((m) => strip(m[1]));
+    let i = -1;
+    for (const m of html.matchAll(/<a[^>]*href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/g)) {
+      i++;
+      const href = decode(m[1]);
+      if (!/^https?:\/\//.test(href) || /duckduckgo\.com|bing\.com\/aclick/.test(href)) continue;
+      results.push({ titulo: strip(m[2]), url: href, resumen: (snippets[i] || '').slice(0, 220) });
+    }
+  } catch {}
+  if (!results.length) {
+    const n = await news(q, limit).catch(() => ({ noticias: [] }));
+    results = await Promise.all(n.noticias.slice(0, Math.min(limit, 6)).map(async (x) => ({ titulo: x.titulo, url: await realUrl(x.url), resumen: x.fecha ? `Noticia del ${x.fecha}` : '' })));
+  }
+  const seen = new Set();
+  return { consulta: q, resultados: results.filter((x) => { const h = new URL(x.url).hostname; if (seen.has(h)) return false; seen.add(h); return true; }).slice(0, limit) };
+}
+
 // Página: título, descripción, encabezados, artículos enlazados, feeds y texto (recortado).
-export async function readPage(u) {
-  const { text, url } = await get(u);
+export async function readPage(u, { max = 3500 } = {}) {
+  const { text, url } = await get(await realUrl(u));
   const base = new URL(url);
   const title = decode((/<title[^>]*>([\s\S]*?)<\/title>/i.exec(text) || [])[1]);
   const meta = [...text.matchAll(/<meta\b[^>]*>/gi)].map((m) => m[0]);
@@ -48,7 +95,7 @@ export async function readPage(u) {
     try { return [new URL(m[1], base).toString(), strip(m[2])]; } catch { return null; }
   }).filter((x) => x && x[1].length > 25 && x[1].length < 160 && new URL(x[0]).hostname === base.hostname && /\/(blog|noticias|articulo|post|news|\d{4})/i.test(new URL(x[0]).pathname))).entries()]
     .slice(0, 20).map(([href, t]) => ({ titulo: t, url: href }));
-  const body = strip((/<(article|main)\b[\s\S]*?<\/\1>/i.exec(text) || [text])[0]).slice(0, 3500);
+  const body = strip((/<(article|main)\b[\s\S]*?<\/\1>/i.exec(text) || [text])[0]).slice(0, max);
   return { url, titulo: title, descripcion: desc, encabezados: headings, articulos: articles, feeds, texto: body };
 }
 

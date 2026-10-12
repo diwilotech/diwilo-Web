@@ -227,6 +227,7 @@
     return {
       update(ev) {
         if (ev.type === 'tokens') { const t = $('.prog-tok', box); t.hidden = false; t.textContent = `${ev.total >= 1000 ? `${(ev.total / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : ev.total} tokens`; return; }
+        if (ev.type === 'sub') { now.textContent = `Paso ${step} · ${ev.label}…`; if (live && !live.querySelector('small')) live.insertAdjacentHTML('beforeend', '<small class="sub"></small>'); if (live) live.querySelector('small').textContent = ev.label; return; }
         if (ev.type === 'pensando') { step = ev.step; now.textContent = `Paso ${ev.step} · pensando qué sigue`; }
         if (ev.type === 'usando') { live = add('now', 'ph-circle-notch spin', ev.label); now.textContent = `Paso ${step} · ${ev.label}`; }
         if (ev.type === 'paso') {
