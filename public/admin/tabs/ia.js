@@ -2,7 +2,7 @@
 // e IA Diwilo. Las tres primeras son las pestañas de antes, montadas aquí (mismos archivos de /admin/tabs/).
 Admin.tab('ia', (A) => {
   const { $, esc, toast } = A;
-  const VIEWS = [['agentes', 'Agentes', 'ph-users-three'], ['asistente', 'IA Diwilo', 'ph-robot'], ['chats', 'Conversaciones del chat', 'ph-chats-circle'],
+  const VIEWS = [['agentes', 'Agentes', 'ph-users-three'], ['asistente', 'IA Diwilo', 'ph-robot'], ['consumo', 'Consumo de IA', 'ph-gauge'], ['chats', 'Conversaciones del chat', 'ph-chats-circle'],
     ['ajustes', 'Ajustes del chat', 'ph-sliders-horizontal'], ['api', 'API y webhooks', 'ph-plugs-connected']];
   const EMBED = ['chats', 'ajustes', 'api'];
   let view = (() => { try { const v = sessionStorage.getItem('dwl_ia_view'); sessionStorage.removeItem('dwl_ia_view'); return v || 'agentes'; } catch { return 'agentes'; } })();
@@ -13,6 +13,7 @@ Admin.tab('ia', (A) => {
     EMBED.forEach((id) => A.unmount(id));
     if (EMBED.includes(view)) { try { await A.mount(view, el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="err">${esc(x.message)}</p>`; } return; }
     if (view === 'agentes') return agents(el);
+    if (view === 'consumo') return usage(el);
     el.innerHTML = `<div class="grid" style="--min:340px">
       <div class="card"><h2><i class="ph-light ph-robot"></i> IA Diwilo</h2>
         <p class="muted" style="font-size:13px;line-height:1.6">Asistente del panel (botón flotante abajo a la derecha). Responde con los datos reales del sitio, los negocios de las apps, Marketing y Finanzas.
@@ -27,10 +28,65 @@ Admin.tab('ia', (A) => {
     $('[data-open]', el).onclick = () => document.getElementById('iaFab')?.click();
     A.api('settings').then((s) => { $('[data-provider]', el).textContent = `Usa ${s.ai_provider}. El chat del sitio y IA Diwilo comparten este modelo. Para usar Gemini, configura el secreto GEMINI_API_KEY en Cloudflare.`; }).catch(() => {});
   }
+  /* ---------- Consumo de IA ---------- */
+  const tok = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 2 })} M` : n >= 1000 ? `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : String(n || 0));
+  const SRC = (k) => k === 'chat-sitio' ? 'Chat del sitio' : k === 'ia-diwilo' ? 'IA Diwilo (panel)' : k === 'informes' ? 'Informes de Marketing y Finanzas' : k.startsWith('agente:') ? `Agente «${k.slice(7)}»` : 'Otros';
+  async function usage(el) {
+    el.innerHTML = '<p class="muted">Cargando…</p>';
+    let u; try { u = await A.api('usage'); } catch (x) { el.innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
+    const H = window.Hub, s = u.settings, cop = (usd) => H.money(usd * s.usd_cop), usd = (n) => `US$${n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 3 : 2 })}`;
+    const todayT = u.today.tokens_in + u.today.tokens_out, monthT = u.month.tokens_in + u.month.tokens_out;
+    const p = s.daily_limit ? Math.round(todayT / s.daily_limit * 100) : 0;
+    el.innerHTML = `<p class="muted" style="margin:0 0 12px;font-size:13px;max-width:820px">Cada vez que la IA responde se cuentan los tokens (lo que lee + lo que escribe). Modelo actual: <b>${esc(u.provider)}</b>. Los costos son estimados con los precios de abajo.</p>
+      ${p >= 80 ? `<div class="card" style="border-color:var(--${p >= 100 ? 'bad' : 'warn'});margin-bottom:12px"><b><i class="ph-light ph-warning"></i> ${p >= 100 ? 'La IA está en pausa hasta mañana: se llegó al tope diario.' : `Hoy ya va el ${p}% del tope diario.`}</b><span class="muted"> Puedes subir el tope abajo.</span></div>` : ''}
+      <div class="grid kpis" data-k style="--min:200px"></div>
+      <div class="grid" style="--min:360px;margin-top:14px">
+        <div class="card"><h2>Últimos 30 días</h2><div data-chart></div></div>
+        <div class="card"><h2>Quién gasta este mes</h2><div data-src></div></div>
+      </div>
+      <div class="grid" style="--min:360px;margin-top:14px">
+        <form class="card" data-cfg><h2>Topes y precios</h2>
+          <label class="f"><span>Tope diario de tokens (entre todo)</span><input class="in" name="daily_limit" type="number" min="0" step="10000" value="${s.daily_limit}"><small class="muted">Al llegar, IA Diwilo y los agentes se pausan hasta mañana y el chat del sitio pasa a WhatsApp. 0 = sin tope.</small></label>
+          <label class="f"><span>Tope por ejecución de un agente</span><input class="in" name="run_limit" type="number" min="5000" step="5000" value="${s.run_limit}"><small class="muted">Si un agente llega aquí, para y entrega lo que alcanzó.</small></label>
+          <label class="f"><span>Dólar en pesos</span><input class="in" name="usd_cop" type="number" min="1000" step="10" value="${s.usd_cop}"></label>
+          <div class="row" style="gap:10px;flex-wrap:wrap">${Object.entries(s.prices).map(([k, v]) => `<label class="f" style="flex:1;min-width:140px"><span>${k === 'gemini' ? 'Gemini' : 'Workers AI'} · US$ por millón (entrada / salida)</span><span class="row" style="gap:6px"><input class="in" name="${k}.in" type="number" step="0.01" min="0" value="${v.in}"><input class="in" name="${k}.out" type="number" step="0.01" min="0" value="${v.out}"></span></label>`).join('')}</div>
+          <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri">Guardar</button></div></form>
+        <div class="card"><h2>Qué te protege de gastar de más</h2><div class="ia-caps">
+          <b>Tope diario</b><span>Nada llama a la IA cuando se llega al tope del día.</span>
+          <b>Tope por agente</b><span>Cada ejecución tiene su límite de tokens y de pasos (16).</span>
+          <b>Sin repeticiones</b><span>Si un agente pide lo mismo dos veces, se le recuerda que ya lo tiene; a la tercera vez que se enreda, para.</span>
+          <b>Memoria recortada</b><span>En cada paso se reenvía la conversación: los resultados viejos se resumen para no pagarlos una y otra vez.</span>
+          <b>Uno a la vez</b><span>Un agente no puede correr dos veces al mismo tiempo, y las ejecuciones que se cortan se cierran solas a los 15 minutos.</span>
+          <b>Sin «pensamiento» extra</b><span>En Gemini Flash se apaga el razonamiento interno, que se cobra como texto escrito.</span>
+          <b>Chat del sitio</b><span>Máximo 20 mensajes por visitante cada 10 minutos; las preguntas frecuentes se responden sin IA.</span></div></div>
+      </div>`;
+    H.kpis($('[data-k]', el), [
+      ['Tokens hoy', tok(todayT), s.daily_limit ? `${H.meter(todayT, s.daily_limit)}<br>Tope diario: ${tok(s.daily_limit)}` : 'Sin tope diario'],
+      ['Costo hoy', cop(u.today.usd), `${usd(u.today.usd)} · ${H.num(u.today.calls)} llamadas`],
+      ['Tokens del mes', tok(monthT), `${tok(u.month.tokens_in)} leídos · ${tok(u.month.tokens_out)} escritos`],
+      ['Costo del mes', cop(u.month.usd), `${usd(u.month.usd)} · proyección ${cop(u.projection_usd)}`],
+    ]);
+    const max = Math.max(1, ...u.days.map((d) => d.tokens_in + d.tokens_out));
+    $('[data-chart]', el).innerHTML = `<div class="ubars">${u.days.map((d, i) => { const t = d.tokens_in + d.tokens_out; return `<div title="${A.esc(H.day(d.day))} · ${tok(t)} tokens · ${cop(d.usd)}">
+        <i style="height:${(d.tokens_in / max * 100).toFixed(1)}%"></i><b style="height:${(d.tokens_out / max * 100).toFixed(1)}%"></b>
+        <span>${i % 5 === 4 || i === u.days.length - 1 ? +d.day.slice(8) : ''}</span></div>`; }).join('')}</div>
+      <div class="legend"><span><i class="ba"></i>Leídos (entrada)</span><span><i class="bb"></i>Escritos (salida)</span><span class="muted">Día más alto: ${tok(max)} tokens</span></div>`;
+    $('[data-src]', el).innerHTML = u.by_source.length ? `<div class="tbl-wrap"><table><thead><tr><th>Origen</th><th>Llamadas</th><th>Tokens</th><th>Costo</th></tr></thead><tbody>
+      ${u.by_source.map((r) => `<tr><td>${esc(SRC(r.key))}</td><td>${H.num(r.calls)}</td><td>${tok(r.tokens_in + r.tokens_out)} <span class="muted" style="font-size:12px">(${tok(Math.round((r.tokens_in + r.tokens_out) / r.calls))} por llamada)</span></td><td>${cop(r.usd)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="empty">Aún no hay consumo este mes.</p>';
+    $('[data-cfg]', el).onsubmit = async (e) => {
+      e.preventDefault();
+      const f = A.formData(e.target), prices = {};
+      Object.keys(s.prices).forEach((k) => { prices[k] = { in: +f[`${k}.in`], out: +f[`${k}.out`] }; });
+      try { await A.api('usage', { method: 'PATCH', body: { daily_limit: +f.daily_limit, run_limit: +f.run_limit, usd_cop: +f.usd_cop, prices } }); toast('Guardado'); usage(el); }
+      catch (x) { toast(x.message); }
+    };
+  }
+
   /* ---------- Agentes ---------- */
   const SCHED = { manual: 'A mano', diario: 'Cada día (3:00 a. m.)', semanal: 'Cada lunes' };
   const AUTO = { proponer: ['soon', 'Propone, tú apruebas'], ejecutar: ['ok', 'Actúa solo'] };
-  const RUN_ST = { trabajando: 'soon', 'por aprobar': 'soon', lista: 'ok', error: 'bad' };
+  const RUN_ST = { trabajando: 'soon', 'por aprobar': 'soon', lista: 'ok', error: 'bad', interrumpida: 'bad' };
   const ICON = { blog: 'ph-article', leads: 'ph-user-plus', cobranza: 'ph-hand-coins', renovaciones: 'ph-arrows-clockwise', analista: 'ph-chart-line-up' };
   const md = (t) => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,3}\s+(.*)$/gm, '<b>$1</b>').replace(/^[-•*]\s+(.*)$/gm, '<span class="li">$1</span>').replace(/\n/g, '<br>');
   let meta = null, openRuns = null;
@@ -87,7 +143,7 @@ Admin.tab('ia', (A) => {
       const { runs } = await A.api(`agents/${id}/runs`);
       box.innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Ejecuciones · ${esc(a.name)}</h2><button class="btn sm" data-close>Cerrar</button></div>
         ${runs.length ? runs.map((r) => `<div class="arun" data-run-id="${r.id}">
-          <div class="row" style="gap:8px"><span class="st ${RUN_ST[r.status] || 'free'}">${esc(r.status)}</span><span class="muted" style="font-size:12px">${A.fmtDate(r.started_at)} · ${r.trigger === 'manual' ? 'a mano' : r.trigger}${r.used?.length ? ` · consultó ${r.used.length}` : ''}</span></div>
+          <div class="row" style="gap:8px"><span class="st ${RUN_ST[r.status] || 'free'}">${esc(r.status)}</span><span class="muted" style="font-size:12px">${A.fmtDate(r.started_at)} · ${r.trigger === 'manual' ? 'a mano' : r.trigger}${r.used?.length ? ` · consultó ${r.used.length}` : ''}${r.tokens ? ` · ${tok(r.tokens)} tokens` : ''}</span></div>
           <div class="aout">${md(r.output)}</div>
           ${r.actions.length ? `<div class="aacts">${r.actions.map((x, i) => `<div class="aact"><span><i class="ph-light ${x.status === 'hecha' ? 'ph-check-circle' : x.status === 'pendiente' ? 'ph-hourglass-medium' : x.status === 'error' ? 'ph-warning' : 'ph-x-circle'}"></i>${esc(x.summary)}${x.result?.error ? ` <span style="color:var(--bad)">· ${esc(x.result.error)}</span>` : ''}${x.tool === 'blog_crear_borrador' && x.status === 'hecha' ? ' <button class="btn sm" data-goblog>Ver en Blog</button>' : ''}</span>
             ${x.status === 'pendiente' ? `<span class="row" style="gap:6px"><button class="btn sm pri" data-approve="${i}">Aprobar</button><button class="btn sm" data-discard="${i}">Descartar</button></span>` : `<span class="muted" style="font-size:12px">${esc(x.status)}</span>`}</div>`).join('')}</div>` : ''}

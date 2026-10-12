@@ -239,3 +239,10 @@ CREATE TABLE IF NOT EXISTS mk_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT, 
   title TEXT NOT NULL, url TEXT, feed_url TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'activo', score INTEGER, data TEXT,
   last_checked_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_mk_list_items ON mk_list_items(org_id, list_id, updated_at);
+
+-- Consumo de IA (también se crean solas desde worker/src/usage.js y agents.js)
+CREATE TABLE IF NOT EXISTS ai_usage (
+  day TEXT NOT NULL, source TEXT NOT NULL, provider TEXT NOT NULL, calls INTEGER NOT NULL DEFAULT 0,
+  tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, source, provider));
+CREATE TABLE IF NOT EXISTS ai_usage_settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+-- ALTER TABLE ai_agent_runs ADD COLUMN tokens INTEGER NOT NULL DEFAULT 0;  (lo agrega agents.js si falta)

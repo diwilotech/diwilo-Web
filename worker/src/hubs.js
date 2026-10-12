@@ -703,7 +703,7 @@ async function writeReport(env, org, kind, callAI) {
 1) qué pasó (con cifras en pesos colombianos), 2) qué preocupa, 3) tres acciones concretas para esta semana.
 Usa solo los datos que te doy; si faltan datos, dilo y sugiere qué registrar. Máximo 220 palabras, con títulos cortos y viñetas.`;
   let content;
-  try { content = await callAI(env, system, [{ role: 'user', content: 'Datos (JSON):\n' + JSON.stringify(data).slice(0, 12000) }]); } catch (e) { content = null; }
+  try { content = await callAI(env, system, [{ role: 'user', content: 'Datos (JSON):\n' + JSON.stringify(data).slice(0, 12000) }], { source: 'informes' }); } catch (e) { content = null; }
   if (!content) throw new HubError(502, 'La IA no respondió. Intenta de nuevo en un momento.');
   const title = `${kind === 'finanzas' ? 'Finanzas' : 'Marketing'} · ${new Date(Date.now() - 5 * 3600000).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const r = await env.DB.prepare('INSERT INTO hub_reports (org_id, kind, title, content, created_at) VALUES (?, ?, ?, ?, ?)').bind(org, kind, title, content, now()).run();

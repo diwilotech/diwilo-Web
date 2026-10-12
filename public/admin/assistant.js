@@ -49,8 +49,10 @@
   }
   async function run(m, div) {
     $$btns(div, true);
+    const live = document.createElement('div'); live.className = 'ia-msg assistant ia-live'; log.appendChild(live); log.scrollTop = log.scrollHeight;
+    const p = Admin.progress(live, 'Haciéndolo');
     try {
-      const r = await api('assistant/run', { method: 'POST', body: { tool: m.pending.tool, args: m.pending.args, org: m.pending.org } });
+      const r = await Admin.stream('assistant/run', { tool: m.pending.tool, args: m.pending.args, org: m.pending.org }, (ev) => { p.update(ev); log.scrollTop = log.scrollHeight; });
       m.done = r.message; toast('Hecho');
       hist.push({ role: 'assistant', content: r.message });
     } catch (x) { m.done = `No se pudo: ${x.message}`; }

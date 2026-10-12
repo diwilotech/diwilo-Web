@@ -402,7 +402,7 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 .prog{display:grid;gap:10px}
 .prog-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}.prog-head>i{color:var(--lilac);font-size:18px}
 .prog-now{color:var(--mut,#9aa0b4);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.prog-time{font-variant-numeric:tabular-nums;color:var(--mut,#9aa0b4);font-size:12px}
+.prog-time,.prog-tok{font-variant-numeric:tabular-nums;color:var(--mut,#9aa0b4);font-size:12px}.prog-tok{padding:2px 8px;border-radius:999px;background:rgba(168,85,247,.12);color:var(--lilac)}
 .prog-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
 .prog-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--violet),var(--lilac));transition:width .6s ease;position:relative;overflow:hidden}
 .prog:not(.ok):not(.fail) .prog-bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:progShine 1.4s linear infinite}
@@ -420,3 +420,10 @@ dialog.ask.hubdlg{width:min(720px,calc(100% - 32px))}
 @keyframes progShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 @keyframes progSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin,.prog-bar i::after{animation:none}}
+/* Consumo de IA */
+form[data-cfg] label.f{margin-bottom:10px}form[data-cfg] label.f small{font-size:11.5px;line-height:1.4}
+.ubars{display:flex;align-items:flex-end;gap:3px;height:170px;padding-bottom:18px}
+.ubars>div{flex:1;min-width:0;height:100%;display:flex;flex-direction:column-reverse;position:relative;border-radius:4px 4px 0 0}
+.ubars>div:hover{background:rgba(255,255,255,.04)}
+.ubars i{display:block;background:linear-gradient(180deg,var(--lilac),var(--violet))}.ubars b{display:block;background:rgba(182,217,252,.55);border-radius:3px 3px 0 0}
+.ubars span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--ink3)}

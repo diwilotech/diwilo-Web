@@ -213,7 +213,7 @@
   // const p = progress(contenedor, 'Agente de blog'); p.update(evento); p.finish(true|false, 'texto')
   function progress(host, title = 'Trabajando') {
     const t0 = Date.now(), ICON = { consultada: 'ph-check-circle', hecha: 'ph-check-circle', propuesta: 'ph-hourglass-medium', error: 'ph-warning' };
-    host.innerHTML = `<div class="prog"><div class="prog-head"><i class="ph-light ph-circle-notch spin"></i><b>${esc(title)}</b><span class="prog-now">Empezando…</span><span class="prog-time">0:00</span></div>
+    host.innerHTML = `<div class="prog"><div class="prog-head"><i class="ph-light ph-circle-notch spin"></i><b>${esc(title)}</b><span class="prog-now">Empezando…</span><span class="prog-tok" hidden></span><span class="prog-time">0:00</span></div>
       <div class="prog-bar"><i></i></div><ol class="prog-steps"></ol></div>`;
     const box = $('.prog', host), bar = $('.prog-bar i', box), now = $('.prog-now', box), list = $('.prog-steps', box), clock = $('.prog-time', box);
     let step = 0, done = 0, live = null;
@@ -226,6 +226,7 @@
     draw();
     return {
       update(ev) {
+        if (ev.type === 'tokens') { const t = $('.prog-tok', box); t.hidden = false; t.textContent = `${ev.total >= 1000 ? `${(ev.total / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : ev.total} tokens`; return; }
         if (ev.type === 'pensando') { step = ev.step; now.textContent = `Paso ${ev.step} · pensando qué sigue`; }
         if (ev.type === 'usando') { live = add('now', 'ph-circle-notch spin', ev.label); now.textContent = `Paso ${step} · ${ev.label}`; }
         if (ev.type === 'paso') {

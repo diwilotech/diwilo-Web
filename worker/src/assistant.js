@@ -293,16 +293,30 @@ function parseReply(text) {
 // Motor común (IA Diwilo y agentes). mode: 'chat' (para en la primera acción y la devuelve para confirmar),
 // 'proponer' (anota las acciones como pendientes y sigue) o 'ejecutar' (hace las acciones permitidas y sigue).
 export async function agentLoop(env, { system, history, allowed, ctx, mode = 'chat', maxSteps = 6, onStep = () => {} }) {
-  const used = [], actions = [];
+  const used = [], actions = [], seen = new Set();
   const can = (n) => TOOLS[n] && (!allowed || allowed.includes(n));
+  let wasted = 0; // pasos perdidos (repetir lo mismo o pedir herramientas que no tiene): al tercero se detiene para no gastar
+  const waste = (msg) => { wasted++; history.push({ role: 'user', content: msg }); return wasted >= 3; };
+  const STOP = 'Paré para no gastar de más: me estaba repitiendo. Esto es lo que alcancé a hacer.';
   for (let step = 0; step < maxSteps; step++) {
     let out;
     onStep({ type: 'pensando', step: step + 1, max: maxSteps });
+    // Cada llamada reenvía toda la conversación: los resultados viejos se recortan (se conservan completos los 2 últimos)
+    const results = history.map((m, i) => (m.role === 'user' && m.content.startsWith('Resultado de ') ? i : -1)).filter((i) => i >= 0);
+    for (const i of results.slice(0, -2)) if (history[i].content.length > 1400) history[i] = { ...history[i], content: history[i].content.slice(0, 1200) + '…\n(recortado para ahorrar: ya lo leíste)' };
     try { out = await ctx.callAI(env, system, history, { maxTokens: 900, temperature: 0.2 }); }
-    catch { return { reply: 'La IA no respondió en este momento. Intenta de nuevo.', used, actions }; }
+    catch (e) { return { reply: e.budget ? e.message : 'La IA no respondió en este momento. Intenta de nuevo.', used, actions, stopped: !!e.budget }; }
     const r = parseReply(out);
     if (r.tool && can(r.tool)) {
       const tool = TOOLS[r.tool], args = r.args && typeof r.args === 'object' ? r.args : {};
+      const key = r.tool + JSON.stringify(args);
+      if (seen.has(key)) {
+        history.push({ role: 'assistant', content: JSON.stringify({ tool: r.tool, args }) });
+        if (waste(`Ya usaste ${r.tool} con esos mismos datos: usa el resultado que ya tienes. Sigue con otro paso o responde con {"respuesta":...}.`)) return { reply: STOP, used, actions, stopped: true };
+        onStep({ type: 'paso', tool: r.tool, label: `Evité repetir «${r.tool.replace(/_/g, ' ')}»`, status: 'error' });
+        continue;
+      }
+      seen.add(key);
       let summary; try { summary = tool.summary ? tool.summary(args) : r.tool; } catch { summary = r.tool; }
       let result;
       if (tool.write && mode === 'chat') return { reply: r.respuesta || 'Esto es lo que voy a hacer. ¿Lo confirmas?', pending: { tool: r.tool, args, org: args.org || ctx.org, summary }, used, actions };
@@ -321,7 +335,7 @@ export async function agentLoop(env, { system, history, allowed, ctx, mode = 'ch
     }
     if (r.tool && !can(r.tool)) {
       history.push({ role: 'assistant', content: JSON.stringify(r) });
-      history.push({ role: 'user', content: `La herramienta «${r.tool}» no está disponible. Usa solo las de la lista o responde con {"respuesta":...}.` });
+      if (waste(`La herramienta «${r.tool}» no está disponible. Usa solo las de la lista o responde con {"respuesta":...}.`)) return { reply: STOP, used, actions, stopped: true };
       continue;
     }
     return { reply: String(r.respuesta || out || '').trim() || 'No tengo una respuesta para eso.', open: SECTIONS[r.abrir] ? r.abrir : null, used, actions };
@@ -344,14 +358,15 @@ function doing(name, args) {
 
 // Respuesta que se va enviando por partes (una línea JSON por evento) para mostrar el avance en vivo.
 // La última línea es {"type":"fin","result":...} o {"type":"error","error":...}.
-export function streamSteps(work) {
+export function streamSteps(work, ctx) {
   const { readable, writable } = new TransformStream();
   const w = writable.getWriter(), enc = new TextEncoder();
   const send = (o) => { w.write(enc.encode(JSON.stringify(o) + '\n')).catch(() => {}); };
-  (async () => {
+  const job = (async () => {
     try { send({ type: 'fin', result: await work(send) }); } catch (e) { send({ type: 'error', error: e.message || 'No se pudo' }); }
     finally { w.close().catch(() => {}); }
   })();
+  ctx?.waitUntil?.(job); // si se cierra la página, el trabajo intenta terminar y guardarse igual
   return new Response(readable, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
 }
 
@@ -361,19 +376,22 @@ export function toolsText(allowed) {
 }
 export { parseReply, SECTIONS };
 
-export async function assistantApi(req, env, path, adminEmail, callAI) {
+export async function assistantApi(req, env, path, adminEmail, callAI, execCtx) {
   const b = await req.json().catch(() => ({}));
-  const ctx = { tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI };
+  const ai = (e, s, h, o = {}) => callAI(e, s, h, { source: 'ia-diwilo', ...o });
+  const ctx = { tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI: ai, rawAI: callAI };
 
   // Ejecutar una acción que el administrador confirmó
   if (path === '/admin/api/assistant/run') {
     const tool = TOOLS[b.tool];
     if (!tool?.write) return json({ error: 'Acción no válida' }, 400);
-    try {
-      const result = await tool.run(env, b.args || {}, { ...ctx, org: b.org || ctx.org });
+    const exec = async (onStep) => {
+      const result = await tool.run(env, b.args || {}, { ...ctx, org: b.org || ctx.org, onStep });
       await env.DB.prepare('INSERT INTO events (ts, type, path, label) VALUES (?, ?, ?, ?)').bind(Date.now(), 'admin', '/admin', `${adminEmail}: IA Diwilo · ${tool.summary(b.args || {})}`.slice(0, 300)).run().catch(() => {});
-      return json({ ok: true, result, message: result?.ya_existia ? `No se creó: ${result.nota}` : `Listo: ${tool.summary(b.args || {})}.` });
-    } catch (e) { return json({ error: e.message || 'No se pudo hacer' }, e.status || 500); }
+      return { ok: true, result, message: result?.ya_existia ? `No se creó: ${result.nota}` : `Listo: ${tool.summary(b.args || {})}.` };
+    };
+    if (b.stream) return streamSteps(exec, execCtx);
+    try { return json(await exec()); } catch (e) { return json({ error: e.message || 'No se pudo hacer' }, e.status || 500); }
   }
 
   const history = (Array.isArray(b.messages) ? b.messages : []).slice(-12)
@@ -383,5 +401,5 @@ export async function assistantApi(req, env, path, adminEmail, callAI) {
     const r = await agentLoop(env, { system: systemPrompt(ctx), history, ctx, mode: 'chat', onStep });
     return { reply: r.reply, pending: r.pending, open: r.open, used: r.used };
   };
-  return b.stream ? streamSteps(chat) : json(await chat());
+  return b.stream ? streamSteps(chat, execCtx) : json(await chat());
 }

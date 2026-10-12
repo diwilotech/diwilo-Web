@@ -15,6 +15,7 @@
  *   /admin/api/*           API del panel (public/admin.html)
  *   /admin/api/platform/*  negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas (platform.js)
  */
+import { checkBudget, recordUsage, usageApi } from './usage.js';
 import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
@@ -252,23 +253,40 @@ async function mcpServer(req, env, ctx) {
   }
 }
 
-export async function callAI(env, system, history, { maxTokens = 400, temperature = 0.5 } = {}) {
+// source: quién gasta (para el contador de Consumo); onUsage({ tin, tout }) recibe los tokens de esta llamada.
+export async function callAI(env, system, history, { maxTokens = 400, temperature = 0.5, source = 'otros', onUsage } = {}) {
+  await checkBudget(env); // tope diario: si ya se gastó, no se llama a la IA
+  const done = async (provider, text, tin, tout) => {
+    await recordUsage(env, { source, provider, tin, tout });
+    onUsage?.({ tin, tout });
+    return text;
+  };
+  // Si el proveedor no informa tokens, se estiman (~4 caracteres por token)
+  const est = (t) => Math.ceil(String(t || '').length / 4);
+  const promptChars = system.length + history.reduce((n, m) => n + String(m.content || '').length, 0);
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
   if (env.GEMINI_API_KEY) {
     const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const generationConfig = { maxOutputTokens: maxTokens, temperature };
+    // Los modelos «flash» piensan antes de responder y ese pensamiento se cobra como salida: se apaga
+    if (/flash/.test(model) && !env.GEMINI_THINKING) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        generationConfig: { maxOutputTokens: maxTokens, temperature }
+        generationConfig
       })
     });
     if (r.ok) {
       const d = await r.json();
       const text = d.candidates?.[0]?.content?.parts?.map((p) => p.text).join('').trim();
-      if (text) return text;
+      const u = d.usageMetadata || {};
+      if (text || u.promptTokenCount) {
+        const out = await done('gemini', text, u.promptTokenCount ?? Math.ceil(promptChars / 4), (u.candidatesTokenCount ?? est(text)) + (u.thoughtsTokenCount || 0));
+        if (out) return out;
+      }
     }
     // si Gemini falla, seguimos con Workers AI
   }
@@ -278,7 +296,8 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   });
   const res = out?.response ?? out?.choices?.[0]?.message?.content ?? '';
   // Workers AI entrega ya convertido en objeto lo que el modelo escribió como JSON
-  return (typeof res === 'string' ? res : JSON.stringify(res)).trim();
+  const text = (typeof res === 'string' ? res : JSON.stringify(res)).trim();
+  return done('workers-ai', text, out?.usage?.prompt_tokens ?? Math.ceil(promptChars / 4), out?.usage?.completion_tokens ?? est(text));
 }
 
 async function apiChat(req, env, ctx) {
@@ -312,7 +331,7 @@ async function apiChat(req, env, ctx) {
 
   let reply;
   try {
-    reply = await callAI(env, settings.chat_prompt + (await appsKnowledge(env)), history);
+    reply = await callAI(env, settings.chat_prompt + (await appsKnowledge(env)), history, { source: 'chat-sitio' });
   } catch (e) {
     console.error('chat error', e);
   }
@@ -342,7 +361,7 @@ async function apiHandoff(req, env, ctx) {
         const text = convo.map((m) => `${m.role === 'user' ? 'Visitante' : 'Asistente'}: ${m.content}`).join('\n').slice(-6000);
         summary = await callAI(env,
           'Escribe en español, en primera persona del visitante, un resumen de máximo 3 frases cortas con lo que el VISITANTE dijo y preguntó: su tipo de negocio o tamaño (solo si lo mencionó), la app o servicio que le interesa y sus preguntas. Usa solo lo que dijo el visitante: no agregues pedidos, datos ni intenciones que no escribió, y no repitas lo que respondió el asistente. Sin saludo ni despedida.',
-          [{ role: 'user', content: text }]);
+          [{ role: 'user', content: text }], { source: 'chat-sitio' });
       } catch (e) { console.error('handoff', e); }
       if (!summary) summary = 'Me interesa: ' + convo.filter((m) => m.role === 'user').map((m) => m.content).slice(-3).join(' / ');
     }
@@ -518,15 +537,16 @@ async function saveCard(env, b) {
   return { id, slug };
 }
 
-async function adminApi(req, env, path, url) {
+async function adminApi(req, env, path, url, ctx) {
   // Solo entra quien pasó por Cloudflare Access (y está en ADMIN_EMAILS, si se definió).
   const email = await adminEmail(req, env);
   if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
-  if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI);
-  if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI);
+  if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI, ctx);
+  if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI, ctx);
+  if (path === '/admin/api/usage') return usageApi(req, env);
   if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;
@@ -641,7 +661,7 @@ export default {
       if (path.startsWith('/l/')) return trackLink(req, env, ctx, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/c/')) return showCard(req, env, ctx, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/v1/')) return externalApi(req, env, path, url);
-      if (path.startsWith('/admin/api/')) return adminApi(req, env, path, url);
+      if (path.startsWith('/admin/api/')) return adminApi(req, env, path, url, ctx);
       // Lo demás lo sirve Pages como archivo estático
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('No encontrado', { status: 404 });
     } catch (e) {
