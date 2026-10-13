@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «Finanzas» (Finance Hub). Funciona por organización: Diwilo o cada negocio.
 Admin.tab('finanzas', (A) => {
-  const { $, $$, esc, toast, api, rank } = A;
+  const { $, $$, esc, toast, api, rank, sure } = A;
   const H = window.Hub;
   const { money, num, day, monthName } = H;
   let org = H.current(), view = 'resumen';
@@ -145,27 +145,152 @@ Admin.tab('finanzas', (A) => {
     load();
   }
   async function invoices(el) {
-    el.innerHTML = '<div data-t></div>';
-    const t = H.table({ el: $('[data-t]', el), org: () => org, entity: 'invoices', title: 'factura', newText: 'Nueva factura', refs: ['cost_centers'], fields: F.invoices,
+    el.innerHTML = `<div class="card hubnote row" style="justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Crea tus cuentas de cobro con sus líneas (en pesos o en dólares con la TRM del día), y descárgalas en PDF con tu diseño, consecutivo y datos de pago.</span>
+      <button class="btn sm" data-profile><i class="ph-light ph-identification-card"></i>Mis datos de facturación</button></div><div data-t></div>`;
+    $('[data-profile]', el).onclick = () => billingProfile();
+    const t = H.table({ el: $('[data-t]', el), org: () => org, entity: 'invoices', title: 'factura', newText: 'Nueva cuenta de cobro', refs: ['cost_centers'], fields: F.invoices,
       filters: [{ k: 'kind', options: [['', 'Por cobrar y por pagar'], ['emitida', 'Por cobrar (emitidas)'], ['recibida', 'Por pagar (recibidas)']] }],
-      defaults: () => ({ kind: 'emitida', issue_date: H.todayCo(), due_date: new Date(Date.now() + 25 * 86400000).toISOString().slice(0, 10) }),
-      empty: 'Sin facturas. Registra las que emites (cuentas por cobrar) y las que recibes (cuentas por pagar).',
+      empty: 'Sin facturas. Crea tu primera cuenta de cobro o registra las que recibes (cuentas por pagar).',
+      onEdit: (row, changed) => (row && row.kind === 'recibida' ? simpleInvoice(row, changed) : invoiceEditor(row, changed)),
       columns: [
-        { label: 'Factura', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.number || '#' + r.id)}</b><br><span class="muted" style="font-size:12px">${r.kind === 'emitida' ? 'Por cobrar' : 'Por pagar'}</span>` },
+        { label: 'Documento', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.number || '#' + r.id)}</b><br><span class="muted" style="font-size:12px">${r.kind === 'emitida' ? 'Por cobrar' : 'Por pagar'}</span>` },
         { label: 'Tercero', html: (r) => `${esc(r.counterparty)}${r.tax_id ? `<br><span class="muted mono">${esc(r.tax_id)}</span>` : ''}` },
         { label: 'Emisión', html: (r) => day(r.issue_date) }, { label: 'Vence', html: (r) => day(r.due_date) },
         { label: 'Total', cls: 'num', html: (r) => money(r.total) }, { label: 'Saldo', cls: 'num', html: (r) => money(Math.max(0, r.total - r.paid)) },
         { label: 'Estado', html: (r) => chip(...(INV_STATE[r.state] || ['free', r.state])) }],
-      rowActions: (r) => (['pendiente', 'vencida'].includes(r.state) ? `<button class="btn sm" data-act="pay"><i class="ph-light ph-hand-coins"></i>${r.kind === 'emitida' ? 'Registrar cobro' : 'Registrar pago'}</button>` : ''),
+      rowActions: (r) => `${r.kind === 'emitida' ? '<button class="btn sm" data-act="pdf"><i class="ph-light ph-file-pdf"></i>PDF</button> ' : ''}${['pendiente', 'vencida'].includes(r.state) ? `<button class="btn sm" data-act="pay"><i class="ph-light ph-hand-coins"></i>${r.kind === 'emitida' ? 'Registrar cobro' : 'Registrar pago'}</button>` : ''}`,
       onAction: async (a, r) => {
+        if (a === 'pdf') return openPdf(r.id);
         if (a !== 'pay') return;
-        const out = await H.form({ title: `${r.kind === 'emitida' ? 'Cobro' : 'Pago'} de la factura ${r.number || '#' + r.id}`, org,
+        const out = await H.form({ title: `${r.kind === 'emitida' ? 'Cobro' : 'Pago'} de ${r.number || '#' + r.id}`, org,
           fields: [{ k: 'date', label: 'Fecha', type: 'date', required: true }, { k: 'amount', label: 'Monto (COP)', type: 'money', required: true }, { k: 'account_id', label: 'Cuenta', ref: 'accounts' }],
           values: { date: H.todayCo(), amount: r.total - r.paid } });
         if (!out) return;
         try { await api(`${P()}/invoices/${r.id}/pay`, { method: 'POST', body: out }); toast('Registrado: queda como movimiento ligado a la factura'); t.load(); } catch (x) { toast(x.message); }
       } });
     t.load();
+
+    const openPdf = (id) => window.open(`/admin/api/${P()}/invoices/${id}/pdf`, '_blank', 'noopener');
+    // Factura recibida (por pagar): formulario simple de siempre
+    async function simpleInvoice(row, changed) {
+      const out = await H.form({ title: 'Editar factura por pagar', fields: F.invoices, values: row, org, onDelete: () => api(`${P()}/invoices/${row.id}`, { method: 'DELETE' }) });
+      if (out === 'deleted') { toast('Borrado'); return changed(); }
+      if (!out) return;
+      try { await api(`${P()}/invoices/${row.id}`, { method: 'PATCH', body: out }); toast('Guardado'); changed(); } catch (x) { toast(x.message); }
+    }
+
+    // Editor de cuenta de cobro con líneas
+    async function invoiceEditor(row, changed) {
+      const prof = await api(`${P()}/billing/profile`).catch(() => ({ due_days: 15 }));
+      const v = row ? { ...row } : { kind: 'emitida', issue_date: H.todayCo(), due_date: new Date(Date.now() - 5 * 3600000 + (prof.due_days || 15) * 86400000).toISOString().slice(0, 10) };
+      let lines = []; try { lines = JSON.parse(v.items || '[]'); } catch {}
+      if (!lines.length) lines = row ? [{ concepto: v.concept || 'Servicios', cantidad: 1, moneda: 'COP', valor: v.subtotal || v.total || 0 }] : [{ concepto: '', cantidad: 1, moneda: 'COP', valor: '' }];
+      const ccs = await H.refs(org, 'cost_centers').catch(() => []);
+      const d = document.createElement('dialog');
+      d.className = 'ask hubdlg invdlg';
+      d.innerHTML = `<form method="dialog">
+        <div class="row" style="justify-content:space-between;gap:10px"><h2>${row ? `Cuenta de cobro ${esc(row.number || '#' + row.id)}` : 'Nueva cuenta de cobro'}</h2>${row?.number ? '' : `<span class="muted" style="font-size:12px">Número: se asigna solo (${esc(prof.prefix || '')}…)</span>`}</div>
+        <div class="invgrid">
+          <label class="f full">Cliente<input class="in" name="counterparty" required value="${esc(v.counterparty || '')}" placeholder="Corporación Club Rotario Medellín El Poblado"></label>
+          <label class="f">NIT o documento<input class="in" name="tax_id" value="${esc(v.tax_id || '')}" placeholder="890 982 559-7"></label>
+          <label class="f">Ciudad<input class="in" name="client_city" value="${esc(v.client_city || '')}" placeholder="Medellín"></label>
+          <label class="f">Correo del cliente<input class="in" name="client_email" type="email" value="${esc(v.client_email || '')}"></label>
+          <label class="f">Fecha<input class="in" name="issue_date" type="date" required value="${esc(v.issue_date || '')}"></label>
+          <label class="f">Pagar antes del<input class="in" name="due_date" type="date" value="${esc(v.due_date || '')}"></label>
+          <label class="f full">Por concepto de <span class="muted" style="font-size:11px">párrafo que explica el cobro (opcional)</span><textarea class="in" name="concept" rows="2">${esc(v.concept || '')}</textarea></label>
+        </div>
+        <div class="invlines"><div class="invhead"><span>Concepto</span><span>Cant.</span><span>Moneda</span><span>Valor unitario</span><span class="n">Total</span><span></span></div><div data-lines></div>
+          <button class="btn sm" type="button" data-add><i class="ph-light ph-plus"></i>Agregar línea</button></div>
+        <div class="invsum"><span class="muted" data-trm></span><div><span class="muted">Impuestos (si aplica)</span> <input class="in" name="tax" type="number" min="0" step="1" value="${esc(v.tax || '')}" style="width:130px"></div>
+          <div class="invtotal">Total <b data-total>$0</b></div></div>
+        <div class="invgrid" style="margin-top:6px">
+          <label class="f">Centro de costo<select class="in" name="cost_center_id"><option value="">—</option>${ccs.map((c) => `<option value="${c.id}" ${String(c.id) === String(v.cost_center_id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+          <label class="f">Categoría<input class="in" name="category" value="${esc(v.category || '')}" placeholder="Desarrollo web, soporte…"></label>
+          ${row ? `<label class="f">Estado<select class="in" name="status">${[['pendiente', 'Pendiente'], ['pagada', 'Pagada'], ['anulada', 'Anulada']].map(([k, l]) => `<option value="${k}" ${v.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
+          <label class="f full">Notas internas <span class="muted" style="font-size:11px">no salen en el PDF</span><textarea class="in" name="notes" rows="1">${esc(v.notes || '')}</textarea></label>
+        </div>
+        <p class="err" data-err></p>
+        <div class="row" style="justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <span>${row ? '<button class="btn sm danger" type="button" data-del><i class="ph-light ph-trash"></i>Borrar</button>' : ''}</span>
+          <span class="row" style="gap:8px"><button class="btn" type="button" data-no>Cancelar</button><button class="btn" value="save" data-save>Guardar</button><button class="btn pri" value="pdf" data-pdf><i class="ph-light ph-file-pdf"></i>Guardar y ver PDF</button></span></div></form>`;
+      document.body.appendChild(d);
+      const f = $('form', d), box = $('[data-lines]', d);
+      let rate = null, rateDate = null;
+      const num = (x) => Number(String(x ?? '').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+      const lineHtml = (l, i) => `<div class="invline" data-i="${i}">
+          <span><input class="in" data-k="concepto" value="${esc(l.concepto || '')}" placeholder="Desarrollo del sitio web institucional"><input class="in sub" data-k="detalle" value="${esc(l.detalle || '')}" placeholder="Detalle (opcional)"></span>
+          <input class="in" data-k="cantidad" type="number" min="0" step="any" value="${esc(l.cantidad ?? 1)}">
+          <select class="in" data-k="moneda"><option value="COP" ${l.moneda !== 'USD' ? 'selected' : ''}>COP</option><option value="USD" ${l.moneda === 'USD' ? 'selected' : ''}>USD</option></select>
+          <input class="in" data-k="valor" type="number" min="0" step="any" value="${esc(l.valor ?? '')}" placeholder="0">
+          <b class="n" data-lt>$0</b><button class="btn sm" type="button" data-rm title="Quitar línea"><i class="ph-light ph-x"></i></button></div>`;
+      const draw = () => { box.innerHTML = lines.map(lineHtml).join(''); calc(); };
+      const read = () => { $$('.invline', box).forEach((r) => { const l = lines[+r.dataset.i]; $$('[data-k]', r).forEach((x) => { l[x.dataset.k] = x.value; }); }); };
+      async function ensureRate() {
+        const date = f.issue_date.value;
+        if (!lines.some((l) => l.moneda === 'USD') || (rate && rateDate === date)) return;
+        rateDate = date; rate = null; $('[data-trm]', d).textContent = 'Buscando la TRM…';
+        try { rate = (await api(`${P()}/billing/fx?date=${date}`)).rate; } catch { rate = null; }
+        calc();
+      }
+      function calc() {
+        read();
+        let total = 0;
+        $$('.invline', box).forEach((r) => {
+          const l = lines[+r.dataset.i], usd = l.moneda === 'USD';
+          const lt = Math.round((usd ? num(l.valor) * (rate || l.trm || 0) : num(l.valor)) * (num(l.cantidad) || 1));
+          total += lt; $('[data-lt]', r).textContent = money(lt);
+        });
+        total += num(f.tax.value);
+        $('[data-total]', d).textContent = money(total);
+        $('[data-trm]', d).textContent = lines.some((l) => l.moneda === 'USD') ? (rate ? `TRM oficial del ${day(rateDate)}: $${rate.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'TRM: se calcula al guardar') : '';
+      }
+      draw(); ensureRate();
+      box.addEventListener('input', calc);
+      box.addEventListener('change', (e) => { if (e.target.dataset.k === 'moneda') { read(); ensureRate(); } calc(); });
+      box.addEventListener('click', (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; read(); lines.splice(+b.closest('.invline').dataset.i, 1); if (!lines.length) lines.push({ cantidad: 1, moneda: 'COP' }); draw(); });
+      $('[data-add]', d).onclick = () => { read(); lines.push({ concepto: '', cantidad: 1, moneda: 'COP', valor: '' }); draw(); $$('.invline [data-k=concepto]', box).pop().focus(); };
+      f.issue_date.addEventListener('change', () => { ensureRate(); });
+      f.tax.addEventListener('input', calc);
+      const close = () => { d.close(); d.remove(); };
+      $('[data-no]', d).onclick = close;
+      d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+      $('[data-del]', d)?.addEventListener('click', async () => { if (await sure(`¿Borrar la cuenta de cobro ${row.number || '#' + row.id}? No se puede deshacer.`, 'Borrar')) { await api(`${P()}/invoices/${row.id}`, { method: 'DELETE' }); close(); toast('Borrada'); changed(); } });
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        read();
+        const items = lines.filter((l) => String(l.concepto || '').trim()).map((l) => ({ concepto: l.concepto.trim(), detalle: (l.detalle || '').trim(), cantidad: num(l.cantidad) || 1, moneda: l.moneda, valor: num(l.valor), ...(l.moneda === 'USD' && rate ? { trm: rate } : {}) }));
+        if (!items.length) { $('[data-err]', d).textContent = 'Agrega al menos una línea con su concepto.'; return; }
+        if (items.some((i) => !(i.valor > 0))) { $('[data-err]', d).textContent = 'Cada línea necesita un valor mayor que cero.'; return; }
+        const body = { kind: 'emitida', counterparty: f.counterparty.value.trim(), tax_id: f.tax_id.value.trim(), client_city: f.client_city.value.trim(), client_email: f.client_email.value.trim(),
+          issue_date: f.issue_date.value, due_date: f.due_date.value, concept: f.concept.value.trim(), items, tax: num(f.tax.value), cost_center_id: f.cost_center_id.value, category: f.category.value.trim(), notes: f.notes.value.trim(),
+          ...(row ? { status: f.status.value } : {}) };
+        const wantPdf = e.submitter?.value === 'pdf';
+        $$('button', d).forEach((b) => { b.disabled = true; });
+        try {
+          const r = await api(row ? `${P()}/invoices/${row.id}` : `${P()}/invoices`, { method: row ? 'PATCH' : 'POST', body });
+          close(); toast(row ? 'Guardada' : 'Cuenta de cobro creada'); changed();
+          if (wantPdf) openPdf(row ? row.id : r.id);
+        } catch (x) { $('[data-err]', d).textContent = x.message; $$('button', d).forEach((b) => { b.disabled = false; }); }
+      });
+      d.showModal();
+      f.counterparty.focus();
+    }
+  }
+
+  // Datos de quien cobra: salen en todas las cuentas de cobro de esta organización
+  async function billingProfile() {
+    const p = await api(`${P()}/billing/profile`);
+    const out = await H.form({ title: 'Mis datos de facturación', org, okText: 'Guardar', values: p, fields: [
+      { k: 'title', label: 'Nombre del documento', placeholder: 'Cuenta de cobro' }, { k: 'prefix', label: 'Prefijo del consecutivo', placeholder: 'DW-' },
+      { k: 'next_number', label: 'Siguiente número', type: 'int' }, { k: 'due_days', label: 'Días para pagar', type: 'int' },
+      { k: 'issuer_name', label: 'Nombre de quien cobra', full: true }, { k: 'issuer_doc_label', label: 'Tipo de documento', placeholder: 'NIT o C.C.' }, { k: 'issuer_doc', label: 'Número' },
+      { k: 'issuer_doc_city', label: 'Expedido en' }, { k: 'signer_doc_label', label: 'Documento en la firma', placeholder: 'Cédula de ciudadanía' },
+      { k: 'brand', label: 'Marca' }, { k: 'tagline', label: 'Frase de la marca' }, { k: 'city', label: 'Ciudad' },
+      { k: 'phone', label: 'Teléfono' }, { k: 'email', label: 'Correo' }, { k: 'web', label: 'Sitio web' }, { k: 'whatsapp', label: 'WhatsApp para comprobantes', hint: 'con indicativo: 57…' },
+      { k: 'bank', label: 'Banco' }, { k: 'account_type', label: 'Tipo de cuenta', type: 'select', options: [['ahorros', 'Ahorros'], ['corriente', 'Corriente']] }, { k: 'account_number', label: 'Número de cuenta' },
+      { k: 'legal', label: 'Nota legal (al final)', type: 'long' }] });
+    if (!out) return;
+    try { await api(`${P()}/billing/profile`, { method: 'PUT', body: out }); toast('Datos de facturación guardados'); } catch (x) { toast(x.message); }
   }
 
   async function banks(el) {

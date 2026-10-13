@@ -26,6 +26,7 @@
  * runHubsDaily(env, callAI) lo corre el cron: gastos recurrentes que vencen y automatizaciones.
  */
 import { APPS, listAppBusinesses } from './platform.js';
+import { ensureBilling, getProfile, saveProfile, nextNumber, priceItems, invoiceDocument } from './billing.js';
 import { readFeed } from './web.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -74,7 +75,8 @@ export const ENTITIES = {
   accounts: { table: 'fin_accounts', search: ['name', 'bank'], order: 'name',
     fields: { name: 'text!', kind: ['banco', 'efectivo', 'tarjeta', 'billetera'], bank: 'text', last4: 'text', opening_balance: 'money' } },
   invoices: { table: 'fin_invoices', search: ['number', 'counterparty', 'tax_id'], order: 'issue_date DESC, id DESC',
-    fields: { kind: ['emitida', 'recibida'], number: 'text', counterparty: 'text!', tax_id: 'text', issue_date: 'date!', due_date: 'date', subtotal: 'money', tax: 'money', total: 'money', status: ['pendiente', 'pagada', 'anulada'], cost_center_id: 'int', category: 'text', notes: 'long' } },
+    fields: { kind: ['emitida', 'recibida'], number: 'text', counterparty: 'text!', tax_id: 'text', client_email: 'text', client_city: 'text', issue_date: 'date!', due_date: 'date', concept: 'long', items: 'json',
+      subtotal: 'money', tax: 'money', total: 'money', status: ['pendiente', 'pagada', 'anulada'], cost_center_id: 'int', category: 'text', notes: 'long' } },
   movements: { table: 'fin_movements', search: ['description', 'counterparty', 'category'], order: 'date DESC, id DESC',
     fields: { kind: ['ingreso', 'gasto'], date: 'date!', currency: ['COP', 'USD'], amount_usd: 'usd', amount: 'money!', fx_rate: 'num', category: 'text', description: 'text', counterparty: 'text', cost_center_id: 'int', account_id: 'int', invoice_id: 'int', reconciled: 'bool' } },
   recurring: { table: 'fin_recurring', search: ['name', 'vendor'], order: 'active DESC, next_date',
@@ -103,6 +105,7 @@ function cast(key, type, v) {
     case 'month': { const s = String(v).slice(0, 7); if (!MONTH.test(s)) throw new HubError(400, `Mes no válido en ${key}`); return s; }
     case 'money': case 'int': { const n = Math.round(Number(String(v).replace(/[^\d.-]/g, ''))); if (!Number.isFinite(n)) throw new HubError(400, `Número no válido en ${key}`); if (t === 'money' && n < 0) throw new HubError(400, `${key} no puede ser negativo`); return n; }
     case 'bool': return v === true || v === 1 || v === '1' || v === 'true' || v === 'on' ? 1 : 0;
+    case 'json': { let x = v; if (typeof x === 'string') { try { x = JSON.parse(x); } catch { throw new HubError(400, `Formato no válido en ${key}`); } } if (!Array.isArray(x)) throw new HubError(400, `${key} debe ser una lista`); return x; }
     case 'usd': case 'num': { const n = Number(String(v).replace(/[^\d.,-]/g, '').replace(',', '.')); if (!Number.isFinite(n) || n < 0) throw new HubError(400, `Número no válido en ${key}`); return Math.round(n * (t === 'usd' ? 100 : 10000)) / (t === 'usd' ? 100 : 10000); }
     default: return String(v);
   }
@@ -215,10 +218,22 @@ async function applyFx(env, entity, row, before = {}) {
   row.amount = Math.round(usd * row.fx_rate);
 }
 
+// Cuentas de cobro con líneas: el total sale de las líneas (las de dólares, con la TRM de la fecha) y las emitidas reciben consecutivo
+async function priceInvoice(env, org, row, before, creating) {
+  await ensureBilling(env);
+  if (Array.isArray(row.items)) {
+    const items = await priceItems(row.items, () => trm(env, row.issue_date ?? before.issue_date));
+    row.items = JSON.stringify(items);
+    if (items.length) { row.subtotal = items.reduce((t, i) => t + i.total, 0); row.total = row.subtotal + (row.tax ?? before.tax ?? 0); }
+  } else if (row.items === null) delete row.items;
+  if (creating && (row.kind || 'emitida') === 'emitida' && !row.number) row.number = await nextNumber(env, org);
+}
+
 async function create(env, org, entity, def, body, hooks) {
   if (['movements', 'recurring'].includes(entity) && body.currency === 'USD' && !body.amount) body = { ...body, amount: 1 }; // se recalcula con la TRM
   const row = pick(def, body, true);
   await applyFx(env, entity, row);
+  if (entity === 'invoices') await priceInvoice(env, org, row, {}, true);
   if (entity === 'invoices') {
     row.total = row.total || (row.subtotal || 0) + (row.tax || 0);
     if (!(row.total > 0)) throw new HubError(400, 'La factura necesita un total (o subtotal e impuestos)');
@@ -238,6 +253,7 @@ async function update(env, org, entity, def, id, body) {
   const before = await getRow(env, def, org, id);
   const row = pick(def, body, false);
   if (['currency', 'amount_usd', 'date', 'next_date'].some((k) => k in row)) await applyFx(env, entity, row, before);
+  if (entity === 'invoices') await priceInvoice(env, org, row, before, false);
   for (const [k, type] of Object.entries(def.fields)) if (row[k] === null && type === 'money' && typeof before[k] === 'number') row[k] = 0;
   if (entity === 'deals' && row.stage && row.stage !== before.stage) row.closed_at = ['ganado', 'perdido'].includes(row.stage) ? now() : null;
   if (entity === 'campaigns' && 'utm_campaign' in row) row.utm_campaign = await uniqueUtm(env, row.utm_campaign || before.name, id);
@@ -797,6 +813,14 @@ async function route(req, env, path, url, callAI) {
   if (a === 'finance' && b === 'bank-lines' && c && parts[4] === 'match' && M === 'POST') return json(await matchLine(env, org, Number(c), body));
   if (a === 'finance' && b === 'export' && M === 'GET') return exportCsv(env, org, url);
   if (a === 'invoices' && b && c === 'pay' && M === 'POST') return json(await payInvoice(env, org, Number(b), body));
+  if (a === 'invoices' && b && c === 'pdf' && M === 'GET') {
+    await ensureBilling(env);
+    const inv = await getRow(env, ENTITIES.invoices, org, Number(b));
+    return new Response(await invoiceDocument(env, org, inv, { autoprint: url.searchParams.has('imprimir') }), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+  }
+  if (a === 'billing' && b === 'profile' && M === 'GET') return json(await getProfile(env, org));
+  if (a === 'billing' && b === 'profile' && M === 'PUT') { try { return json(await saveProfile(env, org, body)); } catch (e) { throw new HubError(400, e.message); } }
+  if (a === 'billing' && b === 'fx' && M === 'GET') return json({ date: url.searchParams.get('date') || today(), rate: await trm(env, url.searchParams.get('date')) });
   if (a === 'lists' || a === 'list_items') await ensureListTables(env);
   if (a === 'lists' && b && c === 'check' && M === 'POST') return json(await checkList(env, org, Number(b)));
   if (a === 'reports' && !b && M === 'POST') return json(await writeReport(env, org, body.kind === 'finanzas' ? 'finanzas' : 'marketing', callAI), 201);

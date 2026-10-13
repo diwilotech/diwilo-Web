@@ -428,3 +428,15 @@ form[data-cfg] label.f{margin-bottom:10px}form[data-cfg] label.f small{font-size
 .ubars i{display:block;background:linear-gradient(180deg,var(--lilac),var(--violet))}.ubars b{display:block;background:rgba(182,217,252,.55);border-radius:3px 3px 0 0}
 .ubars span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--ink3)}
 .prog-steps li small.sub{color:var(--lilac)}
+/* Cuenta de cobro: editor con líneas */
+dialog.ask.invdlg{width:min(980px,96vw);max-width:96vw}.invdlg form{max-height:88vh;overflow:auto}
+.invgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:10px}.invgrid .full{grid-column:1/-1}
+.invlines{margin-top:14px;display:grid;gap:6px}
+.invhead,.invline{display:grid;grid-template-columns:minmax(0,1fr) 70px 82px 130px 110px 34px;gap:8px;align-items:start}
+.invhead{font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;padding:0 2px}
+.invhead .n,.invline .n{text-align:right}.invline .n{padding-top:9px;font-variant-numeric:tabular-nums}
+.invline>span{display:grid;gap:4px}.invline .in.sub{font-size:12px;padding:6px 10px;opacity:.85}
+.invlines>[data-add]{justify-self:start;margin-top:2px}
+.invsum{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--on)}
+.invsum>div{display:flex;align-items:center;gap:8px;font-size:12px}.invtotal{font-size:13px}.invtotal b{font-family:var(--f-dis);font-size:22px;color:var(--hi);margin-left:6px}
+@media (max-width:720px){.invhead{display:none}.invline{grid-template-columns:1fr 1fr;padding:10px;border-radius:10px;background:var(--fill)}.invline>span{grid-column:1/-1}.invline .n{text-align:left}}
