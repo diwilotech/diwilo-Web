@@ -319,12 +319,38 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
       WHERE m.org_id = ? AND (? = '' OR lower(m.description || ' ' || COALESCE(m.counterparty, '') || ' ' || COALESCE(m.category, '')) LIKE ?) AND (? = '' OR m.date LIKE ?) ORDER BY m.date DESC, m.id DESC LIMIT 30`,
       a.org || ctx.org, a.texto || '', `%${String(a.texto || '').toLowerCase()}%`, a.mes || '', `${a.mes || ''}%`),
   },
+  crear_centro_costo: {
+    write: true, desc: 'Crea un centro de costo en Finanzas (a dónde se cargan gastos e ingresos): una app, un cliente, un proyecto o un área como «Infraestructura e IA» o «Marketing». No crea uno que ya exista con ese nombre.',
+    args: '{ "nombre": texto, "tipo"?: "app"|"cliente"|"proyecto"|"departamento", "codigo"?: texto, "notas"?: texto, "org"?: id }',
+    summary: (a) => `Crear el centro de costo «${a.nombre}»${a.tipo ? ` (${a.tipo})` : ''}${a.notas ? `: ${a.notas}` : ''}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      const dup = await env.DB.prepare('SELECT id FROM fin_cost_centers WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
+      if (dup) return { ya_existia: dup.id, nota: `El centro de costo «${a.nombre}» ya existe (#${dup.id}).` };
+      const kind = ['app', 'cliente', 'proyecto', 'departamento'].includes(a.tipo) ? a.tipo : 'departamento';
+      return hubCreate(env, org, 'cost_centers', { name: a.nombre, kind, code: a.codigo, notes: a.notas }, ctx.callAI);
+    },
+  },
+  crear_cuenta: {
+    write: true, desc: 'Crea una cuenta en Finanzas (de dónde sale o a dónde entra la plata): banco, tarjeta, efectivo o billetera (Nequi, Daviplata). No crea una que ya exista con ese nombre.',
+    args: '{ "nombre": texto, "tipo"?: "banco"|"tarjeta"|"efectivo"|"billetera", "banco"?: texto, "ultimos4"?: "1234", "saldo_inicial"?: pesos, "org"?: id }',
+    summary: (a) => `Crear la cuenta «${a.nombre}»${a.tipo ? ` (${a.tipo})` : ''}${a.ultimos4 ? ` terminada en ${a.ultimos4}` : ''}${a.saldo_inicial ? ` con saldo inicial de ${money(a.saldo_inicial)}` : ''}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      const dup = await env.DB.prepare('SELECT id FROM fin_accounts WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
+      if (dup) return { ya_existia: dup.id, nota: `La cuenta «${a.nombre}» ya existe (#${dup.id}).` };
+      const kind = ['banco', 'tarjeta', 'efectivo', 'billetera'].includes(a.tipo) ? a.tipo : 'banco';
+      return hubCreate(env, org, 'accounts', { name: a.nombre, kind, bank: a.banco, last4: a.ultimos4 ? String(a.ultimos4).slice(-4) : undefined, opening_balance: a.saldo_inicial }, ctx.callAI);
+    },
+  },
   registrar_movimiento: {
     write: true, desc: 'Registra un ingreso o un gasto en Finanzas (no repite uno igual ya registrado). Si es en dólares, da "dolares": el sistema lo pasa a pesos con la TRM oficial de esa fecha y guarda el valor en USD. Centro de costo y cuenta por nombre o id (ver_centros_y_cuentas).',
     args: '{ "tipo": "ingreso"|"gasto", "monto"?: pesos, "dolares"?: número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "org"?: id }',
+    prepare(a) { if (!(Number(a.dolares) > 0 || Number(a.monto) > 0)) throw new Error('falta el valor del ingreso o gasto (mayor que cero). Si lo que se quiere es crear un centro de costo o una cuenta, usa crear_centro_costo o crear_cuenta.'); },
     summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${a.dolares ? `US$${a.dolares} (en pesos con la TRM de ese día)` : money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}${ccTxt(a)}`,
     async run(env, a, ctx) {
       const org = a.org || ctx.org, date = a.fecha || today();
+      if (!(Number(a.dolares) > 0 || Number(a.monto) > 0)) throw new Error('Para registrar un ingreso o gasto necesito su valor (en pesos o en dólares). Para crear un centro de costo usa crear_centro_costo.');
       const cost_center_id = await finRef(env, org, 'cc', a.centro_costo), account_id = await finRef(env, org, 'acc', a.cuenta);
       const dup = await env.DB.prepare(`SELECT id FROM fin_movements WHERE org_id = ? AND kind = ? AND date = ? AND lower(COALESCE(description, '')) = lower(?) AND (${a.dolares ? 'amount_usd = ?' : 'amount = ?'})`)
         .bind(org, a.tipo === 'ingreso' ? 'ingreso' : 'gasto', date, String(a.descripcion || ''), Number(a.dolares || a.monto) || 0).first();
@@ -406,7 +432,7 @@ function systemPrompt(ctx) {
   return `Eres «IA Diwilo», el asistente del panel de administración de Diwilo (empresa de software, datos y automatización en Medellín).
 Ayudas al administrador a entender y gestionar: el sitio (visitas, leads, chats), los negocios de las apps (Pedidos, Nutrición, Citas, Residentes, Academia), Marketing y Finanzas.
 Cómo está organizado: AUTOMATIZACIONES = reglas fijas sin IA en Marketing (cuando pasa X → crear tareas/oportunidad). AGENTES = trabajadores de IA con rol, herramientas y horario (Integraciones e IA → Agentes). LISTAS = datos que vigilan los agentes en Marketing (competidores, fuentes, temas, tendencias, prospectos). Tú (IA Diwilo) los creas y editas cuando te lo piden.
-FINANZAS: para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto. Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
+FINANZAS: para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto; si no existe y el usuario lo quiere, créalo con crear_centro_costo o crear_cuenta (nunca registres un movimiento para «crear» algo). Un centro de costo agrupa gastos e ingresos por app, cliente, proyecto o área (por ejemplo «Infraestructura e IA» para Claude, Cloudflare y dominios). Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
 BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas y crea la portada. Para ponerle o cambiarle la imagen a una entrada existente usa blog_crear_portada.
 Hoy es ${today()} (hora de Colombia). El administrador está en la sección «${SECTIONS[ctx.tab] || ctx.tab || 'En vivo'}». Organización activa en Marketing/Finanzas: ${ctx.org} ("diwilo" = la operación de Diwilo).
 
@@ -489,7 +515,14 @@ export async function agentLoop(env, { system, history, allowed, ctx, mode = 'ch
         continue;
       }
       seen.add(key);
-      if (tool.prepare) { try { tool.prepare(args, ctx); } catch {} }
+      // prepare puede rechazar una acción mal armada antes de proponerla: se le explica a la IA para que la corrija
+      if (tool.prepare) {
+        try { tool.prepare(args, ctx); } catch (e) {
+          history.push({ role: 'assistant', content: JSON.stringify({ tool: r.tool, args }) });
+          if (waste(`No se puede usar ${r.tool} así: ${e.message} Corrige o usa otra herramienta.`)) return { reply: STOP, used, actions, stopped: true };
+          continue;
+        }
+      }
       let summary; try { summary = tool.summary ? tool.summary(args) : r.tool; } catch { summary = r.tool; }
       let result;
       if (tool.write && mode === 'chat') return { reply: r.respuesta || 'Esto es lo que voy a hacer. ¿Lo confirmas?', pending: { tool: r.tool, args, org: args.org || ctx.org, summary }, used, actions };
