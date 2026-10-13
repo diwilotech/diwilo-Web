@@ -17,6 +17,17 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), { status
 const today = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
 const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results;
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');
+// Centro de costo o cuenta por id o por nombre; si no existe, dice cuáles hay
+async function finRef(env, org, kind, ref) {
+  if (ref === undefined || ref === null || ref === '') return undefined;
+  const [table, what] = kind === 'cc' ? ['fin_cost_centers', 'centro de costo'] : ['fin_accounts', 'cuenta'];
+  const row = /^\d+$/.test(String(ref)) ? await env.DB.prepare(`SELECT id FROM ${table} WHERE id = ? AND org_id = ?`).bind(Number(ref), org).first()
+    : await env.DB.prepare(`SELECT id FROM ${table} WHERE org_id = ? AND lower(name) LIKE ? ORDER BY length(name) LIMIT 1`).bind(org, `%${String(ref).toLowerCase().trim()}%`).first();
+  if (row) return row.id;
+  const names = (await all(env, `SELECT name FROM ${table} WHERE org_id = ? ORDER BY name`, org)).map((r) => r.name);
+  throw new Error(`No encontré el ${what} «${ref}». ${names.length ? `Los que hay: ${names.join(', ')}.` : `No hay ningún ${what} creado todavía.`}`);
+}
+const ccTxt = (a) => `${a.centro_costo ? `, centro de costo «${a.centro_costo}»` : ''}${a.cuenta ? `, se paga desde «${a.cuenta}»` : ''}`;
 
 // Secciones del panel a las que el asistente puede llevar (botón «Abrir»).
 const SECTIONS = { resumen: 'En vivo', negocios: 'Negocios', marketing: 'Marketing', finanzas: 'Finanzas', blog: 'Blog', ia: 'Integraciones e IA (chat del sitio, sus ajustes, API y webhooks)' };
@@ -286,22 +297,98 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
     summary: (a) => `Crear la campaña «${a.nombre}»${a.canal ? ` en ${a.canal}` : ''}${a.presupuesto ? ` con presupuesto de ${money(a.presupuesto)}` : ''}`,
     run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'campaigns', { name: a.nombre, channel: a.canal, budget: a.presupuesto, start_date: a.inicio || today(), end_date: a.fin }, ctx.callAI),
   },
+  ver_centros_y_cuentas: {
+    desc: 'Centros de costo (apps, clientes, proyectos) y cuentas (bancos, tarjetas, Nequi) de Finanzas, con su id y nombre. Úsalo antes de asignar un gasto a un centro de costo o una cuenta.', args: '{ "org"?: id }',
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      return {
+        centros_de_costo: await all(env, 'SELECT id, name nombre, kind tipo, code codigo, active activo FROM fin_cost_centers WHERE org_id = ? ORDER BY active DESC, name', org),
+        cuentas: await all(env, 'SELECT id, name nombre, kind tipo, bank banco FROM fin_accounts WHERE org_id = ? ORDER BY name', org),
+      };
+    },
+  },
+  ver_gastos_recurrentes: {
+    desc: 'Gastos recurrentes de Finanzas con id, valor (en pesos o dólares), ciclo, próximo cobro, centro de costo y cuenta. Úsalo antes de crear uno (para no duplicar) o para editarlo.', args: '{ "org"?: id }',
+    run: (env, a, ctx) => all(env, `SELECT r.id, r.name nombre, r.vendor proveedor, r.category tipo, r.currency moneda, r.amount_usd dolares, r.amount pesos, r.cycle ciclo, r.next_date proximo_cobro, r.active activo,
+      c.name centro_costo, ac.name cuenta FROM fin_recurring r LEFT JOIN fin_cost_centers c ON c.id = r.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = r.account_id WHERE r.org_id = ? ORDER BY r.active DESC, r.next_date`, a.org || ctx.org),
+  },
+  buscar_movimientos: {
+    desc: 'Busca ingresos y gastos ya registrados (por texto y/o mes) con su id, fecha, monto, centro de costo y cuenta. Úsalo antes de registrar uno (para no duplicar) o para editarlos.', args: '{ "texto"?: texto, "mes"?: "AAAA-MM", "org"?: id }',
+    run: (env, a, ctx) => all(env, `SELECT m.id, m.kind tipo, m.date fecha, m.amount pesos, m.currency moneda, m.amount_usd dolares, m.description descripcion, m.counterparty tercero, m.category categoria, c.name centro_costo, ac.name cuenta
+      FROM fin_movements m LEFT JOIN fin_cost_centers c ON c.id = m.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = m.account_id
+      WHERE m.org_id = ? AND (? = '' OR lower(m.description || ' ' || COALESCE(m.counterparty, '') || ' ' || COALESCE(m.category, '')) LIKE ?) AND (? = '' OR m.date LIKE ?) ORDER BY m.date DESC, m.id DESC LIMIT 30`,
+      a.org || ctx.org, a.texto || '', `%${String(a.texto || '').toLowerCase()}%`, a.mes || '', `${a.mes || ''}%`),
+  },
   registrar_movimiento: {
-    write: true, desc: 'Registra un ingreso o un gasto en Finanzas. Si es en dólares, da "dolares": el sistema lo pasa a pesos con la TRM oficial de esa fecha y guarda el valor en USD.',
-    args: '{ "tipo": "ingreso"|"gasto", "monto"?: pesos, "dolares"?: número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "org"?: id }',
-    summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${a.dolares ? `US$${a.dolares} (en pesos con la TRM de ese día)` : money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'movements', { kind: a.tipo, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), date: a.fecha || today(), category: a.categoria, description: a.descripcion, counterparty: a.tercero }, ctx.callAI),
+    write: true, desc: 'Registra un ingreso o un gasto en Finanzas (no repite uno igual ya registrado). Si es en dólares, da "dolares": el sistema lo pasa a pesos con la TRM oficial de esa fecha y guarda el valor en USD. Centro de costo y cuenta por nombre o id (ver_centros_y_cuentas).',
+    args: '{ "tipo": "ingreso"|"gasto", "monto"?: pesos, "dolares"?: número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "org"?: id }',
+    summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${a.dolares ? `US$${a.dolares} (en pesos con la TRM de ese día)` : money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}${ccTxt(a)}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org, date = a.fecha || today();
+      const cost_center_id = await finRef(env, org, 'cc', a.centro_costo), account_id = await finRef(env, org, 'acc', a.cuenta);
+      const dup = await env.DB.prepare(`SELECT id FROM fin_movements WHERE org_id = ? AND kind = ? AND date = ? AND lower(COALESCE(description, '')) = lower(?) AND (${a.dolares ? 'amount_usd = ?' : 'amount = ?'})`)
+        .bind(org, a.tipo === 'ingreso' ? 'ingreso' : 'gasto', date, String(a.descripcion || ''), Number(a.dolares || a.monto) || 0).first();
+      if (dup) return { ya_existia: dup.id, nota: `Ya estaba registrado (movimiento #${dup.id}). Si querías cambiarle algo, usa editar_movimiento.` };
+      return hubCreate(env, org, 'movements', { kind: a.tipo, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), date, category: a.categoria, description: a.descripcion, counterparty: a.tercero, cost_center_id, account_id }, ctx.callAI);
+    },
+  },
+  editar_movimiento: {
+    write: true, desc: 'Cambia uno o varios ingresos/gastos ya registrados (por id, ver buscar_movimientos): centro de costo, cuenta, categoría, descripción, tercero o fecha.',
+    args: '{ "ids": [números], "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "fecha"?: "AAAA-MM-DD", "org"?: id }',
+    summary: (a) => `Editar ${[].concat(a.ids || a.id || []).length > 1 ? `los movimientos #${[].concat(a.ids).join(', #')}` : `el movimiento #${[].concat(a.ids || a.id || [])[0]}`}:${ccTxt(a).slice(1) || ''}${a.categoria ? ` categoría «${a.categoria}»` : ''}${a.descripcion ? ` descripción «${a.descripcion}»` : ''}${a.tercero ? ` tercero «${a.tercero}»` : ''}${a.fecha ? ` fecha ${a.fecha}` : ''}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org, ids = [].concat(a.ids || a.id || []).map(Number).filter(Boolean);
+      if (!ids.length) throw new Error('Dime qué movimientos (sus id; búscalos con buscar_movimientos)');
+      const body = {};
+      if (a.centro_costo !== undefined) body.cost_center_id = await finRef(env, org, 'cc', a.centro_costo) ?? null;
+      if (a.cuenta !== undefined) body.account_id = await finRef(env, org, 'acc', a.cuenta) ?? null;
+      for (const [k, f] of [['categoria', 'category'], ['descripcion', 'description'], ['tercero', 'counterparty'], ['fecha', 'date']]) if (a[k] !== undefined) body[f] = a[k];
+      if (!Object.keys(body).length) throw new Error('No me dijiste qué cambiar');
+      for (const id of ids) await hubUpdate(env, org, 'movements', id, body);
+      return { editados: ids };
+    },
   },
   crear_gasto_recurrente: {
     write: true,
-    desc: 'Agrega un gasto recurrente (infraestructura, software, API, IA…). Si se cobra en dólares (Claude, OpenAI, Cloudflare…), da "dolares" y cada cobro se pasa a pesos con la TRM oficial de su día. Si el usuario menciona cobros que YA se hicieron, ponlos en "cobros_hechos" (se registran como gastos) y en "proximo_cobro" la fecha del siguiente que aún no ha pasado.',
-    args: '{ "nombre": texto, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro": "AAAA-MM-DD", "cobros_hechos"?: ["AAAA-MM-DD", …], "tipo"?: "infraestructura"|"software"|"api"|"ia"|"marketing"|"otro", "proveedor"?: texto, "org"?: id }',
-    summary: (a) => `Agregar el gasto recurrente «${a.nombre}» de ${a.dolares ? `US$${a.dolares}` : money(a.monto)} ${a.ciclo || 'mensual'}, próximo cobro ${a.proximo_cobro}${Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? `, y registrar los cobros ya hechos del ${a.cobros_hechos.join(', ')}` : ''}${a.dolares ? ' (en pesos con la TRM de cada día)' : ''}`,
+    desc: 'Agrega un gasto recurrente (infraestructura, software, API, IA…). No crea uno que ya exista con el mismo nombre (para cambiarlo usa editar_gasto_recurrente). Si se cobra en dólares (Claude, OpenAI, Cloudflare…), da "dolares" y cada cobro se pasa a pesos con la TRM oficial de su día. Si el usuario menciona cobros que YA se hicieron, ponlos en "cobros_hechos" (se registran como gastos, sin repetir) y en "proximo_cobro" la fecha del siguiente que aún no ha pasado. Centro de costo y cuenta por nombre o id.',
+    args: '{ "nombre": texto, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro": "AAAA-MM-DD", "cobros_hechos"?: ["AAAA-MM-DD", …], "tipo"?: "infraestructura"|"software"|"api"|"ia"|"marketing"|"otro", "proveedor"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "org"?: id }',
+    summary: (a) => `Agregar el gasto recurrente «${a.nombre}» de ${a.dolares ? `US$${a.dolares}` : money(a.monto)} ${a.ciclo || 'mensual'}, próximo cobro ${a.proximo_cobro}${ccTxt(a)}${Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? `, y registrar los cobros ya hechos del ${a.cobros_hechos.join(', ')}` : ''}${a.dolares ? ' (en pesos con la TRM de cada día)' : ''}`,
     async run(env, a, ctx) {
       const org = a.org || ctx.org;
-      const r = await hubCreate(env, org, 'recurring', { name: a.nombre, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), cycle: a.ciclo, next_date: a.proximo_cobro, category: a.tipo, vendor: a.proveedor }, ctx.callAI);
+      const cost_center_id = await finRef(env, org, 'cc', a.centro_costo), account_id = await finRef(env, org, 'acc', a.cuenta);
+      const dup = await env.DB.prepare('SELECT id FROM fin_recurring WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
+      if (dup) {
+        const cobros = Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? await hubRecurringCharges(env, org, dup.id, a.cobros_hechos) : [];
+        return { ya_existia: dup.id, cobros_registrados: cobros, nota: `Ya existe el gasto recurrente «${a.nombre}» (#${dup.id}); no lo dupliqué.${cobros.some((c) => c.nuevo) ? ' Registré los cobros que faltaban.' : ''} Para cambiarlo usa editar_gasto_recurrente.` };
+      }
+      const r = await hubCreate(env, org, 'recurring', { name: a.nombre, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), cycle: a.ciclo, next_date: a.proximo_cobro, category: a.tipo, vendor: a.proveedor, cost_center_id, account_id }, ctx.callAI);
       const cobros = Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? await hubRecurringCharges(env, org, r.id, a.cobros_hechos) : [];
       return { ...r, cobros_registrados: cobros };
+    },
+  },
+  editar_gasto_recurrente: {
+    write: true, desc: 'Cambia un gasto recurrente que ya existe (por id o nombre): centro de costo, cuenta, valor (pesos o dólares), ciclo, próximo cobro, proveedor o si está activo. Con "aplicar_a_cobros": true, el centro de costo y la cuenta también se ponen en los gastos que ya generó.',
+    args: '{ "id"?: número, "nombre"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro"?: "AAAA-MM-DD", "proveedor"?: texto, "activo"?: true|false, "aplicar_a_cobros"?: true|false, "org"?: id }',
+    summary: (a) => `Editar el gasto recurrente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}:${ccTxt(a).slice(1) || ''}${a.dolares ? ` valor US$${a.dolares}` : a.monto ? ` valor ${money(a.monto)}` : ''}${a.ciclo ? ` ${a.ciclo}` : ''}${a.proximo_cobro ? ` próximo cobro ${a.proximo_cobro}` : ''}${a.activo === false ? ' (pausarlo)' : a.activo === true ? ' (activarlo)' : ''}${a.aplicar_a_cobros ? ', también en los cobros ya registrados' : ''}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      const r = a.id ? await env.DB.prepare('SELECT id FROM fin_recurring WHERE id = ? AND org_id = ?').bind(Number(a.id), org).first()
+        : await env.DB.prepare('SELECT id FROM fin_recurring WHERE org_id = ? AND lower(name) LIKE ? ORDER BY active DESC, length(name) LIMIT 1').bind(org, `%${String(a.nombre || '').toLowerCase()}%`).first();
+      if (!r) throw new Error('No encontré ese gasto recurrente (mira ver_gastos_recurrentes)');
+      const body = {};
+      if (a.centro_costo !== undefined) body.cost_center_id = await finRef(env, org, 'cc', a.centro_costo) ?? null;
+      if (a.cuenta !== undefined) body.account_id = await finRef(env, org, 'acc', a.cuenta) ?? null;
+      if (a.dolares) Object.assign(body, { currency: 'USD', amount_usd: a.dolares }); else if (a.monto) Object.assign(body, { currency: 'COP', amount: a.monto });
+      for (const [k, f] of [['ciclo', 'cycle'], ['proximo_cobro', 'next_date'], ['proveedor', 'vendor']]) if (a[k] !== undefined) body[f] = a[k];
+      if (a.activo !== undefined) body.active = !!a.activo;
+      if (!Object.keys(body).length) throw new Error('No me dijiste qué cambiar');
+      await hubUpdate(env, org, 'recurring', r.id, body);
+      let cobros = 0;
+      if (a.aplicar_a_cobros && ('cost_center_id' in body || 'account_id' in body)) {
+        const sets = Object.entries({ cost_center_id: body.cost_center_id, account_id: body.account_id }).filter(([k]) => k in body);
+        cobros = (await env.DB.prepare(`UPDATE fin_movements SET ${sets.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ? WHERE org_id = ? AND recurring_id = ?`).bind(...sets.map(([, v]) => v), Date.now(), org, r.id).run()).meta.changes;
+      }
+      return { id: r.id, editado: true, cobros_actualizados: cobros };
     },
   },
 };
@@ -319,6 +406,7 @@ function systemPrompt(ctx) {
   return `Eres «IA Diwilo», el asistente del panel de administración de Diwilo (empresa de software, datos y automatización en Medellín).
 Ayudas al administrador a entender y gestionar: el sitio (visitas, leads, chats), los negocios de las apps (Pedidos, Nutrición, Citas, Residentes, Academia), Marketing y Finanzas.
 Cómo está organizado: AUTOMATIZACIONES = reglas fijas sin IA en Marketing (cuando pasa X → crear tareas/oportunidad). AGENTES = trabajadores de IA con rol, herramientas y horario (Integraciones e IA → Agentes). LISTAS = datos que vigilan los agentes en Marketing (competidores, fuentes, temas, tendencias, prospectos). Tú (IA Diwilo) los creas y editas cuando te lo piden.
+FINANZAS: para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto. Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
 BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas y crea la portada. Para ponerle o cambiarle la imagen a una entrada existente usa blog_crear_portada.
 Hoy es ${today()} (hora de Colombia). El administrador está en la sección «${SECTIONS[ctx.tab] || ctx.tab || 'En vivo'}». Organización activa en Marketing/Finanzas: ${ctx.org} ("diwilo" = la operación de Diwilo).
 
@@ -434,7 +522,7 @@ const DOING = {
   marketing_resumen: 'Leyendo el resumen de marketing', finanzas_resumen: 'Leyendo las finanzas', tareas_pendientes: 'Revisando las tareas pendientes', buscar_contactos: 'Buscando contactos',
   blog_resumen: 'Revisando el blog', temas_de_clientes: 'Leyendo qué preguntan los clientes', leer_pagina: 'Leyendo una página', leer_feed: 'Leyendo un blog',
   noticias_web: 'Buscando noticias', ver_listas: 'Revisando las listas', leer_lista: 'Leyendo una lista', revisar_competidores: 'Revisando a la competencia',
-  ver_automatizaciones: 'Revisando las automatizaciones', buscar_web: 'Buscando en la web', investigar_tema: 'Investigando a fondo', ver_agentes: 'Revisando los agentes', ejecutar_agente: 'Poniendo a trabajar un agente',
+  ver_automatizaciones: 'Revisando las automatizaciones', ver_centros_y_cuentas: 'Revisando centros de costo y cuentas', ver_gastos_recurrentes: 'Revisando los gastos recurrentes', buscar_movimientos: 'Buscando movimientos', buscar_web: 'Buscando en la web', investigar_tema: 'Investigando a fondo', ver_agentes: 'Revisando los agentes', ejecutar_agente: 'Poniendo a trabajar un agente',
 };
 function doing(name, args) {
   const detail = Object.values(args || {}).find((v) => typeof v === 'string' && v.trim());

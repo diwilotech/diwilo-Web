@@ -838,6 +838,10 @@ export async function hubRecurringCharges(env, org, recurringId, dates) {
   if (!r) throw new HubError(404, 'No encontré ese gasto recurrente');
   const out = [];
   for (const d of [...new Set(dates)].filter((x) => DATE.test(x) && x <= today()).sort()) {
+    // No repetir: ni el mismo cobro de este recurrente ni un gasto igual registrado a mano ese día
+    const same = await one(env, `SELECT id FROM fin_movements WHERE org_id = ? AND date = ? AND kind = 'gasto' AND (recurring_id = ? OR (lower(COALESCE(description, '')) = lower(?) AND ${r.currency === 'USD' ? 'amount_usd = ?' : 'amount = ?'}))`,
+      org, d, r.id, r.name, r.currency === 'USD' ? r.amount_usd : r.amount);
+    if (same) { out.push({ fecha: d, ya_estaba: same.id }); continue; }
     const usd = r.currency === 'USD' && r.amount_usd > 0, rate = usd ? await trm(env, d) : null, amount = usd ? Math.round(r.amount_usd * rate) : r.amount, ts = now();
     const res = await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, currency, amount_usd, fx_rate, category, description, counterparty, cost_center_id, account_id, recurring_id, ref, created_at, updated_at)
       VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(org, d, amount, usd ? 'USD' : 'COP', usd ? r.amount_usd : null, rate, r.category, r.name, r.vendor, r.cost_center_id, r.account_id, r.id, `rec:${r.id}:${d}`, ts, ts).run();
