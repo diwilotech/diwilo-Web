@@ -4,11 +4,13 @@
  *   - Páginas del sitio: HTML o Markdown según la cabecera Accept (markdown.js)
  *   - /api, /admin/api, /v1, /l, /c y /mcp: lógica dinámica (index.js)
  *   - /blog: índice, artículos, RSS y sitemap del blog (blog.js)
+ *   - /validar/:código: validación pública de cuentas de cobro (billing.js)
  *   - Todo lo demás: archivo estático de public/ (con sus cabeceras de public/_headers)
  */
 import app from './index.js';
 import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
+import { validatePage } from './billing.js';
 import { purgeArchived } from './platform.js';
 import { runHubsDaily } from './hubs.js';
 import { runAgentsDaily } from './agents.js';
@@ -29,6 +31,8 @@ export default {
   async fetch(req, env, ctx) {
     const path = new URL(req.url).pathname.replace(/\/+$/, '') || '/';
     if (path === '/blog' || path === '/blog.md' || path.startsWith('/blog/')) return blogPublic(req, env, ctx);
+    // Validación pública de cuentas de cobro (QR del documento)
+    if (path.startsWith('/validar/')) return validatePage(req, env);
     if (PAGES[path]) return negotiate({ request: req, env, next: () => env.ASSETS.fetch(req) }, PAGES[path]);
     if (path === '/mcp' || DYNAMIC.some((p) => (path + '/').startsWith(p))) return app.fetch(req, env, ctx);
     return env.ASSETS.fetch(req);

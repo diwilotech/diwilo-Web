@@ -27,7 +27,8 @@ const FIELDS = Object.keys(DIWILO_PROFILE);
 let ready = false;
 export async function ensureBilling(env) {
   if (ready) return;
-  for (const c of ['items TEXT', 'concept TEXT', 'client_email TEXT', 'client_city TEXT']) await env.DB.prepare(`ALTER TABLE fin_invoices ADD COLUMN ${c}`).run().catch(() => {});
+  for (const c of ['items TEXT', 'concept TEXT', 'client_email TEXT', 'client_city TEXT', 'verify_code TEXT']) await env.DB.prepare(`ALTER TABLE fin_invoices ADD COLUMN ${c}`).run().catch(() => {});
+  await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_fin_invoices_verify ON fin_invoices(verify_code)').run().catch(() => {});
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS fin_billing_profile (org_id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)').run();
   ready = true;
 }
@@ -83,6 +84,55 @@ export async function priceItems(items, trmFor) {
   return out;
 }
 
+/* ---------------- validación pública (QR del documento) ---------------- */
+const SITE = 'https://diwilo.com';
+// Código aleatorio (50 bits, sin letras confusas): no se puede adivinar ni sacar del número del documento
+async function verifyCode(env, inv) {
+  if (inv.verify_code) return inv.verify_code;
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = crypto.getRandomValues(new Uint8Array(10));
+  const code = [...b].map((x) => abc[x % abc.length]).join('');
+  await env.DB.prepare('UPDATE fin_invoices SET verify_code = ? WHERE id = ? AND verify_code IS NULL').bind(code, inv.id).run();
+  return (await env.DB.prepare('SELECT verify_code FROM fin_invoices WHERE id = ?').bind(inv.id).first()).verify_code;
+}
+const mask = (s) => { const t = String(s || '').replace(/\s/g, ''); return t.length > 4 ? '•'.repeat(Math.max(3, t.length - 4)) + t.slice(-4) : t; };
+
+// GET /validar/:código — página pública: confirma que el documento existe y muestra sus datos básicos
+export async function validatePage(req, env) {
+  await ensureBilling(env);
+  const code = decodeURIComponent(new URL(req.url).pathname.split('/')[2] || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
+  const inv = code.length >= 8 ? await env.DB.prepare('SELECT * FROM fin_invoices WHERE verify_code = ?').bind(code).first() : null;
+  const p = inv ? await getProfile(env, inv.org_id) : null;
+  const today = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+  const st = !inv ? null : inv.status === 'anulada' ? ['bad', 'Anulada', 'Este documento fue anulado y no se debe pagar.']
+    : inv.status === 'pagada' ? ['ok', 'Pagada', 'Este documento ya fue pagado en su totalidad.']
+    : inv.due_date && inv.due_date < today ? ['warn', 'Pendiente · vencida', 'El documento es válido y su pago está pendiente (ya pasó la fecha límite).']
+    : ['ok', 'Pendiente de pago', 'El documento es válido y su pago está pendiente.'];
+  const row = (k, v) => (v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : '');
+  const body = inv ? `<div class="badge ${st[0]}">${st[0] === 'bad' ? '✕' : '✓'}</div>
+      <h1>${st[0] === 'bad' ? 'Documento anulado' : 'Documento válido'}</h1>
+      <p class="lead">${esc(st[2])} Fue emitido por ${esc(p.brand || p.issuer_name)} y está registrado en su sistema.</p>
+      <dl>${row('Documento', `${esc(p.title)} N.º ${esc(inv.number || '#' + inv.id)}`)}${row('Fecha', esc(fecha(inv.issue_date)))}${row('Pagar antes del', esc(fecha(inv.due_date)))}
+        ${row('Cliente', esc(inv.counterparty))}${row('NIT del cliente', inv.tax_id ? esc(mask(inv.tax_id)) : '')}${row('Total', `<b>${pesos(inv.total)} COP</b>`)}
+        ${row('Estado', `<span class="st ${st[0]}">${esc(st[1])}</span>`)}${row('Emitido por', `${esc(p.issuer_name)}${p.issuer_doc ? ` · ${esc(p.issuer_doc_label || 'NIT')} ${esc(mask(p.issuer_doc))}` : ''}`)}${row('Código', `<code>${esc(code)}</code>`)}</dl>
+      <p class="note">Compara estos datos con tu documento. Si algo no coincide, no pagues y escríbenos${p.email ? ` a ${esc(p.email)}` : ''}${p.phone ? ` o al ${esc(p.phone)}` : ''}.</p>`
+    : `<div class="badge bad">?</div><h1>No encontramos este documento</h1><p class="lead">El código${code ? ` <code>${esc(code)}</code>` : ''} no corresponde a ninguna cuenta de cobro emitida. Revisa que el enlace o el QR estén completos; si el documento te llegó a nombre de Diwilo, escríbenos a info@diwilo.com antes de pagar.</p>`;
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${inv ? 'Documento válido' : 'Validar documento'} · Diwilo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(1200px 600px at 50% -10%,#2a1950,#0b0a14 60%);color:#e9e6f5;font:15px/1.55 Inter,system-ui,sans-serif}
+main{width:min(560px,100%);background:#14121f;border:1px solid #2b2742;border-radius:22px;padding:30px 26px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:22px;color:#b8b3d1;font-size:13px}.top svg{width:26px;height:27px}.top b{font:600 17px 'Space Grotesk',sans-serif;color:#fff}
+.badge{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:26px;font-weight:700}.badge.ok,.badge.warn{background:rgba(74,222,128,.14);color:#4ade80}.badge.bad{background:rgba(248,113,113,.14);color:#f87171}
+h1{font:600 26px/1.2 'Space Grotesk',sans-serif;margin:14px 0 6px;color:#fff}.lead{color:#b8b3d1;margin:0 0 18px}
+dl{margin:0;border-top:1px solid #2b2742}dl div{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid #2b2742}dt{color:#8f8aab}dd{margin:0;text-align:right}
+code{font-family:ui-monospace,monospace;letter-spacing:.06em;color:#c9b5fb}.st{padding:2px 10px;border-radius:999px;font-size:13px}.st.ok{background:rgba(74,222,128,.14);color:#4ade80}.st.warn{background:rgba(251,191,36,.14);color:#fbbf24}.st.bad{background:rgba(248,113,113,.14);color:#f87171}
+.note{color:#8f8aab;font-size:13px;margin:18px 0 0}a{color:#c9b5fb}</style></head><body><main>
+<div class="top">${LOGO.replace('aria-hidden="true"', 'aria-hidden="true" style="width:26px;height:27px"')}<b>Diwilo</b><span>· Validación de documentos</span></div>
+${body}
+<p class="note" style="margin-top:22px"><a href="${SITE}">diwilo.com</a></p></main></body></html>`;
+  return new Response(html, { status: inv ? 200 : 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } });
+}
+
 /* ---------------- valor en letras ---------------- */
 const U = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve',
   'veinte', 'veintiún', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
@@ -121,6 +171,7 @@ export async function invoiceDocument(env, org, inv, { autoprint = false } = {})
   const stamp = inv.status === 'pagada' ? 'Pagada' : inv.status === 'anulada' ? 'Anulada' : '';
   const wa = p.whatsapp ? `https://wa.me/${p.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, envío el comprobante de pago de la ${p.title.toLowerCase()} ${number} por ${pesos(total)}.`)}` : '';
   const fileName = `${p.title} ${number} - ${inv.counterparty}`.replace(/[\\/:*?"<>|]/g, '');
+  const vcode = await verifyCode(env, inv), vurl = `${SITE}/validar/${vcode}`;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(fileName)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
@@ -130,49 +181,50 @@ export async function invoiceDocument(env, org, inv, { autoprint = false } = {})
 *{box-sizing:border-box}
 :root{--ink:#14112b;--ink2:#4a4766;--ink3:#8a87a3;--line:#e7e4f2;--soft:#f6f3fd;--brand:#7c3aed;--brand2:#5b21b6}
 html{background:#e9e7f1}
-body{margin:0;font:13px/1.5 Inter,system-ui,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font:12px/1.45 Inter,system-ui,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .bar{position:sticky;top:0;z-index:5;display:flex;gap:10px;justify-content:center;align-items:center;padding:12px 16px;background:#14112b;color:#fff;font-size:13px}
 .bar button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:9px 18px;cursor:pointer;background:#a66cf5;color:#fff}.bar button.sec{background:transparent;box-shadow:inset 0 0 0 1px #5a5580}
 .bar span{opacity:.7}
 .page{width:210mm;min-height:297mm;margin:24px auto;background:#fff;box-shadow:0 10px 40px rgba(20,17,43,.15);padding:16mm 16mm 14mm;position:relative;display:flex;flex-direction:column;overflow:hidden}
 .page::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,#a66cf5,#7c3aed 45%,#5b21b6)}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
-.brand{display:flex;gap:12px;align-items:center}.brand svg{width:44px;height:46px}
-.brand b{display:block;font:600 22px/1.1 'Space Grotesk',sans-serif;letter-spacing:-.02em}.brand small{color:var(--ink3);font-size:11.5px}
+.brand{display:flex;gap:10px;align-items:center}.brand svg{width:36px;height:38px}
+.brand b{display:block;font:600 19px/1.1 'Space Grotesk',sans-serif;letter-spacing:-.02em}.brand small{color:var(--ink3);font-size:10.5px}
 .doc{text-align:right}.doc h1{margin:0;font:600 12px/1 Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--brand)}
-.doc .num{font:600 26px/1.15 'Space Grotesk',sans-serif;margin-top:6px;letter-spacing:-.01em}
-.doc dl{display:grid;grid-template-columns:auto auto;gap:2px 12px;margin:8px 0 0;font-size:12px;justify-content:end}.doc dt{color:var(--ink3)}.doc dd{margin:0;font-weight:500}
-.parties{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
-.party{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.party h2,.sec h2{margin:0 0 6px;font:600 10.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
-.party b{display:block;font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.01em}.party span{display:block;color:var(--ink2);font-size:12px}
-.amount{margin-top:14px;border-radius:14px;padding:16px 18px;background:linear-gradient(135deg,#f6f0ff,#efe6ff 60%,#f8f4ff);display:flex;justify-content:space-between;align-items:center;gap:16px}
-.amount small{display:block;color:var(--ink2);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
-.amount .v{font:600 30px/1.1 'Space Grotesk',sans-serif;color:var(--brand2);white-space:nowrap}
-.amount .w{color:var(--ink2);font-size:12.5px;font-style:italic;text-align:right;max-width:58%}
-.sec{margin-top:18px}.concept{color:var(--ink2);margin:0}
-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
-thead th{text-align:left;font:600 10.5px/1 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);padding:9px 10px;border-bottom:1.5px solid var(--ink)}
-tbody td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+.doc .num{font:600 21px/1.15 'Space Grotesk',sans-serif;margin-top:6px;letter-spacing:-.01em}
+.doc dl{display:grid;grid-template-columns:auto auto;gap:1px 12px;margin:6px 0 0;font-size:11px;justify-content:end}.doc dt{color:var(--ink3)}.doc dd{margin:0;font-weight:500}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.party{border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.party h2,.sec h2{margin:0 0 5px;font:600 9.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.party b{display:block;font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.01em}.party span{display:block;color:var(--ink2);font-size:11px}
+.amount{margin-top:10px;border-radius:12px;padding:11px 16px;background:linear-gradient(135deg,#f6f0ff,#efe6ff 60%,#f8f4ff);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.amount small{display:block;color:var(--ink2);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.amount .v{font:600 24px/1.1 'Space Grotesk',sans-serif;color:var(--brand2);white-space:nowrap}
+.amount .w{color:var(--ink2);font-size:11.5px;font-style:italic;text-align:right;max-width:58%}
+.sec{margin-top:13px}.concept{color:var(--ink2);margin:0}
+table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11.5px}
+thead th{text-align:left;font:600 9.5px/1 Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);padding:7px 8px;border-bottom:1.5px solid var(--ink)}
+tbody td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}td.c,th.c{text-align:center}
-td small{display:block;color:var(--ink3);font-size:11px;margin-top:2px}
+td small{display:block;color:var(--ink3);font-size:10px;margin-top:1px}
 .idx{color:var(--ink3);width:26px}
 .totals{display:flex;justify-content:flex-end;margin-top:6px}
 .totals dl{display:grid;grid-template-columns:auto auto;gap:6px 28px;margin:0;min-width:240px;font-variant-numeric:tabular-nums}
 .totals dt{color:var(--ink2)}.totals dd{margin:0;text-align:right}
-.totals .t{font-weight:600;font-size:15px;color:var(--ink);padding-top:8px;border-top:1.5px solid var(--ink)}
-.pay{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;break-inside:avoid}
-.pay p{margin:2px 0;color:var(--ink2)}.pay strong{color:var(--ink)}
-.qr{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--ink3);text-align:center;width:96px}.qr svg{width:84px;height:84px}
-.legal{margin-top:14px;color:var(--ink3);font-size:11px}
+.totals .t{font-weight:600;font-size:13.5px;color:var(--ink);padding-top:8px;border-top:1.5px solid var(--ink)}
+.pay{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;margin-top:13px;border:1px solid var(--line);border-radius:10px;padding:10px 14px;break-inside:avoid}
+.pay p{margin:1px 0;color:var(--ink2);font-size:11.5px}.pay strong{color:var(--ink)}
+.qr{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;line-height:1.3;color:var(--ink3);text-align:center;width:80px}.qr svg{width:62px;height:62px}
+.legal{margin-top:10px;color:var(--ink3);font-size:10px}
 .sign{margin-top:auto;padding-top:26px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;break-inside:avoid}
-.sign .who{min-width:260px}.sign img{max-height:60px;max-width:220px;display:block;margin-bottom:-6px}
+.sign .who{min-width:240px}.sign img{max-height:54px;max-width:220px;display:block;margin-bottom:-6px}
 .sign .line{border-top:1px solid var(--ink);padding-top:6px;margin-top:${p.signature ? '4px' : '48px'}}
-.sign .who b{display:block}.sign .who span{display:block;color:var(--ink2);font-size:12px}
-.sign .thanks{color:var(--ink3);font-size:12px;text-align:right}
-footer{margin-top:16px;padding-top:10px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--ink3);font-size:10.5px}
+.sign .who b{display:block}.sign .who span{display:block;color:var(--ink2);font-size:11px}
+.sign .thanks{color:var(--ink3);font-size:11px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.verify{display:flex;gap:9px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:10px;padding:7px 9px}.verify #qrv svg{width:58px;height:58px;display:block}.verify b{display:block;color:var(--ink);font-size:10.5px}.verify span{display:block;font-size:9.5px;line-height:1.35}.verify code{display:block;margin-top:2px;font:600 9.5px ui-monospace,monospace;letter-spacing:.08em;color:var(--brand2)}
+footer{margin-top:12px;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--ink3);font-size:9.5px}
 .stamp{position:absolute;top:120px;right:-6px;transform:rotate(-12deg);border:3px solid currentColor;border-radius:10px;padding:4px 16px;font:700 26px/1 'Space Grotesk',sans-serif;letter-spacing:.12em;text-transform:uppercase;opacity:.22;color:${inv.status === 'anulada' ? '#dc2626' : '#16a34a'}}
-@media print{html{background:#fff}.bar{display:none}.page{margin:0;box-shadow:none;width:210mm;min-height:296mm;height:auto;overflow:visible;padding:11mm 14mm 8mm}tr,.party,.amount{break-inside:avoid}.page::before{height:4px}.parties{margin-top:16px}.amount{margin-top:12px;padding:12px 16px}.sec{margin-top:14px}tbody td{padding:7px 10px}thead th{padding:7px 10px}.qr{width:84px}.qr svg{width:72px;height:72px}.concept{line-height:1.4}.pay{margin-top:14px;padding:12px 14px}.sign{padding-top:${p.signature ? '0' : '14px'}}.sign img{max-height:50px;margin-bottom:-10px}body{font-size:12px}.party{padding:10px 12px}.amount .v{font-size:27px}.doc dl{margin-top:6px}table{font-size:12px}.legal{margin-top:10px}footer{margin-top:12px}.sign .line{margin-top:${p.signature ? '4px' : '34px'}}}
+@media print{html{background:#fff}.bar{display:none}.page{margin:0;box-shadow:none;width:210mm;min-height:296mm;height:auto;overflow:visible;padding:11mm 13mm 8mm}.page::before{height:4px}tr,.party,.amount,.pay,.sign{break-inside:avoid}.sign{padding-top:${p.signature ? '4px' : '14px'}}.sign img{max-height:48px;margin-bottom:-10px}}
 @media screen and (max-width:820px){.page{width:auto;min-height:0;margin:12px;padding:20px}.parties{grid-template-columns:1fr}.amount{flex-direction:column;align-items:flex-start}.amount .w{text-align:left;max-width:none}}
 </style></head><body>
 <div class="bar"><button onclick="print()">Descargar PDF</button><button class="sec" onclick="history.length>1?history.back():close()">Cerrar</button><span>En la ventana de impresión elige «Guardar como PDF».</span></div>
@@ -203,10 +255,11 @@ footer{margin-top:16px;padding-top:10px;border-top:1px solid var(--line);display
     ${wa ? `<div class="qr"><div id="qr"></div>Escanea para enviar el comprobante por WhatsApp</div>` : ''}</section>` : ''}
   ${p.legal ? `<p class="legal">${esc(p.legal)}</p>` : ''}
   <section class="sign"><div class="who">${p.signature ? `<img src="${esc(p.signature)}" alt="Firma">` : ''}<div class="line"><b>${esc(p.issuer_name)}</b>${p.issuer_doc ? `<span>${esc(p.signer_doc_label || p.issuer_doc_label || 'Documento')}: ${esc(p.issuer_doc)}</span>` : ''}${p.phone ? `<span>Teléfono: ${esc(p.phone)}</span>` : ''}</div></div>
-    <div class="thanks">Gracias por confiar en ${esc(p.brand || 'nosotros')}.</div></section>
+    <div class="thanks"><div class="verify"><div id="qrv"></div><div><b>Valida este documento</b><span>Escanea el código o entra a<br>diwilo.com/validar</span><code>${esc(vcode)}</code></div></div>Gracias por confiar en ${esc(p.brand || 'nosotros')}.</div></section>
   <footer><span>${[p.web, p.email, p.phone].filter(Boolean).map(esc).join(' · ')}</span><span>${esc(p.title)} ${esc(number)}</span></footer>
 </main>
 <script>
+try{var v=qrcode(0,'M');v.addData(${JSON.stringify(vurl)});v.make();document.getElementById('qrv').innerHTML=v.createSvgTag({cellSize:3,margin:0,scalable:true});}catch(e){}
 ${wa ? `try{var q=qrcode(0,'M');q.addData(${JSON.stringify(wa)});q.make();document.getElementById('qr').innerHTML=q.createSvgTag({cellSize:3,margin:0,scalable:true});}catch(e){}` : ''}
 ${autoprint ? "addEventListener('load',function(){setTimeout(function(){print()},400)});" : ''}
 </script></body></html>`;
