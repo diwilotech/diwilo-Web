@@ -146,8 +146,9 @@ Admin.tab('finanzas', (A) => {
   }
   async function invoices(el) {
     el.innerHTML = `<div class="card hubnote row" style="justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Crea tus cuentas de cobro con sus líneas (en pesos o en dólares con la TRM del día), y descárgalas en PDF con tu diseño, consecutivo y datos de pago.</span>
-      <button class="btn sm" data-profile><i class="ph-light ph-identification-card"></i>Mis datos de facturación</button></div><div data-t></div>`;
+      <span class="row" style="gap:6px"><button class="btn sm" data-sign><i class="ph-light ph-signature"></i>Mi firma</button><button class="btn sm" data-profile><i class="ph-light ph-identification-card"></i>Mis datos de facturación</button></span></div><div data-t></div>`;
     $('[data-profile]', el).onclick = () => billingProfile();
+    $('[data-sign]', el).onclick = () => signatureDialog();
     const t = H.table({ el: $('[data-t]', el), org: () => org, entity: 'invoices', title: 'factura', newText: 'Nueva cuenta de cobro', refs: ['cost_centers'], fields: F.invoices,
       filters: [{ k: 'kind', options: [['', 'Por cobrar y por pagar'], ['emitida', 'Por cobrar (emitidas)'], ['recibida', 'Por pagar (recibidas)']] }],
       empty: 'Sin facturas. Crea tu primera cuenta de cobro o registra las que recibes (cuentas por pagar).',
@@ -275,6 +276,84 @@ Admin.tab('finanzas', (A) => {
       d.showModal();
       f.counterparty.focus();
     }
+  }
+
+  // Firma para las cuentas de cobro: subir una foto (se le quita el fondo) o dibujarla
+  async function signatureDialog() {
+    const prof = await api(`${P()}/billing/profile`);
+    const d = document.createElement('dialog');
+    d.className = 'ask signdlg';
+    d.innerHTML = `<form method="dialog"><h2>Mi firma</h2>
+      <p class="muted" style="font-size:13px;margin:6px 0 12px">Sale sobre la línea de firma de tus cuentas de cobro. Firma en una hoja blanca con lapicero negro o azul y tómale una foto de cerca, o dibújala aquí.</p>
+      <div class="seg" data-mode><button class="btn sm on" type="button" data-m="up"><i class="ph-light ph-upload-simple"></i>Subir foto</button><button class="btn sm" type="button" data-m="draw"><i class="ph-light ph-pen-nib"></i>Dibujarla</button></div>
+      <div data-up style="margin-top:12px"><label class="signdrop"><input type="file" accept="image/*" hidden><i class="ph-light ph-image-square"></i><span>Toca para elegir la foto de tu firma</span></label></div>
+      <div data-draw hidden style="margin-top:12px"><canvas class="signpad" width="1200" height="420"></canvas><div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted" style="font-size:12px">Firma con el mouse o el dedo</span><button class="btn sm" type="button" data-clear>Borrar trazo</button></div></div>
+      <div style="margin-top:14px"><span class="muted" style="font-size:12px">Así se verá</span><div class="signprev" data-prev>${prof.signature ? `<img src="${esc(prof.signature)}" alt="">` : '<span class="muted">Aún no hay firma</span>'}</div></div>
+      <p class="err" data-err></p>
+      <div class="row" style="justify-content:space-between;margin-top:12px;gap:8px;flex-wrap:wrap"><span>${prof.signature ? '<button class="btn sm danger" type="button" data-rm><i class="ph-light ph-trash"></i>Quitar firma</button>' : ''}</span>
+        <span class="row" style="gap:8px"><button class="btn" type="button" data-no>Cancelar</button><button class="btn pri" data-yes disabled>Guardar firma</button></span></div></form>`;
+    document.body.appendChild(d);
+    let result = null, drawn = false;
+    const close = () => { d.close(); d.remove(); };
+    const preview = (url) => { result = url; $('[data-prev]', d).innerHTML = url ? `<img src="${url}" alt="">` : '<span class="muted">Aún no hay firma</span>'; $('[data-yes]', d).disabled = !url; };
+    // Recorta al trazo, vuelve transparente el fondo claro, oscurece la tinta y la deja en PNG liviano
+    function clean(src) {
+      const w = src.width, h = src.height, c = src.getContext ? src : (() => { const k = document.createElement('canvas'); k.width = w; k.height = h; k.getContext('2d').drawImage(src, 0, 0); return k; })();
+      const ctx = c.getContext('2d'), img = ctx.getImageData(0, 0, w, h), px = img.data;
+      let x0 = w, y0 = h, x1 = -1, y1 = -1;
+      for (let i = 0; i < px.length; i += 4) {
+        const l = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2], a = px[i + 3];
+        const ink = a > 40 && l < 150;
+        if (!ink) { px[i + 3] = 0; continue; }
+        px[i + 3] = Math.min(255, Math.round((150 - l) * 2.2 + 90) * (a / 255));
+        const p = i / 4, x = p % w, y = (p / w) | 0;
+        if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+      }
+      if (x1 < 0) throw new Error('No encontré la firma: usa una foto con buena luz, fondo blanco y tinta oscura.');
+      ctx.putImageData(img, 0, 0);
+      const pad = 10, cw = x1 - x0 + 1 + pad * 2, ch = y1 - y0 + 1 + pad * 2, scale = Math.min(1, 600 / cw, 220 / ch);
+      const out = document.createElement('canvas'); out.width = Math.round(cw * scale); out.height = Math.round(ch * scale);
+      out.getContext('2d').drawImage(c, x0 - pad, y0 - pad, cw, ch, 0, 0, out.width, out.height);
+      return out.toDataURL('image/png');
+    }
+    $('[data-mode]', d).onclick = (e) => {
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      $$('[data-m]', d).forEach((x) => x.classList.toggle('on', x === b));
+      $('[data-up]', d).hidden = b.dataset.m !== 'up'; $('[data-draw]', d).hidden = b.dataset.m !== 'draw';
+    };
+    $('[data-up] input', d).onchange = (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          preview(clean(c)); $('[data-err]', d).textContent = '';
+        } catch (x) { $('[data-err]', d).textContent = x.message; }
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = () => { $('[data-err]', d).textContent = 'No pude abrir esa imagen. Prueba con una foto JPG o PNG.'; };
+      img.src = URL.createObjectURL(file);
+    };
+    // Dibujar
+    const pad = $('.signpad', d), pctx = pad.getContext('2d');
+    pctx.lineWidth = 5; pctx.lineCap = 'round'; pctx.lineJoin = 'round'; pctx.strokeStyle = '#14112b';
+    let down = false, last = null;
+    const pos = (e) => { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) * pad.width / r.width, (e.clientY - r.top) * pad.height / r.height]; };
+    pad.addEventListener('pointerdown', (e) => { down = true; last = pos(e); pad.setPointerCapture(e.pointerId); });
+    pad.addEventListener('pointermove', (e) => { if (!down) return; const p = pos(e); pctx.beginPath(); pctx.moveTo(...last); pctx.lineTo(...p); pctx.stroke(); last = p; drawn = true; });
+    const end = () => { if (!down) return; down = false; if (drawn) try { preview(clean(pad)); } catch {} };
+    pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+    $('[data-clear]', d).onclick = () => { pctx.clearRect(0, 0, pad.width, pad.height); drawn = false; preview(null); };
+    $('[data-no]', d).onclick = close;
+    d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    $('[data-rm]', d)?.addEventListener('click', async () => { try { await api(`${P()}/billing/profile`, { method: 'PUT', body: { signature: '' } }); toast('Firma quitada'); close(); } catch (x) { $('[data-err]', d).textContent = x.message; } });
+    $('form', d).addEventListener('submit', async (e) => {
+      e.preventDefault(); if (!result) return;
+      try { await api(`${P()}/billing/profile`, { method: 'PUT', body: { signature: result } }); toast('Firma guardada: ya sale en tus cuentas de cobro'); close(); }
+      catch (x) { $('[data-err]', d).textContent = x.message; }
+    });
+    d.showModal();
   }
 
   // Datos de quien cobra: salen en todas las cuentas de cobro de esta organización

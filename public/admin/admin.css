@@ -440,3 +440,8 @@ dialog.ask.invdlg{width:min(980px,96vw);max-width:96vw}.invdlg form{max-height:8
 .invsum{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--on)}
 .invsum>div{display:flex;align-items:center;gap:8px;font-size:12px}.invtotal{font-size:13px}.invtotal b{font-family:var(--f-dis);font-size:22px;color:var(--hi);margin-left:6px}
 @media (max-width:720px){.invhead{display:none}.invline{grid-template-columns:1fr 1fr;padding:10px;border-radius:10px;background:var(--fill)}.invline>span{grid-column:1/-1}.invline .n{text-align:left}}
+/* Firma */
+dialog.ask.signdlg{width:min(560px,94vw)}
+.signdrop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px;border:1.5px dashed var(--line);border-radius:12px;cursor:pointer;color:var(--ink3);text-align:center}.signdrop i{font-size:28px;color:var(--lilac)}.signdrop:hover{background:var(--on)}
+.signpad{width:100%;aspect-ratio:1200/420;background:#fff;border-radius:12px;touch-action:none;cursor:crosshair;display:block}
+.signprev{margin-top:6px;min-height:90px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:10px}.signprev img{max-height:110px;max-width:100%}.signprev .muted{color:#8a87a3}
