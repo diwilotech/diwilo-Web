@@ -313,11 +313,12 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
       c.name centro_costo, ac.name cuenta FROM fin_recurring r LEFT JOIN fin_cost_centers c ON c.id = r.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = r.account_id WHERE r.org_id = ? ORDER BY r.active DESC, r.next_date`, a.org || ctx.org),
   },
   buscar_movimientos: {
-    desc: 'Busca ingresos y gastos ya registrados (por texto y/o mes) con su id, fecha, monto, centro de costo y cuenta. Úsalo antes de registrar uno (para no duplicar) o para editarlos.', args: '{ "texto"?: texto, "mes"?: "AAAA-MM", "org"?: id }',
+    desc: 'Busca ingresos y gastos ya registrados (por texto y/o mes) con su id, fecha, monto, centro de costo y cuenta. Úsalo antes de registrar uno (para no duplicar) o para editarlos.', args: '{ "texto"?: texto, "mes"?: "AAAA-MM", "sin_centro"?: true, "tipo"?: "ingreso"|"gasto", "org"?: id }',
     run: (env, a, ctx) => all(env, `SELECT m.id, m.kind tipo, m.date fecha, m.amount pesos, m.currency moneda, m.amount_usd dolares, m.description descripcion, m.counterparty tercero, m.category categoria, c.name centro_costo, ac.name cuenta
       FROM fin_movements m LEFT JOIN fin_cost_centers c ON c.id = m.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = m.account_id
-      WHERE m.org_id = ? AND (? = '' OR lower(m.description || ' ' || COALESCE(m.counterparty, '') || ' ' || COALESCE(m.category, '')) LIKE ?) AND (? = '' OR m.date LIKE ?) ORDER BY m.date DESC, m.id DESC LIMIT 30`,
-      a.org || ctx.org, a.texto || '', `%${String(a.texto || '').toLowerCase()}%`, a.mes || '', `${a.mes || ''}%`),
+      WHERE m.org_id = ? AND (? = '' OR lower(COALESCE(m.description, '') || ' ' || COALESCE(m.counterparty, '') || ' ' || COALESCE(m.category, '')) LIKE ?) AND (? = '' OR m.date LIKE ?)
+        AND (? = 0 OR m.cost_center_id IS NULL) AND (? = '' OR m.kind = ?) ORDER BY m.date DESC, m.id DESC LIMIT 50`,
+      a.org || ctx.org, a.texto || '', `%${String(a.texto || '').toLowerCase()}%`, a.mes || '', `${a.mes || ''}%`, a.sin_centro ? 1 : 0, a.tipo || '', a.tipo || ''),
   },
   crear_centro_costo: {
     write: true, desc: 'Crea un centro de costo en Finanzas (a dónde se cargan gastos e ingresos): una app, un cliente, un proyecto o un área como «Infraestructura e IA» o «Marketing». No crea uno que ya exista con ese nombre.',
@@ -393,9 +394,9 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
     },
   },
   editar_gasto_recurrente: {
-    write: true, desc: 'Cambia un gasto recurrente que ya existe (por id o nombre): centro de costo, cuenta, valor (pesos o dólares), ciclo, próximo cobro, proveedor o si está activo. Con "aplicar_a_cobros": true, el centro de costo y la cuenta también se ponen en los gastos que ya generó.',
+    write: true, desc: 'Cambia un gasto recurrente que ya existe (por id o nombre): centro de costo, cuenta, valor (pesos o dólares), ciclo, próximo cobro, proveedor o si está activo. El centro de costo y la cuenta se ponen también en los gastos que ya generó en Ingresos y gastos (salvo "aplicar_a_cobros": false).',
     args: '{ "id"?: número, "nombre"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro"?: "AAAA-MM-DD", "proveedor"?: texto, "activo"?: true|false, "aplicar_a_cobros"?: true|false, "org"?: id }',
-    summary: (a) => `Editar el gasto recurrente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}:${ccTxt(a).slice(1) || ''}${a.dolares ? ` valor US$${a.dolares}` : a.monto ? ` valor ${money(a.monto)}` : ''}${a.ciclo ? ` ${a.ciclo}` : ''}${a.proximo_cobro ? ` próximo cobro ${a.proximo_cobro}` : ''}${a.activo === false ? ' (pausarlo)' : a.activo === true ? ' (activarlo)' : ''}${a.aplicar_a_cobros ? ', también en los cobros ya registrados' : ''}`,
+    summary: (a) => `Editar el gasto recurrente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}:${ccTxt(a).slice(1) || ''}${a.dolares ? ` valor US$${a.dolares}` : a.monto ? ` valor ${money(a.monto)}` : ''}${a.ciclo ? ` ${a.ciclo}` : ''}${a.proximo_cobro ? ` próximo cobro ${a.proximo_cobro}` : ''}${a.activo === false ? ' (pausarlo)' : a.activo === true ? ' (activarlo)' : ''}${(a.centro_costo !== undefined || a.cuenta !== undefined) && a.aplicar_a_cobros !== false ? ', también en sus cobros ya registrados' : ''}`,
     async run(env, a, ctx) {
       const org = a.org || ctx.org;
       const r = a.id ? await env.DB.prepare('SELECT id FROM fin_recurring WHERE id = ? AND org_id = ?').bind(Number(a.id), org).first()
@@ -410,9 +411,11 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
       if (!Object.keys(body).length) throw new Error('No me dijiste qué cambiar');
       await hubUpdate(env, org, 'recurring', r.id, body);
       let cobros = 0;
-      if (a.aplicar_a_cobros && ('cost_center_id' in body || 'account_id' in body)) {
+      if (a.aplicar_a_cobros !== false && ('cost_center_id' in body || 'account_id' in body)) {
         const sets = Object.entries({ cost_center_id: body.cost_center_id, account_id: body.account_id }).filter(([k]) => k in body);
-        cobros = (await env.DB.prepare(`UPDATE fin_movements SET ${sets.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ? WHERE org_id = ? AND recurring_id = ?`).bind(...sets.map(([, v]) => v), Date.now(), org, r.id).run()).meta.changes;
+        const name = (await env.DB.prepare('SELECT name FROM fin_recurring WHERE id = ?').bind(r.id).first()).name;
+        cobros = (await env.DB.prepare(`UPDATE fin_movements SET ${sets.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ? WHERE org_id = ? AND kind = 'gasto' AND (recurring_id = ? OR lower(trim(description)) = lower(trim(?)))`)
+          .bind(...sets.map(([, v]) => v), Date.now(), org, r.id, name).run()).meta.changes;
       }
       return { id: r.id, editado: true, cobros_actualizados: cobros };
     },
@@ -432,7 +435,7 @@ function systemPrompt(ctx) {
   return `Eres «IA Diwilo», el asistente del panel de administración de Diwilo (empresa de software, datos y automatización en Medellín).
 Ayudas al administrador a entender y gestionar: el sitio (visitas, leads, chats), los negocios de las apps (Pedidos, Nutrición, Citas, Residentes, Academia), Marketing y Finanzas.
 Cómo está organizado: AUTOMATIZACIONES = reglas fijas sin IA en Marketing (cuando pasa X → crear tareas/oportunidad). AGENTES = trabajadores de IA con rol, herramientas y horario (Integraciones e IA → Agentes). LISTAS = datos que vigilan los agentes en Marketing (competidores, fuentes, temas, tendencias, prospectos). Tú (IA Diwilo) los creas y editas cuando te lo piden.
-FINANZAS: para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto; si no existe y el usuario lo quiere, créalo con crear_centro_costo o crear_cuenta (nunca registres un movimiento para «crear» algo). Un centro de costo agrupa gastos e ingresos por app, cliente, proyecto o área (por ejemplo «Infraestructura e IA» para Claude, Cloudflare y dominios). Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
+FINANZAS: para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto; si no existe y el usuario lo quiere, créalo con crear_centro_costo o crear_cuenta (nunca registres un movimiento para «crear» algo). Un centro de costo agrupa gastos e ingresos por app, cliente, proyecto o área (por ejemplo «Infraestructura e IA» para Claude, Cloudflare y dominios). Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si piden poner «los gastos» en centros de costo: revisa los recurrentes (ver_gastos_recurrentes → editar_gasto_recurrente, que también pasa sus cobros) Y los gastos sueltos sin centro (buscar_movimientos con sin_centro → editar_movimiento con todos sus ids), según a qué centro corresponda cada uno. Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
 BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas y crea la portada. Para ponerle o cambiarle la imagen a una entrada existente usa blog_crear_portada.
 Hoy es ${today()} (hora de Colombia). El administrador está en la sección «${SECTIONS[ctx.tab] || ctx.tab || 'En vivo'}». Organización activa en Marketing/Finanzas: ${ctx.org} ("diwilo" = la operación de Diwilo).
 

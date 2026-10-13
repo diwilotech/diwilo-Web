@@ -54,9 +54,8 @@
     try {
       const r = await Admin.stream('assistant/run', { tool: m.pending.tool, args: m.pending.args, org: m.pending.org }, (ev) => { p.update(ev); log.scrollTop = log.scrollHeight; });
       m.done = r.message; toast('Hecho');
-      hist.push({ role: 'assistant', content: r.message });
     } catch (x) { m.done = `No se pudo: ${x.message}`; }
-    save(); draw();
+    live.remove(); save(); draw();
   }
   const $$btns = (el, dis) => el.querySelectorAll('button').forEach((b) => { b.disabled = dis; });
 
