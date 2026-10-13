@@ -18,7 +18,7 @@ const DIWILO_PROFILE = {
   issuer_name: 'Yomar Alejandro Echavarría Castaño', issuer_doc_label: 'NIT', issuer_doc: '1.000.746.320', issuer_doc_city: 'Medellín (Antioquia)',
   signer_doc_label: 'Cédula de ciudadanía',
   brand: 'Diwilo', tagline: 'Datos, automatización e inteligencia artificial', web: 'diwilo.com', email: 'info@diwilo.com', phone: '305 384 0193', city: 'Medellín, Colombia',
-  bank: 'Bancolombia', account_type: 'ahorros', account_number: '912-109015-37', whatsapp: '573053840193',
+  bank: 'Bancolombia', account_type: 'ahorros', account_number: '912-109015-37', breb_key: '1000746320', whatsapp: '573053840193',
   legal: 'Los valores relacionados en este documento no incluyen retención en la fuente ni otras cargas tributarias, las cuales deberán ser asumidas por quien realiza el pago.',
   signature: '',
 };
@@ -213,7 +213,7 @@ td small{display:block;color:var(--ink3);font-size:10px;margin-top:1px}
 .totals dt{color:var(--ink2)}.totals dd{margin:0;text-align:right}
 .totals .t{font-weight:600;font-size:13.5px;color:var(--ink);padding-top:8px;border-top:1.5px solid var(--ink)}
 .pay{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;margin-top:13px;border:1px solid var(--line);border-radius:10px;padding:10px 14px;break-inside:avoid}
-.pay p{margin:1px 0;color:var(--ink2);font-size:11.5px}.pay strong{color:var(--ink)}
+.pay p{margin:1px 0;color:var(--ink2);font-size:11.5px}.breb{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px!important}.bb{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--brand2);font:700 10px/1.4 Inter,sans-serif;letter-spacing:.04em;box-shadow:inset 0 0 0 1px #ddd0fb}.pay strong{color:var(--ink)}
 .qr{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;line-height:1.3;color:var(--ink3);text-align:center;width:80px}.qr svg{width:62px;height:62px}
 .legal{margin-top:10px;color:var(--ink3);font-size:10px}
 .sign{margin-top:auto;padding-top:26px;display:flex;justify-content:space-between;align-items:flex-end;gap:20px;break-inside:avoid}
@@ -248,8 +248,9 @@ footer{margin-top:12px;padding-top:8px;border-top:1px solid var(--line);display:
     </tbody></table>
     <div class="totals"><dl>${tax ? `<dt>Subtotal</dt><dd>${pesos(subtotal)}</dd><dt>Impuestos</dt><dd>${pesos(tax)}</dd>` : ''}<dt class="t">Total a pagar</dt><dd class="t">${pesos(total)}</dd></dl></div>
   </section>
-  ${p.account_number ? `<section class="pay"><div><h2 style="margin:0 0 6px;font:600 10.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Forma de pago</h2>
-    <p>Consignar o transferir a la <strong>cuenta de ${esc(p.account_type || 'ahorros')} N.º ${esc(p.account_number)} de ${esc(p.bank)}</strong>, a nombre de ${esc(p.issuer_name)}.</p>
+  ${p.account_number || p.breb_key ? `<section class="pay"><div><h2 style="margin:0 0 6px;font:600 9.5px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Forma de pago</h2>
+    ${p.breb_key ? `<p class="breb"><span class="bb">Bre-B</span><span>Paga al instante desde cualquier banco o billetera con la <strong>llave ${esc(p.breb_key)}</strong>.</span></p>` : ''}
+    ${p.account_number ? `<p>${p.breb_key ? 'O consigna o transfiere' : 'Consignar o transferir'} a la <strong>cuenta de ${esc(p.account_type || 'ahorros')} N.º ${esc(p.account_number)} de ${esc(p.bank)}</strong>, a nombre de ${esc(p.issuer_name)}.</p>` : ''}
     <p>Usa como referencia <strong>${esc(number)}</strong>. Cualquier inquietud: ${[p.phone && `celular ${esc(p.phone)}`, p.email && esc(p.email)].filter(Boolean).join(' o ')}.</p>
     ${hasUsd ? '<p style="font-size:11.5px">Los valores en dólares se convirtieron a pesos con la TRM oficial (Banco de la República) indicada en cada línea.</p>' : ''}</div>
     ${wa ? `<div class="qr"><div id="qr"></div>Escanea para enviar el comprobante por WhatsApp</div>` : ''}</section>` : ''}

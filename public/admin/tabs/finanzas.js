@@ -366,7 +366,7 @@ Admin.tab('finanzas', (A) => {
       { k: 'issuer_doc_city', label: 'Expedido en' }, { k: 'signer_doc_label', label: 'Documento en la firma', placeholder: 'Cédula de ciudadanía' },
       { k: 'brand', label: 'Marca' }, { k: 'tagline', label: 'Frase de la marca' }, { k: 'city', label: 'Ciudad' },
       { k: 'phone', label: 'Teléfono' }, { k: 'email', label: 'Correo' }, { k: 'web', label: 'Sitio web' }, { k: 'whatsapp', label: 'WhatsApp para comprobantes', hint: 'con indicativo: 57…' },
-      { k: 'bank', label: 'Banco' }, { k: 'account_type', label: 'Tipo de cuenta', type: 'select', options: [['ahorros', 'Ahorros'], ['corriente', 'Corriente']] }, { k: 'account_number', label: 'Número de cuenta' },
+      { k: 'bank', label: 'Banco' }, { k: 'account_type', label: 'Tipo de cuenta', type: 'select', options: [['ahorros', 'Ahorros'], ['corriente', 'Corriente']] }, { k: 'account_number', label: 'Número de cuenta' }, { k: 'breb_key', label: 'Llave Bre-B', hint: 'cédula, celular, correo o alfanumérica' },
       { k: 'legal', label: 'Nota legal (al final)', type: 'long' }] });
     if (!out) return;
     try { await api(`${P()}/billing/profile`, { method: 'PUT', body: out }); toast('Datos de facturación guardados'); } catch (x) { toast(x.message); }
