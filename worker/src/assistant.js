@@ -8,7 +8,7 @@
  *   POST /admin/api/assistant/run    { tool, args, org }  ejecuta una acción confirmada
  */
 import { APPS, listAppBusinesses } from './platform.js';
-import { hubSummary, hubCreate, hubUpdate, hubOrgs, ensureListTables, checkList } from './hubs.js';
+import { hubSummary, hubCreate, hubUpdate, hubOrgs, ensureListTables, checkList, hubRecurringCharges } from './hubs.js';
 import { readPage, readFeed, news, search, realUrl } from './web.js';
 import { createDraft, setPostCover } from './blog.js';
 import { generateCover } from './images.js';
@@ -287,14 +287,22 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
     run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'campaigns', { name: a.nombre, channel: a.canal, budget: a.presupuesto, start_date: a.inicio || today(), end_date: a.fin }, ctx.callAI),
   },
   registrar_movimiento: {
-    write: true, desc: 'Registra un ingreso o un gasto en Finanzas.', args: '{ "tipo": "ingreso"|"gasto", "monto": número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "org"?: id }',
-    summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'movements', { kind: a.tipo, amount: a.monto, date: a.fecha || today(), category: a.categoria, description: a.descripcion, counterparty: a.tercero }, ctx.callAI),
+    write: true, desc: 'Registra un ingreso o un gasto en Finanzas. Si es en dólares, da "dolares": el sistema lo pasa a pesos con la TRM oficial de esa fecha y guarda el valor en USD.',
+    args: '{ "tipo": "ingreso"|"gasto", "monto"?: pesos, "dolares"?: número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "org"?: id }',
+    summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${a.dolares ? `US$${a.dolares} (en pesos con la TRM de ese día)` : money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}`,
+    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'movements', { kind: a.tipo, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), date: a.fecha || today(), category: a.categoria, description: a.descripcion, counterparty: a.tercero }, ctx.callAI),
   },
   crear_gasto_recurrente: {
-    write: true, desc: 'Agrega un gasto recurrente (infraestructura, software, API, IA…).', args: '{ "nombre": texto, "monto": número, "ciclo"?: "mensual"|"anual", "proximo_cobro": "AAAA-MM-DD", "tipo"?: "infraestructura"|"software"|"api"|"ia"|"marketing"|"otro", "proveedor"?: texto, "org"?: id }',
-    summary: (a) => `Agregar el gasto recurrente «${a.nombre}» de ${money(a.monto)} ${a.ciclo || 'mensual'}, próximo cobro ${a.proximo_cobro}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'recurring', { name: a.nombre, amount: a.monto, cycle: a.ciclo, next_date: a.proximo_cobro, category: a.tipo, vendor: a.proveedor }, ctx.callAI),
+    write: true,
+    desc: 'Agrega un gasto recurrente (infraestructura, software, API, IA…). Si se cobra en dólares (Claude, OpenAI, Cloudflare…), da "dolares" y cada cobro se pasa a pesos con la TRM oficial de su día. Si el usuario menciona cobros que YA se hicieron, ponlos en "cobros_hechos" (se registran como gastos) y en "proximo_cobro" la fecha del siguiente que aún no ha pasado.',
+    args: '{ "nombre": texto, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro": "AAAA-MM-DD", "cobros_hechos"?: ["AAAA-MM-DD", …], "tipo"?: "infraestructura"|"software"|"api"|"ia"|"marketing"|"otro", "proveedor"?: texto, "org"?: id }',
+    summary: (a) => `Agregar el gasto recurrente «${a.nombre}» de ${a.dolares ? `US$${a.dolares}` : money(a.monto)} ${a.ciclo || 'mensual'}, próximo cobro ${a.proximo_cobro}${Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? `, y registrar los cobros ya hechos del ${a.cobros_hechos.join(', ')}` : ''}${a.dolares ? ' (en pesos con la TRM de cada día)' : ''}`,
+    async run(env, a, ctx) {
+      const org = a.org || ctx.org;
+      const r = await hubCreate(env, org, 'recurring', { name: a.nombre, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), cycle: a.ciclo, next_date: a.proximo_cobro, category: a.tipo, vendor: a.proveedor }, ctx.callAI);
+      const cobros = Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? await hubRecurringCharges(env, org, r.id, a.cobros_hechos) : [];
+      return { ...r, cobros_registrados: cobros };
+    },
   },
 };
 

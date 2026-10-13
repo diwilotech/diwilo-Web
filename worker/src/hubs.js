@@ -76,9 +76,9 @@ export const ENTITIES = {
   invoices: { table: 'fin_invoices', search: ['number', 'counterparty', 'tax_id'], order: 'issue_date DESC, id DESC',
     fields: { kind: ['emitida', 'recibida'], number: 'text', counterparty: 'text!', tax_id: 'text', issue_date: 'date!', due_date: 'date', subtotal: 'money', tax: 'money', total: 'money', status: ['pendiente', 'pagada', 'anulada'], cost_center_id: 'int', category: 'text', notes: 'long' } },
   movements: { table: 'fin_movements', search: ['description', 'counterparty', 'category'], order: 'date DESC, id DESC',
-    fields: { kind: ['ingreso', 'gasto'], date: 'date!', amount: 'money!', category: 'text', description: 'text', counterparty: 'text', cost_center_id: 'int', account_id: 'int', invoice_id: 'int', reconciled: 'bool' } },
+    fields: { kind: ['ingreso', 'gasto'], date: 'date!', currency: ['COP', 'USD'], amount_usd: 'usd', amount: 'money!', fx_rate: 'num', category: 'text', description: 'text', counterparty: 'text', cost_center_id: 'int', account_id: 'int', invoice_id: 'int', reconciled: 'bool' } },
   recurring: { table: 'fin_recurring', search: ['name', 'vendor'], order: 'active DESC, next_date',
-    fields: { name: 'text!', vendor: 'text', category: ['infraestructura', 'software', 'api', 'ia', 'marketing', 'otro'], amount: 'money!', cycle: ['mensual', 'anual'], next_date: 'date!', cost_center_id: 'int', account_id: 'int', active: 'bool+', notes: 'long' } },
+    fields: { name: 'text!', vendor: 'text', category: ['infraestructura', 'software', 'api', 'ia', 'marketing', 'otro'], currency: ['COP', 'USD'], amount_usd: 'usd', amount: 'money!', fx_rate: 'num', cycle: ['mensual', 'anual'], next_date: 'date!', cost_center_id: 'int', account_id: 'int', active: 'bool+', notes: 'long' } },
   budgets: { table: 'fin_budgets', search: ['category'], order: 'month DESC, id DESC',
     fields: { month: 'month!', cost_center_id: 'int', category: 'text', amount: 'money!' } },
 };
@@ -103,6 +103,7 @@ function cast(key, type, v) {
     case 'month': { const s = String(v).slice(0, 7); if (!MONTH.test(s)) throw new HubError(400, `Mes no válido en ${key}`); return s; }
     case 'money': case 'int': { const n = Math.round(Number(String(v).replace(/[^\d.-]/g, ''))); if (!Number.isFinite(n)) throw new HubError(400, `Número no válido en ${key}`); if (t === 'money' && n < 0) throw new HubError(400, `${key} no puede ser negativo`); return n; }
     case 'bool': return v === true || v === 1 || v === '1' || v === 'true' || v === 'on' ? 1 : 0;
+    case 'usd': case 'num': { const n = Number(String(v).replace(/[^\d.,-]/g, '').replace(',', '.')); if (!Number.isFinite(n) || n < 0) throw new HubError(400, `Número no válido en ${key}`); return Math.round(n * (t === 'usd' ? 100 : 10000)) / (t === 'usd' ? 100 : 10000); }
     default: return String(v);
   }
 }
@@ -171,8 +172,53 @@ async function getRow(env, def, org, id) {
   if (!r) throw new HubError(404, 'No encontrado');
   return r;
 }
+/* ---------------- dólares: TRM oficial (Banco de la República vía datos.gov.co) ---------------- */
+// Gastos en dólares (Claude, OpenAI, Cloudflare…): se guarda el valor en USD y se convierte a pesos con la TRM del día del cobro.
+let fxReady = false;
+async function ensureFx(env) {
+  if (fxReady) return;
+  for (const t of ['fin_movements', 'fin_recurring']) {
+    for (const c of ["currency TEXT NOT NULL DEFAULT 'COP'", 'amount_usd REAL', 'fx_rate REAL']) await env.DB.prepare(`ALTER TABLE ${t} ADD COLUMN ${c}`).run().catch(() => {});
+  }
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS fx_trm (date TEXT PRIMARY KEY, rate REAL NOT NULL, source TEXT)').run();
+  fxReady = true;
+}
+export async function trm(env, date) {
+  await ensureFx(env);
+  const d = DATE.test(String(date || '')) ? String(date) : today();
+  const hit = await one(env, 'SELECT rate FROM fx_trm WHERE date = ?', d);
+  if (hit) return hit.rate;
+  try {
+    const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 8000);
+    const q = `$where=${encodeURIComponent(`vigenciadesde <= '${d}T00:00:00.000'`)}&$order=${encodeURIComponent('vigenciadesde DESC')}&$limit=1`;
+    const r = await fetch(`https://www.datos.gov.co/resource/32sa-8pi3.json?${q}`, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+    const rate = Number((await r.json())?.[0]?.valor);
+    if (rate > 1000) {
+      // Solo se guarda en caché si el día ya pasó (la TRM de hoy o de fechas futuras puede cambiar)
+      if (d < today()) await env.DB.prepare('INSERT OR REPLACE INTO fx_trm (date, rate, source) VALUES (?, ?, ?)').bind(d, rate, 'trm').run();
+      return rate;
+    }
+  } catch {}
+  const s = await one(env, "SELECT v FROM ai_usage_settings WHERE k = 'usd_cop'").catch(() => null);
+  return Number(s?.v) || 4000; // respaldo: la tasa configurada en Consumo de IA
+}
+// Si el registro está en dólares, calcula el monto en pesos con la TRM de su fecha.
+async function applyFx(env, entity, row, before = {}) {
+  if (!['movements', 'recurring'].includes(entity)) return;
+  await ensureFx(env);
+  const cur = row.currency ?? before.currency ?? 'COP';
+  if (cur !== 'USD') { if ('currency' in row) { row.amount_usd = null; row.fx_rate = null; } return; }
+  const usd = row.amount_usd ?? before.amount_usd;
+  if (!(usd > 0)) throw new HubError(400, 'Escribe el valor en dólares');
+  const date = entity === 'movements' ? (row.date ?? before.date) : (row.next_date ?? before.next_date);
+  row.fx_rate = await trm(env, date);
+  row.amount = Math.round(usd * row.fx_rate);
+}
+
 async function create(env, org, entity, def, body, hooks) {
+  if (['movements', 'recurring'].includes(entity) && body.currency === 'USD' && !body.amount) body = { ...body, amount: 1 }; // se recalcula con la TRM
   const row = pick(def, body, true);
+  await applyFx(env, entity, row);
   if (entity === 'invoices') {
     row.total = row.total || (row.subtotal || 0) + (row.tax || 0);
     if (!(row.total > 0)) throw new HubError(400, 'La factura necesita un total (o subtotal e impuestos)');
@@ -191,6 +237,7 @@ async function create(env, org, entity, def, body, hooks) {
 async function update(env, org, entity, def, id, body) {
   const before = await getRow(env, def, org, id);
   const row = pick(def, body, false);
+  if (['currency', 'amount_usd', 'date', 'next_date'].some((k) => k in row)) await applyFx(env, entity, row, before);
   for (const [k, type] of Object.entries(def.fields)) if (row[k] === null && type === 'money' && typeof before[k] === 'number') row[k] = 0;
   if (entity === 'deals' && row.stage && row.stage !== before.stage) row.closed_at = ['ganado', 'perdido'].includes(row.stage) ? now() : null;
   if (entity === 'campaigns' && 'utm_campaign' in row) row.utm_campaign = await uniqueUtm(env, row.utm_campaign || before.name, id);
@@ -675,13 +722,17 @@ async function runAutomations(env, callAI) {
 // Gastos recurrentes que vencen: crea el movimiento y corre la próxima fecha.
 async function runRecurring(env) {
   const t = today();
+  await ensureFx(env);
   const due = await all(env, 'SELECT * FROM fin_recurring WHERE active = 1 AND next_date <= ?', t);
   for (const r of due) {
     let d = r.next_date, guard = 0;
     while (d <= t && guard++ < 24) {
       const ts = now();
-      await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, category, description, counterparty, cost_center_id, account_id, recurring_id, ref, created_at, updated_at)
-        VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(r.org_id, d, r.amount, r.category, r.name, r.vendor, r.cost_center_id, r.account_id, r.id, `rec:${r.id}:${d}`, ts, ts).run();
+      // En dólares: cada cobro se convierte con la TRM de su día
+      const usd = r.currency === 'USD' && r.amount_usd > 0, rate = usd ? await trm(env, d) : null;
+      await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, currency, amount_usd, fx_rate, category, description, counterparty, cost_center_id, account_id, recurring_id, ref, created_at, updated_at)
+        VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(r.org_id, d, usd ? Math.round(r.amount_usd * rate) : r.amount, usd ? 'USD' : 'COP', usd ? r.amount_usd : null, rate,
+        r.category, r.name, r.vendor, r.cost_center_id, r.account_id, r.id, `rec:${r.id}:${d}`, ts, ts).run();
       d = addMonths(d, r.cycle === 'anual' ? 12 : 1);
     }
     await env.DB.prepare('UPDATE fin_recurring SET next_date = ?, updated_at = ? WHERE id = ?').bind(d, now(), r.id).run();
@@ -713,6 +764,7 @@ Usa solo los datos que te doy; si faltan datos, dilo y sugiere qué registrar. M
 /* ---------------- ruteo ---------------- */
 export async function hubsApi(req, env, path, url, adminEmail, callAI) {
   try {
+    await ensureFx(env);
     return await route(req, env, path, url, callAI);
   } catch (e) {
     if (e instanceof HubError) return json({ error: e.message }, e.status);
@@ -771,6 +823,7 @@ export const hubSummary = (env, org, kind, params = {}) => {
   return kind === 'finanzas' ? financeSummary(env, org, url) : marketingSummary(env, org, url);
 };
 export async function hubCreate(env, org, entity, body, callAI) {
+  await ensureFx(env);
   if (!(await orgExists(env, org))) throw new HubError(404, 'Organización no encontrada');
   return create(env, org, entity, ENTITIES[entity], body, { onNewContact: (e, o, ct) => onNewContact(e, o, ct, callAI) });
 }
@@ -778,3 +831,17 @@ export async function hubUpdate(env, org, entity, id, body) {
   return update(env, org, entity, ENTITIES[entity], id, body);
 }
 export const hubOrgs = (env) => listOrgs(env);
+// Registra cobros ya hechos de un gasto recurrente (fechas pasadas) como gastos, sin duplicar.
+export async function hubRecurringCharges(env, org, recurringId, dates) {
+  await ensureFx(env);
+  const r = await one(env, 'SELECT * FROM fin_recurring WHERE id = ? AND org_id = ?', recurringId, org);
+  if (!r) throw new HubError(404, 'No encontré ese gasto recurrente');
+  const out = [];
+  for (const d of [...new Set(dates)].filter((x) => DATE.test(x) && x <= today()).sort()) {
+    const usd = r.currency === 'USD' && r.amount_usd > 0, rate = usd ? await trm(env, d) : null, amount = usd ? Math.round(r.amount_usd * rate) : r.amount, ts = now();
+    const res = await env.DB.prepare(`INSERT OR IGNORE INTO fin_movements (org_id, kind, date, amount, currency, amount_usd, fx_rate, category, description, counterparty, cost_center_id, account_id, recurring_id, ref, created_at, updated_at)
+      VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(org, d, amount, usd ? 'USD' : 'COP', usd ? r.amount_usd : null, rate, r.category, r.name, r.vendor, r.cost_center_id, r.account_id, r.id, `rec:${r.id}:${d}`, ts, ts).run();
+    out.push({ fecha: d, pesos: amount, ...(usd ? { usd: r.amount_usd, trm: rate } : {}), nuevo: !!res.meta.changes });
+  }
+  return out;
+}

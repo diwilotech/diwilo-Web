@@ -246,3 +246,8 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   tokens_in INTEGER NOT NULL DEFAULT 0, tokens_out INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, source, provider));
 CREATE TABLE IF NOT EXISTS ai_usage_settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 -- ALTER TABLE ai_agent_runs ADD COLUMN tokens INTEGER NOT NULL DEFAULT 0;  (lo agrega agents.js si falta)
+
+-- Gastos en dólares (también lo agrega solo hubs.js → ensureFx)
+-- ALTER TABLE fin_movements ADD COLUMN currency TEXT NOT NULL DEFAULT 'COP'; ALTER TABLE fin_movements ADD COLUMN amount_usd REAL; ALTER TABLE fin_movements ADD COLUMN fx_rate REAL;
+-- ALTER TABLE fin_recurring ADD COLUMN currency TEXT NOT NULL DEFAULT 'COP'; ALTER TABLE fin_recurring ADD COLUMN amount_usd REAL; ALTER TABLE fin_recurring ADD COLUMN fx_rate REAL;
+CREATE TABLE IF NOT EXISTS fx_trm (date TEXT PRIMARY KEY, rate REAL NOT NULL, source TEXT);

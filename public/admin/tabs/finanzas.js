@@ -14,10 +14,14 @@ Admin.tab('finanzas', (A) => {
   const VIEWS = [['resumen', 'Resumen', 'ph-chart-pie-slice'], ['movimientos', 'Ingresos y gastos', 'ph-arrows-down-up'], ['facturas', 'Facturas y cartera', 'ph-receipt'],
     ['recurrentes', 'Gastos recurrentes', 'ph-repeat'], ['centros', 'Centros de costo y presupuestos', 'ph-tree-structure'], ['bancos', 'Bancos y conciliación', 'ph-bank'], ['exportar', 'Exportar', 'ph-export']];
 
+  // Valores en dólares: se muestran en USD con su conversión a pesos (TRM oficial del día)
+  const usd = (n) => `US$${Number(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const usdLine = (r) => (r.currency === 'USD' && r.amount_usd ? `<br><span class="muted" style="font-size:12px">${usd(r.amount_usd)}${r.fx_rate ? ` · TRM ${Number(r.fx_rate).toLocaleString('es-CO', { maximumFractionDigits: 2 })}` : ''}</span>` : '');
   const F = {
     movements: [
       { k: 'kind', label: 'Tipo', type: 'select', options: [['gasto', 'Gasto'], ['ingreso', 'Ingreso']] }, { k: 'date', label: 'Fecha', type: 'date', required: true },
-      { k: 'amount', label: 'Monto (COP)', type: 'money', required: true }, { k: 'category', label: 'Categoría', placeholder: 'Nómina, hosting, ventas…' },
+      { k: 'currency', label: 'Moneda', type: 'select', options: [['COP', 'Pesos (COP)'], ['USD', 'Dólares (USD)']] }, { k: 'amount_usd', label: 'Valor en dólares', type: 'usd', hint: 'solo si es en USD' },
+      { k: 'amount', label: 'Monto (COP)', type: 'money', hint: 'en USD se calcula con la TRM del día' }, { k: 'category', label: 'Categoría', placeholder: 'Nómina, hosting, ventas…' },
       { k: 'description', label: 'Descripción', full: true }, { k: 'counterparty', label: 'Tercero', placeholder: 'Cliente o proveedor' },
       { k: 'cost_center_id', label: 'Centro de costo', ref: 'cost_centers' }, { k: 'account_id', label: 'Cuenta', ref: 'accounts' },
       { k: 'invoice_id', label: 'Factura', ref: 'invoices' }, { k: 'reconciled', label: 'Conciliado con el banco', type: 'bool', check: 'Sí' }],
@@ -30,8 +34,8 @@ Admin.tab('finanzas', (A) => {
       { k: 'cost_center_id', label: 'Centro de costo', ref: 'cost_centers' }, { k: 'category', label: 'Categoría' }, { k: 'notes', label: 'Notas', type: 'long' }],
     recurring: [
       { k: 'name', label: 'Gasto', required: true, placeholder: 'Cloudflare Workers, OpenAI, Google Workspace…' }, { k: 'vendor', label: 'Proveedor' },
-      { k: 'category', label: 'Tipo', type: 'select', options: Object.entries(REC_CAT) }, { k: 'amount', label: 'Valor (COP)', type: 'money', required: true },
-      { k: 'cycle', label: 'Ciclo', type: 'select', options: [['mensual', 'Mensual'], ['anual', 'Anual']] }, { k: 'next_date', label: 'Próximo cobro', type: 'date', required: true },
+      { k: 'category', label: 'Tipo', type: 'select', options: Object.entries(REC_CAT) }, { k: 'currency', label: 'Moneda', type: 'select', options: [['COP', 'Pesos (COP)'], ['USD', 'Dólares (USD)']] }, { k: 'amount_usd', label: 'Valor en dólares', type: 'usd', hint: 'solo si es en USD' },
+      { k: 'amount', label: 'Valor (COP)', type: 'money', hint: 'en USD se calcula con la TRM' }, { k: 'cycle', label: 'Ciclo', type: 'select', options: [['mensual', 'Mensual'], ['anual', 'Anual']] }, { k: 'next_date', label: 'Próximo cobro', type: 'date', required: true },
       { k: 'cost_center_id', label: 'Centro de costo', ref: 'cost_centers', hint: 'app, cliente o proyecto al que se carga' }, { k: 'account_id', label: 'Se paga desde', ref: 'accounts' },
       { k: 'active', label: 'Estado', type: 'bool', check: 'Activo', default: true }, { k: 'notes', label: 'Notas', type: 'long' }],
     cost_centers: [
@@ -61,7 +65,7 @@ Admin.tab('finanzas', (A) => {
           { label: 'Categoría', html: (r) => (r.category ? `<span class="tag">${esc(r.category)}</span>` : '<span class="muted">—</span>') },
           { label: 'Centro de costo', html: (r, R) => refName(R, 'cost_centers', r.cost_center_id) },
           { label: 'Cuenta', html: (r, R) => refName(R, 'accounts', r.account_id) },
-          { label: 'Monto', cls: 'num', html: (r) => `<b style="color:${r.kind === 'ingreso' ? 'var(--good)' : 'var(--ink)'}">${r.kind === 'ingreso' ? '+' : '−'}${money(r.amount).replace('$', '$')}</b>` },
+          { label: 'Monto', cls: 'num', html: (r) => `<b style="color:${r.kind === 'ingreso' ? 'var(--good)' : 'var(--ink)'}">${r.kind === 'ingreso' ? '+' : '−'}${money(r.amount)}</b>${usdLine(r)}` },
           { label: '', html: (r) => (r.reconciled ? '<i class="ph-light ph-check-circle" title="Conciliado" style="color:var(--good)"></i>' : '') }] }).load();
     }
     if (view === 'facturas') return invoices(el);
@@ -73,7 +77,7 @@ Admin.tab('finanzas', (A) => {
         columns: [
           { label: 'Gasto', html: (r) => `<b style="font-weight:500;color:var(--hi)">${esc(r.name)}</b><br><span class="muted" style="font-size:12px">${esc(r.vendor || '')}</span>` },
           { label: 'Tipo', html: (r) => `<span class="tag">${esc(REC_CAT[r.category] || r.category)}</span>` },
-          { label: 'Valor', cls: 'num', html: (r) => `${money(r.amount)}<br><span class="muted" style="font-size:12px">${esc(r.cycle)}</span>` },
+          { label: 'Valor', cls: 'num', html: (r) => (r.currency === 'USD' ? `<b style="font-weight:500">${usd(r.amount_usd)}</b> <span class="muted" style="font-size:12px">${esc(r.cycle)}</span><br><span class="muted" style="font-size:12px">≈ ${money(r.amount)} hoy</span>` : `${money(r.amount)}<br><span class="muted" style="font-size:12px">${esc(r.cycle)}</span>`) },
           { label: 'Próximo cobro', html: (r) => day(r.next_date) },
           { label: 'Centro de costo', html: (r, R) => refName(R, 'cost_centers', r.cost_center_id) },
           { label: 'Estado', html: (r) => (r.active ? chip('ok', 'Activo') : chip('free', 'Pausado')) }] }).load();

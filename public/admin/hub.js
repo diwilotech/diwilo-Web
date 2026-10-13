@@ -63,8 +63,8 @@
           const opts = f.ref ? [['', f.empty || '—'], ...refLists[f.ref].map((r) => [r.id, r[LABEL[f.ref]] || `#${r.id}`])] : f.options;
           return `<select class="in" name="${f.k}" ${req}>${opts.map(([ov, ol]) => `<option value="${esc(ov)}" ${String(ov) === String(v) ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>`;
         }
-        const type = { date: 'date', month: 'month', money: 'number', int: 'number', email: 'email', url: 'url' }[f.type] || 'text';
-        return `<input class="in" type="${type}" name="${f.k}" value="${esc(v)}" ${f.type === 'money' ? 'min="0" step="1"' : ''} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''} ${req}>`;
+        const type = { date: 'date', month: 'month', money: 'number', usd: 'number', int: 'number', email: 'email', url: 'url' }[f.type] || 'text';
+        return `<input class="in" type="${type}" name="${f.k}" value="${esc(v)}" ${f.type === 'money' ? 'min="0" step="1"' : f.type === 'usd' ? 'min="0" step="0.01"' : ''} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''} ${req}>`;
       };
       d.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2>
         <div class="form hubform">${fields.map((f) => `<label class="f ${f.full || f.type === 'long' ? 'full' : ''}">${esc(f.label)}${f.hint ? ` <span class="muted" style="font-size:11px">${esc(f.hint)}</span>` : ''}${input(f)}</label>`).join('')}</div>
