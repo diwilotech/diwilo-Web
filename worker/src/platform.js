@@ -30,7 +30,7 @@ export const APPS = {
   residentes: { name: 'Residentes', binding: 'RESIDENTES', url: 'RESIDENTES_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional' },
   academia: { name: 'Academia', binding: 'ACADEMIA', url: 'ACADEMIA_URL', roles: ['owner', 'admin', 'staff'], slug: false },
 };
-import { hubPaymentRecorded } from './hubs.js';
+import { centralPayment } from './central.js';
 import { onBusinessCreated, businessPlans } from './modulos.js';
 
 const DEFAULT_TRIAL_DAYS = 15;
@@ -216,8 +216,8 @@ async function route(req, env, path, url, adminEmail) {
     await callApp(env, app, 'PATCH', `/businesses/${bid}`, { paid_until: after });
     const pay = await db.prepare(`INSERT INTO sub_payments (app, business_id, business_name, ts, months, amount, paid_until_before, paid_until_after, note, by_email)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(app, id, biz.name, Date.now(), months, amount, before, after, clip(b.note, 300), adminEmail).run();
-    // Finance Hub: el pago entra como ingreso de Diwilo en el centro de costo de la app
-    await hubPaymentRecorded(env, { id: pay.meta.last_row_id, app, amount, months, note: clip(b.note, 300), business_name: biz.name, date: today() });
+    // Finanzas (Diwilo Modulos): el pago entra como ingreso de Diwilo en el centro de costo de la app
+    await centralPayment(env, { id: pay.meta.last_row_id, app, amount, months, note: clip(b.note, 300), business_name: biz.name, date: today() });
     return json({ ok: true, paid_until: after }, 201);
   }
 

@@ -17,12 +17,11 @@
  *   /admin/api/modulos/*   catálogo de módulos de cada app, planes y excepciones por negocio (modulos.js)
  */
 import { checkBudget, recordUsage, usageApi, BudgetError, QUOTA_MSG } from './usage.js';
-import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
-import { hubsApi, hubLeadCreated, hubLeadStatus } from './hubs.js';
+import { hubProxy, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
 
@@ -163,7 +162,7 @@ async function createLead(req, env, ctx, b) {
     .bind(now(), 'lead', lead.page, clip(b.via, 40), clip(b.sid, 64), g.country, g.city, g.device).run();
   ctx.waitUntil(fireWebhook(env, 'lead', { id: r.meta.last_row_id, ...lead }));
   // Marketing Hub: el lead entra como contacto de Diwilo (y corre sus automatizaciones)
-  ctx.waitUntil(hubLeadCreated(env, { id: r.meta.last_row_id, ts: now(), ...lead }, callAI));
+  ctx.waitUntil(centralLeadCreated(env, { id: r.meta.last_row_id, ts: now(), ...lead }));
   return r.meta.last_row_id;
 }
 
@@ -400,49 +399,6 @@ async function trackLink(req, env, ctx, slug) {
   return new Response(null, { status: 302, headers: { location: target.toString(), 'cache-control': 'no-store' } });
 }
 
-const CARD_COLS = 'id, slug, name, role, company, bio, phone, whatsapp, email, website, instagram, linkedin, photo_url, accent, views, created_at, updated_at, photo_data IS NOT NULL AS has_photo, icon_512 IS NOT NULL AS has_icon';
-
-function dataUrlResponse(dataUrl, cache = 'public, max-age=31536000, immutable') {
-  const m = dataUrl?.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
-  if (!m) return new Response('No encontrado', { status: 404 });
-  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-  return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': cache } });
-}
-
-async function showCard(req, env, ctx, slug) {
-  // /c/sw.js → service worker de las tarjetas (funcionan sin conexión una vez abiertas)
-  if (slug === 'sw.js') return new Response(CARD_SW, { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
-
-  // /c/<slug>/foto · /c/<slug>/icon-192.png · /c/<slug>/icon-512.png · /c/<slug>/manifest.webmanifest
-  const sub = slug.match(/^([^/]+)\/(foto|icon-192\.png|icon-512\.png|manifest\.webmanifest)$/);
-  if (sub) {
-    const [, s, part] = sub;
-    if (part === 'foto') return dataUrlResponse((await env.DB.prepare('SELECT photo_data v FROM cards WHERE slug = ?').bind(s).first())?.v);
-    if (part !== 'manifest.webmanifest') {
-      const col = part === 'icon-192.png' ? 'icon_192' : 'icon_512';
-      const row = await env.DB.prepare(`SELECT ${col} v FROM cards WHERE slug = ?`).bind(s).first();
-      if (!row) return new Response('No encontrado', { status: 404 });
-      // sin ícono propio: el de Diwilo
-      return row.v ? dataUrlResponse(row.v, 'public, max-age=3600') : Response.redirect(new URL(`/assets/img/icon-${part === 'icon-192.png' ? '192' : '512'}.png`, req.url), 302);
-    }
-    const card = await env.DB.prepare(`SELECT ${CARD_COLS} FROM cards WHERE slug = ?`).bind(s).first();
-    if (!card) return new Response('No encontrado', { status: 404 });
-    return new Response(JSON.stringify(cardManifest(card)), { headers: { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'public, max-age=300' } });
-  }
-
-  const vcf = slug.endsWith('.vcf');
-  const card = await env.DB.prepare(`SELECT ${CARD_COLS} FROM cards WHERE slug = ?`).bind(vcf ? slug.slice(0, -4) : slug).first();
-  if (!card) return new Response('Tarjeta no encontrada', { status: 404 });
-  const origin = new URL(req.url).origin;
-  const v = card.updated_at || card.created_at;
-  if (card.has_photo) card.photo_url = `${origin}/c/${encodeURIComponent(card.slug)}/foto?v=${v}`;
-  if (vcf) {
-    return new Response(renderVcf(card), { headers: { 'content-type': 'text/vcard; charset=utf-8', 'content-disposition': `attachment; filename="${card.slug}.vcf"` } });
-  }
-  if (geo(req).device !== 'bot') ctx.waitUntil(env.DB.prepare('UPDATE cards SET views = views + 1 WHERE id = ?').bind(card.id).run());
-  return new Response(renderCard(card, origin), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
-}
-
 /* ================= ESTADÍSTICAS ================= */
 async function stats(env, days = 7) {
   const since = now() - days * DAY, today = now() - DAY, live = now() - 5 * 60000;
@@ -513,39 +469,6 @@ async function saveLink(env, b) {
   return { id: r.meta.last_row_id, slug };
 }
 
-const ACCENTS = ['violeta', 'azul', 'verde', 'ambar', 'rosa'];
-
-async function saveCard(env, b) {
-  const slug = slugify(b.slug || b.name);
-  if (!slug || !b.name) throw new Error('nombre requerido');
-  // photo_url solo se toca si viene en la petición (no se borra al guardar otros cambios)
-  const fields = ['name', 'role', 'company', 'bio', 'phone', 'whatsapp', 'email', 'website', 'instagram', 'linkedin', 'accent']
-    .concat(b.photo_url !== undefined || !b.id ? ['photo_url'] : []);
-  const vals = fields.map((f) => (f === 'accent' ? (ACCENTS.includes(b.accent) ? b.accent : 'violeta') : clip(b[f], f === 'bio' ? 600 : 300)));
-  // Foto: undefined = no cambia · '' o null = quitar · data URL = reemplazar
-  let photoSql = '', photoVal = [];
-  if (b.photo_data !== undefined) {
-    if (!b.photo_data) { photoSql = ', photo_data=NULL'; }
-    else if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(b.photo_data) && b.photo_data.length < 400000) { photoSql = ', photo_data=?'; photoVal = [b.photo_data]; }
-    else throw new Error('La foto no es válida o pesa demasiado');
-  }
-  // Íconos de la app instalable (PNG que genera el panel a partir de la foto y el color)
-  for (const k of ['icon_192', 'icon_512']) {
-    if (b[k] === undefined) continue;
-    if (b[k] && !(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(b[k]) && b[k].length < 900000)) throw new Error('Ícono inválido');
-    photoSql += `, ${k}=?`; photoVal.push(b[k] || null);
-  }
-  let id = b.id;
-  if (id) {
-    await env.DB.prepare(`UPDATE cards SET slug=?, ${fields.map((f) => f + '=?').join(', ')}, updated_at=?${photoSql} WHERE id=?`).bind(slug, ...vals, now(), ...photoVal, id).run();
-  } else {
-    const r = await env.DB.prepare(`INSERT INTO cards (slug, ${fields.join(', ')}, created_at, updated_at) VALUES (?, ${fields.map(() => '?').join(', ')}, ?, ?)`).bind(slug, ...vals, now(), now()).run();
-    id = r.meta.last_row_id;
-    if (photoSql) await env.DB.prepare(`UPDATE cards SET ${photoSql.slice(2)} WHERE id=?`).bind(...photoVal, id).run();
-  }
-  return { id, slug };
-}
-
 async function adminApi(req, env, path, url, ctx) {
   // Solo entra quien pasó por Cloudflare Access (y está en ADMIN_EMAILS, si se definió).
   const email = await adminEmail(req, env);
@@ -553,7 +476,9 @@ async function adminApi(req, env, path, url, ctx) {
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path === '/admin/api/modulos' || path.startsWith('/admin/api/modulos/')) return modulosApi(req, env, path, url, email);
-  if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
+  // Marketing y Finanzas: módulo central Diwilo Modulos (central.js)
+  if (path.startsWith('/admin/api/hub/')) return hubProxy(req, env, path, url, email, callAI);
+  if (path === '/admin/api/cards') return cardsApi(req, env, url, email);
   if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/usage') return usageApi(req, env);
@@ -587,12 +512,6 @@ async function adminApi(req, env, path, url, ctx) {
     return json({ byDay: byDay.results.map((r) => ({ date: new Date(r.d * DAY).toISOString().slice(0, 10), n: r.n })), byCountry: byCountry.results, byDevice: byDevice.results });
   }
 
-  if (path === '/admin/api/cards') {
-    if (M === 'GET') return json((await db.prepare(`SELECT id, slug, name, role, company, bio, phone, whatsapp, email, website, instagram, linkedin,
-      photo_url, accent, views, created_at, updated_at, photo_data IS NOT NULL AS has_photo FROM cards ORDER BY created_at DESC`).all()).results);
-    if (M === 'POST') return json(await saveCard(env, await readJson(req, 2000000)));
-    if (M === 'DELETE') { await db.prepare('DELETE FROM cards WHERE id=?').bind(id).run(); return json({ ok: true }); }
-  }
 
   if (path === '/admin/api/chats') {
     const chatId = url.searchParams.get('chat');
@@ -604,7 +523,7 @@ async function adminApi(req, env, path, url, ctx) {
 
   if (path === '/admin/api/leads') {
     if (M === 'GET') return json((await db.prepare('SELECT * FROM leads ORDER BY ts DESC LIMIT 500').all()).results);
-    if (M === 'POST') { const b = await readJson(req); await db.prepare('UPDATE leads SET status=? WHERE id=?').bind(clip(b.status, 30), b.id).run(); await hubLeadStatus(env, b.id, b.status); return json({ ok: true }); }
+    if (M === 'POST') { const b = await readJson(req); await db.prepare('UPDATE leads SET status=? WHERE id=?').bind(clip(b.status, 30), b.id).run(); await centralLeadStatus(env, b.id, b.status); return json({ ok: true }); }
     if (M === 'DELETE') { await db.prepare('DELETE FROM leads WHERE id=?').bind(id).run(); return json({ ok: true }); }
   }
 
@@ -669,7 +588,7 @@ export default {
         return res;
       }
       if (path.startsWith('/l/')) return trackLink(req, env, ctx, decodeURIComponent(path.slice(3)));
-      if (path.startsWith('/c/')) return showCard(req, env, ctx, decodeURIComponent(path.slice(3)));
+      if (path.startsWith('/c/')) return publicCard(req, env, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/v1/')) return externalApi(req, env, path, url);
       if (path.startsWith('/admin/api/')) return adminApi(req, env, path, url, ctx);
       // Lo demás lo sirve Pages como archivo estático

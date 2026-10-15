@@ -8,7 +8,8 @@
  *   POST /admin/api/assistant/run    { tool, args, org }  ejecuta una acción confirmada
  */
 import { APPS, listAppBusinesses } from './platform.js';
-import { hubSummary, hubCreate, hubUpdate, hubOrgs, ensureListTables, checkList, hubRecurringCharges } from './hubs.js';
+import { hubOrgs } from './hubs.js';
+import { ctool, centralSummary } from './central.js';
 import { readPage, readFeed, news, search, realUrl } from './web.js';
 import { createDraft, setPostCover } from './blog.js';
 import { generateCover } from './images.js';
@@ -17,16 +18,6 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), { status
 const today = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
 const all = async (env, sql, ...a) => (await env.DB.prepare(sql).bind(...a).all()).results;
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('es-CO');
-// Centro de costo o cuenta por id o por nombre; si no existe, dice cuáles hay
-async function finRef(env, org, kind, ref) {
-  if (ref === undefined || ref === null || ref === '') return undefined;
-  const [table, what] = kind === 'cc' ? ['fin_cost_centers', 'centro de costo'] : ['fin_accounts', 'cuenta'];
-  const row = /^\d+$/.test(String(ref)) ? await env.DB.prepare(`SELECT id FROM ${table} WHERE id = ? AND org_id = ?`).bind(Number(ref), org).first()
-    : await env.DB.prepare(`SELECT id FROM ${table} WHERE org_id = ? AND lower(name) LIKE ? ORDER BY length(name) LIMIT 1`).bind(org, `%${String(ref).toLowerCase().trim()}%`).first();
-  if (row) return row.id;
-  const names = (await all(env, `SELECT name FROM ${table} WHERE org_id = ? ORDER BY name`, org)).map((r) => r.name);
-  throw new Error(`No encontré el ${what} «${ref}». ${names.length ? `Los que hay: ${names.join(', ')}.` : `No hay ningún ${what} creado todavía.`}`);
-}
 const ccTxt = (a) => `${a.centro_costo ? `, centro de costo «${a.centro_costo}»` : ''}${a.cuenta ? `, se paga desde «${a.cuenta}»` : ''}`;
 
 // Secciones del panel a las que el asistente puede llevar (botón «Abrir»).
@@ -77,27 +68,19 @@ export const TOOLS = {
   },
   marketing_resumen: {
     desc: 'Resumen de marketing de una organización: leads, embudo, campañas (gasto, costo por lead, retorno), tareas.', args: '{ "org"?: id, "desde"?: "AAAA-MM-DD", "hasta"?: "AAAA-MM-DD" }',
-    async run(env, a, ctx) {
-      const s = await hubSummary(env, a.org || ctx.org, 'marketing', { from: a.desde, to: a.hasta });
-      return { ...s, campaigns: s.campaigns.map(({ id, name, channel, status, budget, spend, leads, clicks, cpl, roi, revenue }) => ({ id, name, channel, status, budget, spend, leads, clicks, cpl, roi, revenue })) };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   finanzas_resumen: {
     desc: 'Resumen financiero de una organización para un mes: ingresos, gastos, presupuesto vs real por centro de costo, cartera por cobrar y por pagar, recurrentes, flujo de caja.', args: '{ "org"?: id, "mes"?: "AAAA-MM" }',
-    async run(env, a, ctx) {
-      const s = await hubSummary(env, a.org || ctx.org, 'finanzas', { month: a.mes });
-      return { ...s, receivable: { ...s.receivable, items: s.receivable.items.slice(0, 5) }, payable: { ...s.payable, items: s.payable.items.slice(0, 5) } };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   tareas_pendientes: {
     desc: 'Tareas pendientes de marketing de una organización (las vencidas primero).', args: '{ "org"?: id }',
-    run: (env, a, ctx) => all(env, `SELECT t.id, t.title, t.due_date, t.assignee, c.name contacto FROM mk_tasks t LEFT JOIN mk_contacts c ON c.id = t.contact_id
-      WHERE t.org_id = ? AND t.done = 0 ORDER BY COALESCE(t.due_date, '9999') LIMIT 30`, a.org || ctx.org),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   buscar_contactos: {
     desc: 'Busca clientes y leads de una organización por nombre, correo, empresa o teléfono.', args: '{ "texto": texto, "org"?: id }',
-    run: (env, a, ctx) => { const q = `%${String(a.texto || '').slice(0, 80)}%`; return all(env, `SELECT id, name, email, phone, company, stage, source, last_contact_at FROM mk_contacts
-      WHERE org_id = ? AND (name LIKE ? OR email LIKE ? OR company LIKE ? OR phone LIKE ?) ORDER BY updated_at DESC LIMIT 15`, a.org || ctx.org, q, q, q, q); },
+    // run: módulo central (ver CENTRAL más abajo)
   },
 
   blog_resumen: {
@@ -146,10 +129,12 @@ export const TOOLS = {
         search(tema, 8).catch(() => ({ resultados: [] })),
         news(tema, 6).catch(() => ({ noticias: [] })),
         // Artículos de la competencia (de las listas de Marketing) que hablen del tema
-        env.DB.prepare("SELECT i.data FROM mk_list_items i JOIN mk_lists l ON l.id = i.list_id WHERE l.org_id = ? AND l.kind = 'competidores' AND i.data IS NOT NULL").bind(ctx.org || 'diwilo').all()
-          .then((r) => r.results.flatMap((x) => { try { return JSON.parse(x.data).ultimas || []; } catch { return []; } })
-            .filter((x) => words.some((w) => String(x.titulo || '').toLowerCase().includes(w))).slice(0, 2).map((x) => ({ titulo: x.titulo, url: x.url, competencia: true })))
-          .catch(() => []),
+        (async () => {
+          const org = ctx.org || 'diwilo', { listas } = await ctool(env, org, ctx.email, 'marketing.ver_listas', {});
+          const items = [];
+          for (const l of listas.filter((x) => x.tipo === 'competidores')) items.push(...(await ctool(env, org, ctx.email, 'marketing.leer_lista', { lista: String(l.id) })).elementos.flatMap((e) => e.ultimas || []));
+          return items.filter((x) => words.some((w) => String(x.titulo || '').toLowerCase().includes(w))).slice(0, 2).map((x) => ({ titulo: x.titulo, url: x.url, competencia: true }));
+        })().catch(() => []),
       ]);
       const cands = [...comp, ...web.resultados, ...await Promise.all(nws.noticias.slice(0, 3).map(async (n) => ({ titulo: n.titulo, url: await realUrl(n.url) })))];
       const seen = new Set(), pick = [];
@@ -178,52 +163,38 @@ No inventes nada que no esté en los textos. Cita con [n].`,
   },
   ver_listas: {
     desc: 'Listas de Marketing de una organización (competidores, fuentes, temas, tendencias, prospectos…) con cuántos elementos tiene cada una.', args: '{ "org"?: id }',
-    async run(env, a, ctx) {
-      await ensureListTables(env);
-      return all(env, `SELECT l.id, l.name nombre, l.kind tipo, l.description descripcion, COUNT(i.id) elementos FROM mk_lists l
-        LEFT JOIN mk_list_items i ON i.list_id = l.id AND i.status <> 'descartado' WHERE l.org_id = ? GROUP BY l.id ORDER BY l.name`, a.org || ctx.org);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   leer_lista: {
     desc: 'Elementos de una lista (por id o nombre): título, sitio, feed, notas y, si se revisó, sus últimas publicaciones.', args: '{ "lista": id o nombre, "org"?: id }',
-    async run(env, a, ctx) {
-      const l = await findList(env, a.lista, a.org || ctx.org);
-      const items = await all(env, "SELECT id, title, url, feed_url, notes, status, score, data, last_checked_at FROM mk_list_items WHERE list_id = ? AND status <> 'descartado' ORDER BY updated_at DESC LIMIT 60", l.id);
-      return { lista: l.name, tipo: l.kind, elementos: items.map((i) => ({ ...i, data: undefined, ultimas: i.data ? JSON.parse(i.data).ultimas : undefined })) };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   revisar_competidores: {
     desc: 'Revisa los sitios o blogs de una lista (por ejemplo «Competidores»): lee sus feeds y trae sus últimas publicaciones. Guarda lo encontrado en la lista.', args: '{ "lista": id o nombre, "org"?: id }',
-    async run(env, a, ctx) { const l = await findList(env, a.lista, a.org || ctx.org); return checkList(env, a.org || ctx.org, l.id); },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   ver_automatizaciones: {
     desc: 'Automatizaciones de marketing (reglas sin IA: cuando pasa X, crear tareas u oportunidades) con sus pasos.', args: '{ "org"?: id }',
-    run: (env, a, ctx) => all(env, 'SELECT id, name nombre, trigger cuando, action entonces, days, percent, task_title pasos, active activa, runs ejecuciones FROM mk_automations WHERE org_id = ? ORDER BY created_at DESC', a.org || ctx.org),
+    // run: módulo central (ver CENTRAL más abajo)
   },
 
   // ---- acciones (requieren confirmar) ----
   crear_lista: {
     write: true, desc: 'Crea una lista en Marketing (por ejemplo «Competidores», «Fuentes de tendencias», «Temas para el blog»).', args: '{ "nombre": texto, "tipo"?: "competidores"|"fuentes"|"temas"|"tendencias"|"prospectos"|"otra", "descripcion"?: texto, "org"?: id }',
     summary: (a) => `Crear la lista «${a.nombre}»${a.tipo ? ` (${a.tipo})` : ''} en Marketing`,
-    async run(env, a, ctx) { await ensureListTables(env); return hubCreate(env, a.org || ctx.org, 'lists', { name: a.nombre, kind: a.tipo || 'otra', description: a.descripcion }, ctx.callAI); },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   agregar_a_lista: {
     write: true, desc: 'Agrega un elemento a una lista (un competidor con su sitio, una fuente, un tema o una tendencia encontrada). No repite elementos con la misma dirección o título.',
     args: '{ "lista": id o nombre, "titulo": texto, "url"?: "https://…", "feed"?: "https://…", "notas"?: texto, "puntaje"?: número, "org"?: id }',
     summary: (a) => { let site = ''; try { site = a.url ? new URL(a.url).hostname.replace(/^www\./, '') : ''; } catch {} return `Agregar «${a.titulo}»${site ? ` (${site})` : ''} a la lista «${a.lista}»`; },
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org, l = await findList(env, a.lista, org);
-      const dup = await env.DB.prepare("SELECT id FROM mk_list_items WHERE list_id = ? AND (lower(title) = lower(?) OR (url IS NOT NULL AND url = ?))").bind(l.id, String(a.titulo || ''), a.url || '').first();
-      if (dup) return { ya_existia: dup.id, nota: 'Ese elemento ya estaba en la lista.' };
-      return hubCreate(env, org, 'list_items', { list_id: l.id, title: a.titulo, url: a.url, feed_url: a.feed, notes: a.notas, score: a.puntaje }, ctx.callAI);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_automatizacion: {
     write: true, desc: 'Crea una automatización de marketing (regla sin IA). Cuando: lead_nuevo, sin_contacto (N días), presupuesto_campana (X%), factura_vencida o semanal. Entonces: crear_tarea (con varios pasos), crear_oportunidad o informe_ia.',
     args: '{ "nombre": texto, "cuando": "lead_nuevo"|"sin_contacto"|"presupuesto_campana"|"factura_vencida"|"semanal", "entonces": "crear_tarea"|"crear_oportunidad"|"informe_ia", "pasos"?: [{ "t": "título con {nombre}", "d": días }], "dias"?: número, "porcentaje"?: número, "org"?: id }',
     summary: (a) => `Crear la automatización «${a.nombre}»: cuando ${a.cuando}${a.dias ? ` (${a.dias} días)` : ''}${a.porcentaje ? ` (${a.porcentaje}%)` : ''} → ${a.entonces}${Array.isArray(a.pasos) && a.pasos.length ? `: ${a.pasos.map((x) => `${x.t}${x.d ? ` (día ${x.d})` : ''}`).join(' → ')}` : ''}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'automations', { name: a.nombre, trigger: a.cuando, action: a.entonces, days: a.dias, percent: a.porcentaje,
-      task_title: Array.isArray(a.pasos) && a.pasos.length ? JSON.stringify(a.pasos.map((x) => ({ t: String(x.t || ''), d: Number(x.d) || 0 })).filter((x) => x.t)) : '', active: true }, ctx.callAI),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   blog_crear_borrador: {
     write: true, desc: 'Escribe un artículo completo y PROFUNDO para el blog con su imagen de portada y lo deja como BORRADOR (nunca se publica solo). Antes usa investigar_tema: sus notas y fuentes se le pasan solas al redactor.',
@@ -269,181 +240,107 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
   crear_tarea: {
     write: true, desc: 'Crea una tarea de marketing.', args: '{ "titulo": texto, "para"?: "AAAA-MM-DD", "contacto_id"?: número, "responsable"?: texto, "org"?: id }',
     summary: (a) => `Crear la tarea «${a.titulo}»${a.para ? ` para el ${a.para}` : ''}${a.responsable ? ` (responsable: ${a.responsable})` : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      // No duplicar: si ya hay una tarea pendiente con el mismo título, no se crea otra (útil para agentes diarios)
-      const dup = await env.DB.prepare('SELECT id FROM mk_tasks WHERE org_id = ? AND done = 0 AND lower(trim(title)) = lower(trim(?))').bind(org, String(a.titulo || '')).first();
-      if (dup) return { ya_existia: dup.id, nota: 'Ya había una tarea pendiente igual; no se creó otra.' };
-      return hubCreate(env, org, 'tasks', { title: a.titulo, due_date: a.para || today(), contact_id: a.contacto_id, assignee: a.responsable }, ctx.callAI);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   marcar_tarea_hecha: {
     write: true, desc: 'Marca una tarea como hecha.', args: '{ "id": número, "org"?: id }',
     summary: (a) => `Marcar como hecha la tarea #${a.id}`,
-    run: (env, a, ctx) => hubUpdate(env, a.org || ctx.org, 'tasks', Number(a.id), { done: true }),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_contacto: {
     write: true, desc: 'Agrega un cliente o lead a Marketing.', args: '{ "nombre": texto, "correo"?: texto, "telefono"?: texto, "empresa"?: texto, "etapa"?: "lead"|"cliente", "origen"?: texto, "notas"?: texto, "org"?: id }',
     summary: (a) => `Agregar ${a.etapa === 'cliente' ? 'el cliente' : 'el lead'} «${a.nombre}»${a.empresa ? ` (${a.empresa})` : ''}${a.correo ? ` · ${a.correo}` : ''}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'contacts', { name: a.nombre, email: a.correo, phone: a.telefono, company: a.empresa, stage: a.etapa || 'lead', source: a.origen, notes: a.notas }, ctx.callAI),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   cambiar_etapa_contacto: {
     write: true, desc: 'Cambia la etapa de un contacto (lead, cliente o perdido) y/o registra que se contactó hoy.', args: '{ "id": número, "etapa"?: "lead"|"cliente"|"perdido", "contactado_hoy"?: true, "org"?: id }',
     summary: (a) => `Contacto #${a.id}: ${[a.etapa && `pasar a «${a.etapa}»`, a.contactado_hoy && 'registrar contacto de hoy'].filter(Boolean).join(' y ')}`,
-    run: (env, a, ctx) => hubUpdate(env, a.org || ctx.org, 'contacts', Number(a.id), { ...(a.etapa ? { stage: a.etapa } : {}), ...(a.contactado_hoy ? { last_contact_at: today() } : {}) }),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_campana: {
     write: true, desc: 'Crea una campaña de marketing.', args: '{ "nombre": texto, "canal"?: "meta_ads"|"google_ads"|"whatsapp"|"correo"|"organico"|"otro", "presupuesto"?: número, "inicio"?: "AAAA-MM-DD", "fin"?: "AAAA-MM-DD", "org"?: id }',
     summary: (a) => `Crear la campaña «${a.nombre}»${a.canal ? ` en ${a.canal}` : ''}${a.presupuesto ? ` con presupuesto de ${money(a.presupuesto)}` : ''}`,
-    run: (env, a, ctx) => hubCreate(env, a.org || ctx.org, 'campaigns', { name: a.nombre, channel: a.canal, budget: a.presupuesto, start_date: a.inicio || today(), end_date: a.fin }, ctx.callAI),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   ver_centros_y_cuentas: {
     desc: 'Centros de costo (apps, clientes, proyectos) y cuentas (bancos, tarjetas, Nequi) de Finanzas, con su id y nombre. Úsalo antes de asignar un gasto a un centro de costo o una cuenta.', args: '{ "org"?: id }',
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      return {
-        centros_de_costo: await all(env, 'SELECT id, name nombre, kind tipo, code codigo, active activo FROM fin_cost_centers WHERE org_id = ? ORDER BY active DESC, name', org),
-        cuentas: await all(env, 'SELECT id, name nombre, kind tipo, bank banco FROM fin_accounts WHERE org_id = ? ORDER BY name', org),
-      };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   ver_gastos_recurrentes: {
     desc: 'Gastos recurrentes de Finanzas con id, valor (en pesos o dólares), ciclo, próximo cobro, centro de costo y cuenta. Úsalo antes de crear uno (para no duplicar) o para editarlo.', args: '{ "org"?: id }',
-    run: (env, a, ctx) => all(env, `SELECT r.id, r.name nombre, r.vendor proveedor, r.category tipo, r.currency moneda, r.amount_usd dolares, r.amount pesos, r.cycle ciclo, r.next_date proximo_cobro, r.active activo,
-      c.name centro_costo, ac.name cuenta FROM fin_recurring r LEFT JOIN fin_cost_centers c ON c.id = r.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = r.account_id WHERE r.org_id = ? ORDER BY r.active DESC, r.next_date`, a.org || ctx.org),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   buscar_movimientos: {
     desc: 'Busca ingresos y gastos ya registrados (por texto y/o mes) con su id, fecha, monto, centro de costo y cuenta. Úsalo antes de registrar uno (para no duplicar) o para editarlos.', args: '{ "texto"?: texto, "mes"?: "AAAA-MM", "sin_centro"?: true, "tipo"?: "ingreso"|"gasto", "org"?: id }',
-    run: (env, a, ctx) => all(env, `SELECT m.id, m.kind tipo, m.date fecha, m.amount pesos, m.currency moneda, m.amount_usd dolares, m.description descripcion, m.counterparty tercero, m.category categoria, c.name centro_costo, ac.name cuenta
-      FROM fin_movements m LEFT JOIN fin_cost_centers c ON c.id = m.cost_center_id LEFT JOIN fin_accounts ac ON ac.id = m.account_id
-      WHERE m.org_id = ? AND (? = '' OR lower(COALESCE(m.description, '') || ' ' || COALESCE(m.counterparty, '') || ' ' || COALESCE(m.category, '')) LIKE ?) AND (? = '' OR m.date LIKE ?)
-        AND (? = 0 OR m.cost_center_id IS NULL) AND (? = '' OR m.kind = ?) ORDER BY m.date DESC, m.id DESC LIMIT 50`,
-      a.org || ctx.org, a.texto || '', `%${String(a.texto || '').toLowerCase()}%`, a.mes || '', `${a.mes || ''}%`, a.sin_centro ? 1 : 0, a.tipo || '', a.tipo || ''),
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_centro_costo: {
     write: true, desc: 'Crea un centro de costo en Finanzas (a dónde se cargan gastos e ingresos): una app, un cliente, un proyecto o un área como «Infraestructura e IA» o «Marketing». No crea uno que ya exista con ese nombre.',
     args: '{ "nombre": texto, "tipo"?: "app"|"cliente"|"proyecto"|"departamento", "codigo"?: texto, "notas"?: texto, "org"?: id }',
     summary: (a) => `Crear el centro de costo «${a.nombre}»${a.tipo ? ` (${a.tipo})` : ''}${a.notas ? `: ${a.notas}` : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      const dup = await env.DB.prepare('SELECT id FROM fin_cost_centers WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
-      if (dup) return { ya_existia: dup.id, nota: `El centro de costo «${a.nombre}» ya existe (#${dup.id}).` };
-      const kind = ['app', 'cliente', 'proyecto', 'departamento'].includes(a.tipo) ? a.tipo : 'departamento';
-      return hubCreate(env, org, 'cost_centers', { name: a.nombre, kind, code: a.codigo, notes: a.notas }, ctx.callAI);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_cuenta: {
     write: true, desc: 'Crea una cuenta en Finanzas (de dónde sale o a dónde entra la plata): banco, tarjeta, efectivo o billetera (Nequi, Daviplata). No crea una que ya exista con ese nombre.',
     args: '{ "nombre": texto, "tipo"?: "banco"|"tarjeta"|"efectivo"|"billetera", "banco"?: texto, "ultimos4"?: "1234", "saldo_inicial"?: pesos, "org"?: id }',
     summary: (a) => `Crear la cuenta «${a.nombre}»${a.tipo ? ` (${a.tipo})` : ''}${a.ultimos4 ? ` terminada en ${a.ultimos4}` : ''}${a.saldo_inicial ? ` con saldo inicial de ${money(a.saldo_inicial)}` : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      const dup = await env.DB.prepare('SELECT id FROM fin_accounts WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
-      if (dup) return { ya_existia: dup.id, nota: `La cuenta «${a.nombre}» ya existe (#${dup.id}).` };
-      const kind = ['banco', 'tarjeta', 'efectivo', 'billetera'].includes(a.tipo) ? a.tipo : 'banco';
-      return hubCreate(env, org, 'accounts', { name: a.nombre, kind, bank: a.banco, last4: a.ultimos4 ? String(a.ultimos4).slice(-4) : undefined, opening_balance: a.saldo_inicial }, ctx.callAI);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   registrar_movimiento: {
     write: true, desc: 'Registra un ingreso o un gasto en Finanzas (no repite uno igual ya registrado). Si es en dólares, da "dolares": el sistema lo pasa a pesos con la TRM oficial de esa fecha y guarda el valor en USD. Centro de costo y cuenta por nombre o id (ver_centros_y_cuentas).',
     args: '{ "tipo": "ingreso"|"gasto", "monto"?: pesos, "dolares"?: número, "fecha"?: "AAAA-MM-DD", "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "org"?: id }',
     prepare(a) { if (!(Number(a.dolares) > 0 || Number(a.monto) > 0)) throw new Error('falta el valor del ingreso o gasto (mayor que cero). Si lo que se quiere es crear un centro de costo o una cuenta, usa crear_centro_costo o crear_cuenta.'); },
     summary: (a) => `Registrar un ${a.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${a.dolares ? `US$${a.dolares} (en pesos con la TRM de ese día)` : money(a.monto)}${a.descripcion ? ` («${a.descripcion}»)` : ''}${a.categoria ? ` en ${a.categoria}` : ''} con fecha ${a.fecha || today()}${ccTxt(a)}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org, date = a.fecha || today();
-      if (!(Number(a.dolares) > 0 || Number(a.monto) > 0)) throw new Error('Para registrar un ingreso o gasto necesito su valor (en pesos o en dólares). Para crear un centro de costo usa crear_centro_costo.');
-      const cost_center_id = await finRef(env, org, 'cc', a.centro_costo), account_id = await finRef(env, org, 'acc', a.cuenta);
-      const dup = await env.DB.prepare(`SELECT id FROM fin_movements WHERE org_id = ? AND kind = ? AND date = ? AND lower(COALESCE(description, '')) = lower(?) AND (${a.dolares ? 'amount_usd = ?' : 'amount = ?'})`)
-        .bind(org, a.tipo === 'ingreso' ? 'ingreso' : 'gasto', date, String(a.descripcion || ''), Number(a.dolares || a.monto) || 0).first();
-      if (dup) return { ya_existia: dup.id, nota: `Ya estaba registrado (movimiento #${dup.id}). Si querías cambiarle algo, usa editar_movimiento.` };
-      return hubCreate(env, org, 'movements', { kind: a.tipo, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), date, category: a.categoria, description: a.descripcion, counterparty: a.tercero, cost_center_id, account_id }, ctx.callAI);
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   editar_movimiento: {
     write: true, desc: 'Cambia uno o varios ingresos/gastos ya registrados (por id, ver buscar_movimientos): centro de costo, cuenta, categoría, descripción, tercero o fecha.',
     args: '{ "ids": [números], "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "categoria"?: texto, "descripcion"?: texto, "tercero"?: texto, "fecha"?: "AAAA-MM-DD", "org"?: id }',
     summary: (a) => `Editar ${[].concat(a.ids || a.id || []).length > 1 ? `los movimientos #${[].concat(a.ids).join(', #')}` : `el movimiento #${[].concat(a.ids || a.id || [])[0]}`}:${ccTxt(a).slice(1) || ''}${a.categoria ? ` categoría «${a.categoria}»` : ''}${a.descripcion ? ` descripción «${a.descripcion}»` : ''}${a.tercero ? ` tercero «${a.tercero}»` : ''}${a.fecha ? ` fecha ${a.fecha}` : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org, ids = [].concat(a.ids || a.id || []).map(Number).filter(Boolean);
-      if (!ids.length) throw new Error('Dime qué movimientos (sus id; búscalos con buscar_movimientos)');
-      const body = {};
-      if (a.centro_costo !== undefined) body.cost_center_id = await finRef(env, org, 'cc', a.centro_costo) ?? null;
-      if (a.cuenta !== undefined) body.account_id = await finRef(env, org, 'acc', a.cuenta) ?? null;
-      for (const [k, f] of [['categoria', 'category'], ['descripcion', 'description'], ['tercero', 'counterparty'], ['fecha', 'date']]) if (a[k] !== undefined) body[f] = a[k];
-      if (!Object.keys(body).length) throw new Error('No me dijiste qué cambiar');
-      for (const id of ids) await hubUpdate(env, org, 'movements', id, body);
-      return { editados: ids };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_cuenta_cobro: {
     write: true, desc: 'Crea una cuenta de cobro (factura emitida, por cobrar) con sus líneas; recibe consecutivo y queda lista para descargar en PDF en Finanzas → Facturas. Las líneas en dólares se pasan a pesos con la TRM oficial de la fecha.',
     args: '{ "cliente": texto, "nit"?: texto, "ciudad"?: texto, "correo"?: texto, "fecha"?: "AAAA-MM-DD", "vence"?: "AAAA-MM-DD", "concepto"?: "párrafo que explica el cobro", "lineas": [{ "concepto": texto, "cantidad"?: número, "valor"?: pesos, "dolares"?: número, "detalle"?: texto }], "centro_costo"?: nombre o id, "org"?: id }',
     summary: (a) => `Crear una cuenta de cobro para «${a.cliente}» con ${(a.lineas || []).length} línea(s): ${(a.lineas || []).map((l) => `${l.concepto} (${l.dolares ? `US$${l.dolares}` : money(l.valor)}${Number(l.cantidad) > 1 ? ` × ${l.cantidad}` : ''})`).join('; ')}${a.vence ? `, pagar antes del ${a.vence}` : ''}`,
     prepare(a) { if (!a.cliente || !Array.isArray(a.lineas) || !a.lineas.length || a.lineas.some((l) => !l.concepto || !(Number(l.valor) > 0 || Number(l.dolares) > 0))) throw new Error('necesito el cliente y al menos una línea con concepto y valor (en pesos o dólares).'); },
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org, date = a.fecha || today();
-      const items = (a.lineas || []).map((l) => ({ concepto: l.concepto, detalle: l.detalle, cantidad: l.cantidad || 1, moneda: l.dolares ? 'USD' : 'COP', valor: l.dolares || l.valor }));
-      const due = a.vence || new Date(Date.parse(date + 'T12:00:00Z') + 15 * 86400000).toISOString().slice(0, 10);
-      const r = await hubCreate(env, org, 'invoices', { kind: 'emitida', counterparty: a.cliente, tax_id: a.nit, client_city: a.ciudad, client_email: a.correo, issue_date: date, due_date: due, concept: a.concepto, items,
-        cost_center_id: await finRef(env, org, 'cc', a.centro_costo) }, ctx.callAI);
-      const inv = await env.DB.prepare('SELECT number, total FROM fin_invoices WHERE id = ?').bind(r.id).first();
-      return { id: r.id, numero: inv.number, total: inv.total, pdf: 'Finanzas → Facturas → botón PDF' };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   crear_gasto_recurrente: {
     write: true,
     desc: 'Agrega un gasto recurrente (infraestructura, software, API, IA…). No crea uno que ya exista con el mismo nombre (para cambiarlo usa editar_gasto_recurrente). Si se cobra en dólares (Claude, OpenAI, Cloudflare…), da "dolares" y cada cobro se pasa a pesos con la TRM oficial de su día. Si el usuario menciona cobros que YA se hicieron, ponlos en "cobros_hechos" (se registran como gastos, sin repetir) y en "proximo_cobro" la fecha del siguiente que aún no ha pasado. Centro de costo y cuenta por nombre o id.',
     args: '{ "nombre": texto, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro": "AAAA-MM-DD", "cobros_hechos"?: ["AAAA-MM-DD", …], "tipo"?: "infraestructura"|"software"|"api"|"ia"|"marketing"|"otro", "proveedor"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "org"?: id }',
     summary: (a) => `Agregar el gasto recurrente «${a.nombre}» de ${a.dolares ? `US$${a.dolares}` : money(a.monto)} ${a.ciclo || 'mensual'}, próximo cobro ${a.proximo_cobro}${ccTxt(a)}${Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? `, y registrar los cobros ya hechos del ${a.cobros_hechos.join(', ')}` : ''}${a.dolares ? ' (en pesos con la TRM de cada día)' : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      const cost_center_id = await finRef(env, org, 'cc', a.centro_costo), account_id = await finRef(env, org, 'acc', a.cuenta);
-      const dup = await env.DB.prepare('SELECT id FROM fin_recurring WHERE org_id = ? AND lower(trim(name)) = lower(trim(?))').bind(org, String(a.nombre || '')).first();
-      if (dup) {
-        const cobros = Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? await hubRecurringCharges(env, org, dup.id, a.cobros_hechos) : [];
-        return { ya_existia: dup.id, cobros_registrados: cobros, nota: `Ya existe el gasto recurrente «${a.nombre}» (#${dup.id}); no lo dupliqué.${cobros.some((c) => c.nuevo) ? ' Registré los cobros que faltaban.' : ''} Para cambiarlo usa editar_gasto_recurrente.` };
-      }
-      const r = await hubCreate(env, org, 'recurring', { name: a.nombre, ...(a.dolares ? { currency: 'USD', amount_usd: a.dolares } : { amount: a.monto }), cycle: a.ciclo, next_date: a.proximo_cobro, category: a.tipo, vendor: a.proveedor, cost_center_id, account_id }, ctx.callAI);
-      const cobros = Array.isArray(a.cobros_hechos) && a.cobros_hechos.length ? await hubRecurringCharges(env, org, r.id, a.cobros_hechos) : [];
-      return { ...r, cobros_registrados: cobros };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
   editar_gasto_recurrente: {
     write: true, desc: 'Cambia un gasto recurrente que ya existe (por id o nombre): centro de costo, cuenta, valor (pesos o dólares), ciclo, próximo cobro, proveedor o si está activo. El centro de costo y la cuenta se ponen también en los gastos que ya generó en Ingresos y gastos (salvo "aplicar_a_cobros": false).',
     args: '{ "id"?: número, "nombre"?: texto, "centro_costo"?: nombre o id, "cuenta"?: nombre o id, "monto"?: pesos, "dolares"?: número, "ciclo"?: "mensual"|"anual", "proximo_cobro"?: "AAAA-MM-DD", "proveedor"?: texto, "activo"?: true|false, "aplicar_a_cobros"?: true|false, "org"?: id }',
     summary: (a) => `Editar el gasto recurrente ${a.nombre ? `«${a.nombre}»` : `#${a.id}`}:${ccTxt(a).slice(1) || ''}${a.dolares ? ` valor US$${a.dolares}` : a.monto ? ` valor ${money(a.monto)}` : ''}${a.ciclo ? ` ${a.ciclo}` : ''}${a.proximo_cobro ? ` próximo cobro ${a.proximo_cobro}` : ''}${a.activo === false ? ' (pausarlo)' : a.activo === true ? ' (activarlo)' : ''}${(a.centro_costo !== undefined || a.cuenta !== undefined) && a.aplicar_a_cobros !== false ? ', también en sus cobros ya registrados' : ''}`,
-    async run(env, a, ctx) {
-      const org = a.org || ctx.org;
-      const r = a.id ? await env.DB.prepare('SELECT id FROM fin_recurring WHERE id = ? AND org_id = ?').bind(Number(a.id), org).first()
-        : await env.DB.prepare('SELECT id FROM fin_recurring WHERE org_id = ? AND lower(name) LIKE ? ORDER BY active DESC, length(name) LIMIT 1').bind(org, `%${String(a.nombre || '').toLowerCase()}%`).first();
-      if (!r) throw new Error('No encontré ese gasto recurrente (mira ver_gastos_recurrentes)');
-      const body = {};
-      if (a.centro_costo !== undefined) body.cost_center_id = await finRef(env, org, 'cc', a.centro_costo) ?? null;
-      if (a.cuenta !== undefined) body.account_id = await finRef(env, org, 'acc', a.cuenta) ?? null;
-      if (a.dolares) Object.assign(body, { currency: 'USD', amount_usd: a.dolares }); else if (a.monto) Object.assign(body, { currency: 'COP', amount: a.monto });
-      for (const [k, f] of [['ciclo', 'cycle'], ['proximo_cobro', 'next_date'], ['proveedor', 'vendor']]) if (a[k] !== undefined) body[f] = a[k];
-      if (a.activo !== undefined) body.active = !!a.activo;
-      if (!Object.keys(body).length) throw new Error('No me dijiste qué cambiar');
-      await hubUpdate(env, org, 'recurring', r.id, body);
-      let cobros = 0;
-      if (a.aplicar_a_cobros !== false && ('cost_center_id' in body || 'account_id' in body)) {
-        const sets = Object.entries({ cost_center_id: body.cost_center_id, account_id: body.account_id }).filter(([k]) => k in body);
-        const name = (await env.DB.prepare('SELECT name FROM fin_recurring WHERE id = ?').bind(r.id).first()).name;
-        cobros = (await env.DB.prepare(`UPDATE fin_movements SET ${sets.map(([k]) => `${k} = ?`).join(', ')}, updated_at = ? WHERE org_id = ? AND kind = 'gasto' AND (recurring_id = ? OR lower(trim(description)) = lower(trim(?)))`)
-          .bind(...sets.map(([, v]) => v), Date.now(), org, r.id, name).run()).meta.changes;
-      }
-      return { id: r.id, editado: true, cobros_actualizados: cobros };
-    },
+    // run: módulo central (ver CENTRAL más abajo)
   },
 };
 
-async function findList(env, ref, org) {
-  await ensureListTables(env);
-  const l = /^\d+$/.test(String(ref)) ? await env.DB.prepare('SELECT * FROM mk_lists WHERE id = ? AND org_id = ?').bind(Number(ref), org).first()
-    : await env.DB.prepare('SELECT * FROM mk_lists WHERE org_id = ? AND lower(name) LIKE ? ORDER BY length(name) LIMIT 1').bind(org, `%${String(ref || '').toLowerCase()}%`).first();
-  if (!l) throw new Error(`No encontré la lista «${ref}». Usa ver_listas o crea la lista primero.`);
-  return l;
-}
+// Marketing y Finanzas viven en Diwilo Modulos: estas herramientas usan las del módulo central (las mismas que tienen las apps,
+// con los mismos argumentos y reglas). Aquí quedan la descripción, la confirmación y el resumen para el panel.
+const CENTRAL = {
+  tareas_pendientes: 'marketing.tareas_pendientes', buscar_contactos: 'marketing.buscar_contactos', ver_listas: 'marketing.ver_listas', leer_lista: 'marketing.leer_lista',
+  revisar_competidores: 'marketing.revisar_lista', ver_automatizaciones: 'marketing.ver_automatizaciones', crear_lista: 'marketing.crear_lista', agregar_a_lista: 'marketing.agregar_a_lista',
+  crear_automatizacion: 'marketing.crear_automatizacion', crear_tarea: 'marketing.crear_tarea', marcar_tarea_hecha: 'marketing.marcar_tarea_hecha', crear_contacto: 'marketing.crear_contacto',
+  cambiar_etapa_contacto: 'marketing.cambiar_etapa_contacto', crear_campana: 'marketing.crear_campana',
+  ver_centros_y_cuentas: 'finanzas.ver_centros_y_cuentas', ver_gastos_recurrentes: 'finanzas.ver_gastos_recurrentes', buscar_movimientos: 'finanzas.buscar_movimientos',
+  crear_centro_costo: 'finanzas.crear_centro_costo', crear_cuenta: 'finanzas.crear_cuenta', registrar_movimiento: 'finanzas.registrar_movimiento', editar_movimiento: 'finanzas.editar_movimiento',
+  crear_cuenta_cobro: 'finanzas.crear_cuenta_cobro', crear_gasto_recurrente: 'finanzas.crear_gasto_recurrente', editar_gasto_recurrente: 'finanzas.editar_gasto_recurrente',
+};
+for (const [k, name] of Object.entries(CENTRAL)) TOOLS[k].run = (env, a, ctx) => ctool(env, a.org || ctx.org, ctx.email, name, a);
+TOOLS.marketing_resumen.run = async (env, a, ctx) => {
+  const s = await centralSummary(env, a.org || ctx.org, ctx.email, 'marketing', { from: a.desde, to: a.hasta });
+  return { ...s, campaigns: (s.campaigns || []).map(({ id, name, channel, status, budget, spend, leads, clicks, cpl, roi, revenue }) => ({ id, name, channel, status, budget, spend, leads, clicks, cpl, roi, revenue })) };
+};
+TOOLS.finanzas_resumen.run = async (env, a, ctx) => {
+  const s = await centralSummary(env, a.org || ctx.org, ctx.email, 'finanzas', { month: a.mes });
+  return { ...s, receivable: { ...s.receivable, items: (s.receivable?.items || []).slice(0, 5) }, payable: { ...s.payable, items: (s.payable?.items || []).slice(0, 5) } };
+};
 
 function systemPrompt(ctx) {
   const tools = toolsText().replace(/\[ACCIÓN\]/g, '[ACCIÓN: el administrador debe confirmar]');
@@ -603,7 +500,7 @@ export { parseReply, SECTIONS };
 export async function assistantApi(req, env, path, adminEmail, callAI, execCtx) {
   const b = await req.json().catch(() => ({}));
   const ai = (e, s, h, o = {}) => callAI(e, s, h, { source: 'ia-diwilo', ...o });
-  const ctx = { source: 'ia-diwilo', tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI: ai, rawAI: callAI };
+  const ctx = { source: 'ia-diwilo', email: adminEmail, tab: String(b.context?.tab || ''), org: /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/.test(b.context?.org || '') ? b.context.org : 'diwilo', callAI: ai, rawAI: callAI };
 
   // Ejecutar una acción que el administrador confirmó
   if (path === '/admin/api/assistant/run') {

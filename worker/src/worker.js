@@ -10,10 +10,9 @@
 import app from './index.js';
 import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
-import { validatePage } from './billing.js';
+import { publicValidate } from './central.js';
 import { purgeArchived } from './platform.js';
 import { runModulosDaily } from './modulos.js';
-import { runHubsDaily } from './hubs.js';
 import { runAgentsDaily } from './agents.js';
 import { callAI } from './index.js';
 
@@ -33,7 +32,7 @@ export default {
     const path = new URL(req.url).pathname.replace(/\/+$/, '') || '/';
     if (path === '/blog' || path === '/blog.md' || path.startsWith('/blog/')) return blogPublic(req, env, ctx);
     // Validación pública de cuentas de cobro (QR del documento)
-    if (path.startsWith('/validar/')) return validatePage(req, env);
+    if (path.startsWith('/validar/')) return publicValidate(req, env);
     if (PAGES[path]) return negotiate({ request: req, env, next: () => env.ASSETS.fetch(req) }, PAGES[path]);
     if (path === '/mcp' || DYNAMIC.some((p) => (path + '/').startsWith(p))) return app.fetch(req, env, ctx);
     return env.ASSETS.fetch(req);
@@ -44,8 +43,7 @@ export default {
     ctx.waitUntil(purgeArchived(env));
     // Módulos: reenvía a los negocios cuya lista cambió (fechas que empiezan o terminan, envíos que fallaron, módulos nuevos)
     ctx.waitUntil(runModulosDaily(env));
-    // Hubs: gastos recurrentes que vencen y automatizaciones de marketing
-    ctx.waitUntil(runHubsDaily(env, callAI));
+    // Gastos recurrentes y automatizaciones de Marketing y Finanzas: los corre Diwilo Modulos (su propio cron).
     // Agentes de IA programados (diarios; los semanales los lunes)
     ctx.waitUntil(runAgentsDaily(env, callAI));
   },
