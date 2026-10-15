@@ -38,7 +38,9 @@
     { "binding": "NUTRICION", "service": "cdnutricion", "entrypoint": "Platform" },
     { "binding": "CITAS", "service": "cdcitas", "entrypoint": "Platform" },
     { "binding": "RESIDENTES", "service": "cdresidentes", "entrypoint": "Platform" },
-    { "binding": "ACADEMIA", "service": "cdacademia", "entrypoint": "Platform" }
+    { "binding": "ACADEMIA", "service": "cdacademia", "entrypoint": "Platform" },
+    // Diwilo Modulos (Worker central de Finanzas, Marketing… de las apps): al borrar un negocio se borran también sus datos.
+    { "binding": "MODULOS", "service": "diwilo-modulos", "entrypoint": "Modulos" }
   ],
   "vars": {
     "ALLOWED_ORIGINS": "https://diwilo.com,https://www.diwilo.com",

@@ -12,6 +12,7 @@ import { negotiate } from './markdown.js';
 import { blogPublic } from './blog.js';
 import { validatePage } from './billing.js';
 import { purgeArchived } from './platform.js';
+import { runModulosDaily } from './modulos.js';
 import { runHubsDaily } from './hubs.js';
 import { runAgentsDaily } from './agents.js';
 import { callAI } from './index.js';
@@ -41,6 +42,8 @@ export default {
   // Cron diario (wrangler.jsonc → triggers): las apps borran por lotes los negocios archivados hace más de 20 días.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(purgeArchived(env));
+    // Módulos: reenvía a los negocios cuya lista cambió (fechas que empiezan o terminan, envíos que fallaron, módulos nuevos)
+    ctx.waitUntil(runModulosDaily(env));
     // Hubs: gastos recurrentes que vencen y automatizaciones de marketing
     ctx.waitUntil(runHubsDaily(env, callAI));
     // Agentes de IA programados (diarios; los semanales los lunes)

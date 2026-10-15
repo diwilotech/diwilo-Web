@@ -56,7 +56,7 @@ de IA y entrenar (`ai-train=yes`). Para impedir el entrenamiento cambia a `ai-tr
 ## Panel de plataforma (Negocios)
 
 Diwilo Web es el **único** lugar donde se crean negocios, se invita a sus dueños y se cobran las
-suscripciones de las apps **Pedidos** (`cdpedidos`), **Nutrición** (`cdnutricion`) y **Citas** (`cdcitas`).
+suscripciones de las apps **Pedidos**, **Nutrición**, **Citas**, **Residentes** y **Academia**.
 
 - Cada app expone el mismo contrato `/api/platform/*` solo por RPC: `export class Platform` con `call(method, path, body, origin)`.
   Diwilo la llama por un service binding con `"entrypoint": "Platform"`. No hay clave compartida y desde internet esas rutas dan 401.
@@ -70,6 +70,27 @@ suscripciones de las apps **Pedidos** (`cdpedidos`), **Nutrición** (`cdnutricio
 - Los links usan `PEDIDOS_URL`, `NUTRICION_URL` y `CITAS_URL` de `wrangler.jsonc`: deben ser los dominios públicos reales.
 
 Las apps ya no usan Cloudflare Access: entran con correo + contraseña.
+
+## Módulos de las apps (/admin → Módulos)
+
+Diwilo decide qué módulos tiene cada negocio de cada app (`worker/src/modulos.js`, pantalla `public/admin/tabs/modulos.*`).
+
+- **Catálogo automático:** se lee de cada app por RPC (`GET /api/platform/modules`): sus módulos propios (`modulos.app.json`)
+  y los instalados del catálogo Diwilo (Finanzas, Marketing…) con su versión y dependencias. No se registra nada a mano.
+  Retirar un módulo solo deja de ofrecerlo; quien ya lo tiene en su plan lo conserva.
+- **Planes por app** con precio mensual: módulos escogidos o «todos» (los nuevos entran solos). El plan «Completo»
+  (todos, por defecto) se crea solo la primera vez. Al editar un plan se reenvía a todos sus negocios.
+- **Negocio = plan + excepciones** (agregar o quitar un módulo, con fechas opcionales y motivo obligatorio). Antes de guardar
+  se revisan las dependencias (p. ej. Cuotas necesita Matrículas) y al quitar se muestra cuántos registros tiene (no se borran).
+- **Sincronización con huella:** cada envío (`PUT /api/platform/businesses/:id/modules { modules, version }`) lleva la huella
+  de la lista; la app la guarda. El cron diario y el botón «Sincronizar» comparan las huellas de todos los negocios
+  (`GET /api/platform/modules/sync`) y reenvían solo a los desactualizados (fechas que empiezan o terminan, envíos que fallaron).
+- **Negocios:** al crear uno se elige el plan y se le envían sus módulos; la lista muestra el plan y el pago sugiere su precio.
+- **Bitácora** (`mod_log`): quién cambió qué, cuándo y por qué. Tablas `mod_*` (se crean solas; también en `worker/modulos.sql`).
+- Las apps de antes de la plantilla (Pedidos, Nutrición, Citas, Residentes) aparecen como «App sin módulos»: tienen todo activo
+  hasta que se migren.
+- Los módulos horizontales (Finanzas, Marketing…) de las apps viven en el Worker central **Diwilo Modulos** (`diwilo-modulos`,
+  repo aparte). Diwilo lo tiene enlazado (`MODULOS`) para borrar los datos de los negocios que una app borra por lotes.
 
 ## Cloudflare Access (solo este panel)
 

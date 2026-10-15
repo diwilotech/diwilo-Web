@@ -13,12 +13,14 @@
  *   GET  /v1/leads  /v1/events  /v1/chats  /v1/stats   POST /v1/links
  * Panel (protegido con Cloudflare Access, ver access.js):
  *   /admin/api/*           API del panel (public/admin.html)
- *   /admin/api/platform/*  negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas (platform.js)
+ *   /admin/api/platform/*  negocios, usuarios y suscripciones de las apps (platform.js)
+ *   /admin/api/modulos/*   catálogo de módulos de cada app, planes y excepciones por negocio (modulos.js)
  */
 import { checkBudget, recordUsage, usageApi, BudgetError, QUOTA_MSG } from './usage.js';
 import { renderCard, renderVcf, cardManifest, CARD_SW } from './card.js';
 import { adminEmail } from './access.js';
 import { platformApi } from './platform.js';
+import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
 import { hubsApi, hubLeadCreated, hubLeadStatus } from './hubs.js';
 import { assistantApi } from './assistant.js';
@@ -550,6 +552,7 @@ async function adminApi(req, env, path, url, ctx) {
   if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
   if (path === '/admin/api/me') return json({ email });
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
+  if (path === '/admin/api/modulos' || path.startsWith('/admin/api/modulos/')) return modulosApi(req, env, path, url, email);
   if (path.startsWith('/admin/api/hub/')) return hubsApi(req, env, path, url, email, callAI);
   if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI, ctx);

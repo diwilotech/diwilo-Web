@@ -200,7 +200,7 @@ Admin.tab('negocios', (A) => {
           ${b.users.length > 2 ? `<span class="muted" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
           <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="ph-light ph-caret-down"></i></button></div></td>
         <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="muted">No se bloquea</span>'}</td>
-        <td><span class="st ${st[i].k}">${st[i].t}</span></td>
+        <td><span class="st ${st[i].k}">${st[i].t}</span>${b.plan?.nombre ? `<div class="muted" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
         <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
         <td style="white-space:nowrap">${owner ? `${owner.status === 'active' ? `<button class="btn sm pri" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button> ` : ''}${linkBtn(owner, 'data-olink')}` : '<span class="muted">—</span>'}</td></tr>
         ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td colspan="7"><div class="xbox">
@@ -213,15 +213,16 @@ Admin.tab('negocios', (A) => {
 
   async function renderDetail() {
     const b = biz.find((x) => x.id === bizSel); if (!b) return;
-    const app = appCfg(), s = subState(b), price = plat.prices[bizApp] || 0;
+    const app = appCfg(), s = subState(b), price = b.plan?.precio ?? plat.prices[bizApp] ?? 0;
     const el = $('#bizDetail'); el.hidden = false;
     el.innerHTML = `<div class="row" style="justify-content:space-between">
         <h2>${esc(b.name)} <span class="muted" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="row">${b.users.some((u) => u.role === 'owner' && u.status === 'active') ? `<button class="btn sm pri" data-sso="${esc(b.id)}"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
+        <div class="row">${b.users.some((u) => u.role === 'owner' && u.status === 'active') ? `<button class="btn sm pri" data-sso="${esc(b.id)}"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn sm" data-mods><i class="ph-light ph-squares-four"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
       <div class="bizgrid">
         <div class="sub">
           <h3>Suscripción</h3>
           <div class="row"><span class="st ${s.k}">${s.t}</span><span class="muted">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
+          ${b.plan?.nombre ? `<p class="muted" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
           <form class="form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
             <label class="f">Meses<input class="in" type="number" name="months" min="1" max="24" value="1" required></label>
             <label class="f">Monto (COP)<input class="in" type="number" name="amount" min="0" step="1000" value="${price}"></label>
@@ -278,7 +279,18 @@ Admin.tab('negocios', (A) => {
     $$('#appSeg .btn').forEach((x) => x.classList.toggle('on', x === b));
     loadBiz();
   });
-  $('#bizNewBtn').addEventListener('click', () => { const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trial_days; f.elements.name.focus(); });
+  $('#bizNewBtn').addEventListener('click', async () => {
+    const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trial_days; f.elements.name.focus();
+    // Plan de módulos (si la app ya maneja módulos)
+    const box = $('#bizPlan'); box.hidden = true;
+    try {
+      const d = await api(`modulos/${bizApp}`);
+      if (d.soporta && d.planes.length) {
+        f.elements.plan_id.innerHTML = d.planes.map((p) => `<option value="${p.id}" ${p.por_defecto ? 'selected' : ''}>${esc(p.nombre)} · ${fmtCOP(p.precio)}/mes</option>`).join('');
+        box.hidden = false;
+      }
+    } catch {}
+  });
   $('[data-cancel]', $('#bizNew')).addEventListener('click', () => { $('#bizNew').hidden = true; });
   $('#bizNew').addEventListener('submit', async (e) => {
     e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
@@ -314,6 +326,7 @@ Admin.tab('negocios', (A) => {
     try { await issueLink(b, u, '#inviteBox'); } catch (x) { toast(x.message); } finally { btn.disabled = false; }
   }, true);
   $('#bizDetail').addEventListener('click', async (e) => {
+    if (e.target.closest('[data-mods]')) { try { sessionStorage.setItem('dwl_mod_open', JSON.stringify({ app: bizApp, id: bizSel })); } catch {} A.go('modulos'); return; }
     if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
     const b = biz.find((x) => x.id === bizSel);
     if (e.target.closest('[data-loginlink]')) { const el = $('#userInvite'); el.innerHTML = inviteHtml(loginUrl(b), b.name, 'ingreso'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }

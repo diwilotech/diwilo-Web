@@ -10,7 +10,7 @@
  *   GET    /admin/api/platform                                   apps + precios + días de prueba
  *   POST   /admin/api/platform/config                            { trial_days, price_<app> }
  *   GET    /admin/api/platform/:app/businesses
- *   POST   /admin/api/platform/:app/businesses                   { name, slug?, owner_email, owner_name?, trial_days? }
+ *   POST   /admin/api/platform/:app/businesses                   { name, slug?, owner_email, owner_name?, trial_days?, plan_id? }  (módulos: modulos.js)
  *   PATCH  /admin/api/platform/:app/businesses/:id               { name?, slug?, paid_until? }  slug = dirección (la vieja redirige)
  *   GET    /admin/api/platform/:app/businesses/:id/payments
  *   POST   /admin/api/platform/:app/businesses/:id/payments      { months, amount, note? }
@@ -31,6 +31,7 @@ export const APPS = {
   academia: { name: 'Academia', binding: 'ACADEMIA', url: 'ACADEMIA_URL', roles: ['owner', 'admin', 'staff'], slug: false },
 };
 import { hubPaymentRecorded } from './hubs.js';
+import { onBusinessCreated, businessPlans } from './modulos.js';
 
 const DEFAULT_TRIAL_DAYS = 15;
 export const ARCHIVE_DAYS = 20; // días que un negocio archivado se puede restaurar antes de borrarse
@@ -38,7 +39,7 @@ export const ARCHIVE_DAYS = 20; // días que un negocio archivado se puede resta
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
 
-class AppError extends Error {
+export class AppError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
 
@@ -58,7 +59,7 @@ function addMonths(iso, n) {
   return first.toISOString().slice(0, 10);
 }
 
-async function callApp(env, app, method, path, body) {
+export async function callApp(env, app, method, path, body) {
   const cfg = APPS[app];
   const svc = env[cfg.binding];
   if (!svc) throw new AppError(503, `${cfg.name} no está conectada (falta el service binding ${cfg.binding})`);
@@ -130,9 +131,10 @@ async function route(req, env, path, url, adminEmail) {
 
   if (!id && M === 'GET') {
     const archived = url.searchParams.get('archived') === '1';
-    const [{ businesses }, pays] = await Promise.all([
+    const [{ businesses }, pays, plans] = await Promise.all([
       callApp(env, app, 'GET', archived ? '/businesses?archived=1' : '/businesses'),
       db.prepare(`SELECT business_id, MAX(ts) last_ts, SUM(amount) total FROM sub_payments WHERE app = ? GROUP BY business_id`).bind(app).all(),
+      businessPlans(env, app),
     ]);
     const byId = Object.fromEntries(pays.results.map((p) => [p.business_id, p]));
     const monthStart = new Date(today().slice(0, 8) + '01T05:00:00Z').getTime();
@@ -144,6 +146,7 @@ async function route(req, env, path, url, adminEmail) {
         ...b,
         last_payment: byId[b.id]?.last_ts || null,
         total_paid: byId[b.id]?.total || 0,
+        plan: plans[b.id] || null, // plan de módulos y su precio (sugiere el valor del pago)
         users: b.users.map((u) => ({ ...u, invite_url: inviteUrl(env, app, u.invite_path) })),
       })),
     });
@@ -157,6 +160,8 @@ async function route(req, env, path, url, adminEmail) {
       owner_email: clip(b.owner_email, 254), owner_name: clip(b.owner_name, 100) || undefined,
       paid_until: addDays(today(), Math.max(0, trial || 0)),
     });
+    // Módulos: el plan elegido (o el por defecto) y el envío de sus módulos a la app
+    if (r.id) await onBusinessCreated(env, app, r.id, clip(b.name, 120), b.plan_id, adminEmail);
     return json({ ...r, invite_url: inviteUrl(env, app, r.invite_path) }, 201);
   }
 
@@ -259,8 +264,11 @@ export async function purgeArchived(env) {
   const out = {};
   for (const [key, cfg] of Object.entries(APPS)) {
     if (!env[cfg.binding]) continue;
-    try { out[key] = await callApp(env, key, 'POST', '/purge', { days: ARCHIVE_DAYS }); }
-    catch (e) { out[key] = { error: e.message }; }
+    try {
+      out[key] = await callApp(env, key, 'POST', '/purge', { days: ARCHIVE_DAYS });
+      // Sus datos de Finanzas, Marketing… viven en Diwilo Modulos: se borran también
+      if (out[key].purged?.length && env.MODULOS) out[key].modulos = await env.MODULOS.purge(key, out[key].purged).catch((e) => ({ error: e.message }));
+    } catch (e) { out[key] = { error: e.message }; }
   }
   const purged = Object.values(out).reduce((n, r) => n + (r.purged?.length || 0), 0);
   if (purged) await audit(env, 'cron', `borró ${purged} negocio(s) archivados`);
