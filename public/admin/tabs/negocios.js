@@ -202,7 +202,7 @@ Admin.tab('negocios', (A) => {
         <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="muted">No se bloquea</span>'}</td>
         <td><span class="st ${st[i].k}">${st[i].t}</span>${b.plan?.nombre ? `<div class="muted" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
         <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
-        <td style="white-space:nowrap">${owner ? `${owner.status === 'active' ? `<button class="btn sm pri" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button> ` : ''}${linkBtn(owner, 'data-olink')}` : '<span class="muted">—</span>'}</td></tr>
+        <td style="white-space:nowrap">${owner ? `<button class="btn sm pri" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="muted">—</span>'}</td></tr>
         ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td colspan="7"><div class="xbox">
           <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="muted" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
           <div class="sub" style="margin-top:8px">${lockHtml(b)}</div></div></td></tr>` : ''}`;
@@ -283,7 +283,7 @@ Admin.tab('negocios', (A) => {
     const el = $('#bizDetail'); el.hidden = false;
     el.innerHTML = `<div class="row" style="justify-content:space-between">
         <h2>${esc(b.name)} <span class="muted" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="row">${b.users.some((u) => u.role === 'owner' && u.status === 'active') ? `<button class="btn sm pri" data-sso="${esc(b.id)}"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn sm" data-mods><i class="ph-light ph-squares-four"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
+        <div class="row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn sm pri" data-sso="${esc(b.id)}"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn sm" data-mods><i class="ph-light ph-squares-four"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
       <div class="bizgrid">
         <div class="sub">
           <h3>Suscripción</h3>
