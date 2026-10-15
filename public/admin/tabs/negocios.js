@@ -1,6 +1,6 @@
 // Panel Diwilo · pestaña «negocios». La carga admin/core.js la primera vez que se abre.
 Admin.tab('negocios', (A) => {
-  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask } = A;
+  const { $, $$, esc, ORIGIN, fmtN, fmtDate, ago, flag, toast, api, qrSvg, copy, formData, barChart, rank, setBadge, ask, sure } = A;
 
   /* ---------- NEGOCIOS (las apps de Diwilo) ---------- */
   const ROLE = { owner: 'Dueño', admin: 'Administrador', staff: 'Personal' };
@@ -211,6 +211,72 @@ Admin.tab('negocios', (A) => {
     if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
   }
 
+  /* ---------- Módulos del negocio (plan + excepciones; la API está en worker/src/modulos.js) ---------- */
+  const ORIGEN = { plan: ['ok', 'Del plan'], agregado: ['soon', 'Agregado'], quitado: ['bad', 'Quitado'], fuera: ['free', 'No incluido'] };
+  const MST = { ok: ['ok', 'Sincronizado'], pendiente: ['soon', 'Pendiente'], error: ['bad', 'Error al enviar'], sin_soporte: ['free', 'App sin módulos'] };
+  async function loadMods(b) {
+    const box = $('#bizMods'); if (!box) return;
+    const app = bizApp, id = b.id;
+    let d, planes = [];
+    try {
+      [d, planes] = await Promise.all([api(`modulos/${app}/negocios/${encodeURIComponent(id)}`), api(`modulos/${app}`).then((x) => x.planes)]);
+    } catch (e) {
+      // El negocio aún no está en módulos (app sin módulos o sin sincronizar)
+      box.innerHTML = `<h3>Módulos</h3><p class="muted" style="margin:0 0 10px;font-size:13px">${esc(e.message)}</p><button class="btn sm" data-modsync><i class="ph-light ph-arrows-clockwise"></i>Sincronizar ${esc(appCfg().name)}</button>`;
+      $('[data-modsync]', box).onclick = async (ev) => {
+        ev.target.disabled = true;
+        try { const r = await api(`modulos/${app}/sincronizar`, { method: 'POST' }); toast(r.soporta === false ? 'Esta app aún no tiene módulos: tiene todo activo' : `${r.revisados} negocios revisados`); } catch (x) { toast(x.message); }
+        if (bizSel === id) loadMods(b);
+      };
+      return;
+    }
+    if (bizSel !== id || bizApp !== app) return;
+    const [sc, st] = MST[d.negocio.estado] || ['free', d.negocio.estado];
+    const on = d.modulos.filter((m) => m.activo).length;
+    box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Módulos <span class="muted" style="font-size:12px;font-weight:400">· ${on} de ${d.modulos.length} activos</span></h3>
+        <span class="st ${sc}">${st}</span></div>
+      ${d.negocio.error ? `<p class="err" style="font-size:12px;margin:6px 0 0">${esc(d.negocio.error)}</p>` : ''}
+      <form class="row" data-mplan style="gap:8px;margin:12px 0">
+        <label class="f" style="min-width:240px;flex:1">Plan<select class="in" name="plan_id">${planes.map((p) => `<option value="${p.id}" ${p.id === d.plan_id ? 'selected' : ''}>${esc(p.nombre)} · ${fmtCOP(p.precio)}/mes${p.todos ? ' · todos los módulos' : ''}</option>`).join('')}</select></label>
+        <button class="btn pri sm" style="align-self:flex-end">Cambiar plan</button></form>
+      <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${d.modulos.map((m) => {
+        const [c, t] = ORIGEN[m.origen];
+        return `<div class="card" style="padding:12px;display:grid;gap:6px;${m.activo ? '' : 'opacity:.75'}">
+          <div class="row" style="justify-content:space-between;gap:6px"><b style="font-weight:500;color:var(--hi)">${esc(m.nombre)}</b><span class="st ${c}">${t}</span></div>
+          <span class="muted" style="font-size:12px">${m.tipo === 'compartido' ? 'Diwilo Modulos' : 'Propio de la app'}${m.registros != null ? ` · ${fmtN(m.registros)} registros` : ''}${m.hasta ? ` · hasta ${esc(m.hasta)}` : ''}</span>
+          <div>${m.activo ? `<button class="btn sm danger" data-mq="${esc(m.modulo)}">Quitar</button>` : `<button class="btn sm" data-ma="${esc(m.modulo)}">Agregar</button>`}</div></div>`;
+      }).join('')}</div>
+      ${d.excepciones.length ? `<h3 style="margin:14px 0 6px">Excepciones al plan</h3>${d.excepciones.map((e) => `<div class="urow"><span class="e"><span class="st ${e.modo === 'agregar' ? 'soon' : 'bad'}">${e.modo === 'agregar' ? 'Agregado' : 'Quitado'}</span>
+        <b style="font-weight:500">${esc(d.modulos.find((m) => m.modulo === e.modulo)?.nombre || e.modulo)}</b>${e.desde || e.hasta ? ` · ${esc(e.desde || '…')} → ${esc(e.hasta || '…')}` : ''}<br><span style="font-size:12px">${esc(e.nota || '')} · ${esc(e.por || '')}</span></span>
+        <button class="btn sm" data-mundo="${e.id}" title="Volver a lo del plan"><i class="ph-light ph-arrow-counter-clockwise"></i></button></div>`).join('')}` : ''}
+      <p class="muted" style="font-size:12px;margin:10px 0 0">Quitar un módulo no borra sus datos: si se vuelve a activar, todo sigue ahí. Todo cambio queda en la bitácora de Módulos.</p>`;
+    const reload = async (r, msg) => { toast(r?.estado === 'error' ? `Guardado, pero la app no respondió: ${r.error}` : msg); loadBiz(); };
+    $('[data-mplan]', box).onsubmit = async (e) => {
+      e.preventDefault();
+      const p = planes.find((x) => x.id === +e.target.plan_id.value);
+      if (!p || p.id === d.plan_id) return;
+      const pierde = d.modulos.filter((m) => m.activo && m.origen !== 'agregado' && !(p.todos || p.modulos.includes(m.modulo)));
+      if (!(await sure(`¿Pasar a «${b.name}» al plan «${p.nombre}» (${fmtCOP(p.precio)}/mes)?${pierde.length ? `\n\nDejará de ver: ${pierde.map((m) => m.nombre + (m.registros ? ` (${fmtN(m.registros)} registros, no se borran)` : '')).join(', ')}.` : ''}`, 'Cambiar plan', !!pierde.length))) return;
+      try { await reload(await api(`modulos/${app}/negocios/${encodeURIComponent(id)}`, { method: 'PUT', body: { plan_id: p.id } }), 'Plan cambiado'); } catch (x) { toast(x.message); }
+    };
+    box.addEventListener('click', async (e) => {
+      const q = e.target.closest('[data-mq]'), a = e.target.closest('[data-ma]'), u = e.target.closest('[data-mundo]');
+      if (u) {
+        if (!(await sure('¿Quitar esta excepción? El negocio vuelve a tener lo de su plan.', 'Quitar excepción', false))) return;
+        try { await reload(await api(`modulos/${app}/negocios/${encodeURIComponent(id)}/excepciones/${u.dataset.mundo}`, { method: 'DELETE' }), 'Vuelve a lo del plan'); } catch (x) { toast(x.message); }
+        return;
+      }
+      if (!q && !a) return;
+      const m = d.modulos.find((x) => x.modulo === (q ? q.dataset.mq : a.dataset.ma)), modo = q ? 'quitar' : 'agregar';
+      const nota = await ask({ title: `${q ? 'Quitar' : 'Agregar'} «${m.nombre}»`, input: true, ok: q ? 'Quitar' : 'Agregar', danger: !!q, placeholder: q ? 'Motivo: pidió bajar de plan, no lo usa…' : 'Motivo: prueba de 30 días, cortesía…',
+        text: `${q && m.registros ? `Tiene ${fmtN(m.registros)} registros en este módulo: no se borran.\n` : ''}Escribe el motivo (queda en la bitácora). Para ponerle fechas usa Módulos → Negocios.` });
+      if (nota === null) return;
+      if (!nota) { toast('Escribe el motivo'); return; }
+      try { await reload(await api(`modulos/${app}/negocios/${encodeURIComponent(id)}/excepciones`, { method: 'POST', body: { modulo: m.modulo, modo, nota } }), q ? 'Módulo quitado' : 'Módulo agregado'); } catch (x) { toast(x.message); }
+    });
+  }
+
   async function renderDetail() {
     const b = biz.find((x) => x.id === bizSel); if (!b) return;
     const app = appCfg(), s = subState(b), price = b.plan?.precio ?? plat.prices[bizApp] ?? 0;
@@ -256,8 +322,10 @@ Admin.tab('negocios', (A) => {
           <p class="muted" style="margin:0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
           <button class="btn sm danger" type="button" data-archive="${esc(b.id)}"><i class="ph-light ph-trash"></i>Eliminar negocio</button>
         </div>
-      </div>`;
+      </div>
+      <div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="muted" style="margin:0">Cargando…</p></div>`;
     wireLock(el);
+    loadMods(b);
     const pay = $('#payForm', el);
     pay.elements.months.addEventListener('input', () => { pay.elements.amount.value = price * (parseInt(pay.elements.months.value, 10) || 0); });
     try {
