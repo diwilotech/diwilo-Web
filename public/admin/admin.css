@@ -445,3 +445,6 @@ dialog.ask.signdlg{width:min(560px,94vw)}
 .signdrop{display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px;border:1.5px dashed var(--line);border-radius:12px;cursor:pointer;color:var(--ink3);text-align:center}.signdrop i{font-size:28px;color:var(--lilac)}.signdrop:hover{background:var(--on)}
 .signpad{width:100%;aspect-ratio:1200/420;background:#fff;border-radius:12px;touch-action:none;cursor:crosshair;display:block}
 .signprev{margin-top:6px;min-height:90px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:10px}.signprev img{max-height:110px;max-width:100%}.signprev .muted{color:#8a87a3}
+
+/* Páginas de los módulos centrales (Finanzas y Marketing) dentro del panel */
+.modframe{display:block;width:100%;height:calc(100dvh - 130px);min-height:480px;border:0;border-radius:var(--r,10px);background:var(--panel)}

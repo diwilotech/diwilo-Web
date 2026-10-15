@@ -22,6 +22,7 @@ import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
 import { hubProxy, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
+import { embedPage, embedApi } from './embed.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
 
@@ -564,6 +565,12 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
+      // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing)(\/|$)/.test(path)) {
+        const email = await adminEmail(req, env);
+        if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
+        return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email);
+      }
       if (path.startsWith('/api/')) {
         if (req.method === 'OPTIONS') return cors(env, req, new Response(null, { status: 204 }));
         if (path === '/api/health') {

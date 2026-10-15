@@ -9,6 +9,7 @@ diwilo.com + panel `/admin`. Worker en `worker/src/`, frontend en `public/`. Rep
 - `worker/src/index.js` rutas; `worker.js` entrada (cron, `/validar`).
 - `worker/src/modulos.js` gestión de módulos de las apps (catálogo, planes, sincronización por hash, bitácora). UI: `public/admin/tabs/modulos.*` y sección `#bizMods` en `negocios.js`.
 - `worker/src/central.js` puente a Diwilo Modulos (binding `MODULOS`): Marketing/Finanzas del propio Diwilo (`diwilo:diwilo`), tarjetas `/c/<slug>` y `/admin/api/cards`, leads y pagos → central. Org `<key>:<id>` de una app → app central `cd<key>`.
+- `worker/src/embed.js` + `public/admin/embed/` (diwilo.css, app.js, crud.js copiados de las apps): las pestañas Finanzas y Marketing del panel muestran en un iframe `/admin/m/<modulo>?org=…` la MISMA página que ven las apps (viene de Diwilo Modulos `/m/*`); su API `/api/finanzas|marketing/*` usa la cookie `dwl_org` y exige Cloudflare Access. Tarjetas, Leads y Links ya son vistas de Marketing. Si cambia `diwilo.css/app.js/crud.js` en las apps, copiarlos aquí.
 - `assistant.js` herramientas IA (usa `ctool`/`centralSummary`).
 - `hubs.js` solo para `hubOrgs`; `billing.js` y `card.js` ya no se usan. Las tablas viejas del hub quedan como respaldo.
 

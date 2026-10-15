@@ -1,0 +1,4 @@
+/* Páginas de los módulos centrales dentro del panel (iframe de /admin/m/<modulo>): sin barras del shell. */
+body.dw-embed .dw-main, body.dw-embed .dw-main { margin: 0; max-width: none; padding: 20px 24px 40px; }
+body.dw-embed .dw-readonly { top: 0; }
+@media (max-width: 575px) { body.dw-embed .dw-main { padding: 14px 12px 28px; } }

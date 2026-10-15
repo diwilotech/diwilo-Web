@@ -141,7 +141,7 @@ async function importLeads(env, email, afterId = 0) {
   for (const l of results) if ((await cjson(env, 'diwilo', email, 'POST', '/api/marketing/contacts/externo', { body: leadBody(l) })).nuevo) n++;
   return { imported: n, total: results.length };
 }
-async function syncLeads(env, email) {
+export async function syncLeads(env, email) {
   const last = Number((await env.DB.prepare("SELECT value FROM settings WHERE key = 'central_leads_last'").first())?.value || 0);
   const max = (await env.DB.prepare('SELECT MAX(id) n FROM leads').first())?.n || 0;
   if (max <= last) return;
