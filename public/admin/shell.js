@@ -8,8 +8,7 @@
   // Módulos del panel en el orden del menú. `mod` = permiso que lo habilita (ver adminModule en worker/src/index.js).
   const MENU = [
     { id: 'resumen', nombre: 'En vivo', icono: 'bi-activity', mod: 'resumen' },
-    { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: 'negocios', badge: 'bizBadge' },
-    { id: 'modulos', nombre: 'Módulos', icono: 'bi-grid-1x2', mod: 'modulos' },
+    { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: ['negocios', 'modulos'], badge: 'bizBadge' },
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
     { id: 'finanzas', nombre: 'Finanzas', icono: 'bi-pie-chart', mod: 'finanzas' },
     { id: 'blog', nombre: 'Blog', icono: 'bi-journal-text', mod: 'blog' },
@@ -33,7 +32,7 @@
 
   function render(me, go) {
     const allowed = new Set(me.modules);
-    items = MENU.filter((m) => me.owner || allowed.has(m.mod));
+    items = MENU.filter((m) => me.owner || [].concat(m.mod).some((x) => allowed.has(x)));
     const foot = FOOT.filter((m) => !m.owner || me.owner);
     const all = [...items, ...foot];
     const bottom = all.slice(0, 4);

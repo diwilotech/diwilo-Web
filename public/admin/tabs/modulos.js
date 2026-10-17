@@ -6,7 +6,7 @@ Admin.tab('modulos', (A) => {
   const ST = { ok: ['ok', 'Sincronizado'], pendiente: ['soon', 'Pendiente'], error: ['bad', 'Error'], sin_soporte: ['free', 'App sin módulos'] };
   const ORIGEN = { plan: ['ok', 'Del plan'], agregado: ['soon', 'Agregado'], quitado: ['bad', 'Quitado'], fuera: ['free', 'No incluido'] };
   const VIEWS = [['negocios', 'Negocios', 'bi-buildings'], ['planes', 'Planes', 'bi-layers'], ['catalogo', 'Catálogo', 'bi-grid-1x2'], ['bitacora', 'Bitácora', 'bi-clock-history']];
-  let apps = [], app = null, data = null, view = 'negocios', openBiz = null;
+  let apps = [], app = null, data = null, view = 'planes', openBiz = null;
   const st = (k) => { const [c, t] = ST[k] || ['free', k || '—']; return `<span class="st ${c}">${esc(t)}</span>`; };
 
   async function loadApps() {
@@ -204,5 +204,13 @@ Admin.tab('modulos', (A) => {
     try { const r = await api(`modulos/${app}/sincronizar`, { method: 'POST' }); toast(r.soporta === false ? 'Esta app aún no tiene módulos' : `${r.revisados} negocios revisados · ${r.enviados} actualizados${r.errores ? ` · ${r.errores} con error` : ''}`); await loadApps(); }
     catch (x) { $('#modErr').textContent = x.message; } finally { b.disabled = false; }
   });
-  return { show: loadApps };
+  // Dentro de Negocios (A.mount): Negocios elige la app y la vista (planes, catálogo o bitácora).
+  async function setView(k, v) {
+    if (!apps.length) await loadApps();
+    if (k && apps.some((a) => a.key === k)) app = k;
+    if (v) view = v;
+    $('#modApps').innerHTML = apps.map((a) => `<button class="btn btn-sm ${a.key === app ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+    await load();
+  }
+  return { show: loadApps, setView };
 });

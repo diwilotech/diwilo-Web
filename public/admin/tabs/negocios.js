@@ -156,13 +156,11 @@ Admin.tab('negocios', (A) => {
   async function loadPlatform() {
     plat = await api('platform');
     $('#appSeg').innerHTML = plat.apps.map((a) => `<button class="btn btn-sm ${a.key === bizApp ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
-    $('#priceFields').innerHTML = plat.apps.map((a) => `<label class="dw-field">Precio mensual ${esc(a.name)} (COP)<input class="form-control" type="number" min="0" step="1000" name="price_${a.key}" value="${plat.prices[a.key] || 0}"></label>`).join('')
-      + `<label class="dw-field">Días de prueba<input class="form-control" type="number" min="0" max="365" name="trial_days" value="${plat.trial_days}"></label>`;
   }
 
   async function loadBiz() {
     $('#bizErr').textContent = '';
-    $('#bizBody').innerHTML = '<tr><td colspan="7" class="dw-empty">Cargando…</td></tr>';
+    $('#bizBody').innerHTML = '<tr><td data-label="" colspan="6" class="dw-empty">Cargando…</td></tr>';
     const app = appCfg();
     $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
     $('#bizSlug').hidden = !app.slug;
@@ -194,19 +192,18 @@ Admin.tab('negocios', (A) => {
       const open = bizOpen.has(b.id);
       const shown = b.users.slice(0, 2);
       return `<tr data-biz="${esc(b.id)}" class="${b.id === bizSel ? 'sel' : ''}" style="cursor:pointer">
-        <td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}</td>
-        <td>${owner ? esc(owner.email) : '<span class="text-body-secondary">—</span>'}</td>
-        <td><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
+        <td data-label="Negocio" class="dw-td-main"><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}</td>
+        <td data-label="Dueño">${owner ? esc(owner.email) : '<span class="text-body-secondary">—</span>'}</td>
+        <td data-label="Usuarios y permisos"><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
           ${b.users.length > 2 ? `<span class="text-body-secondary" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
           <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="bi bi-chevron-down"></i></button></div></td>
-        <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="text-body-secondary">No se bloquea</span>'}</td>
-        <td><span class="st ${st[i].k}">${st[i].t}</span>${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
-        <td class="text-body-secondary">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
-        <td style="white-space:nowrap">${owner ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="text-body-secondary">—</span>'}</td></tr>
-        ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td colspan="7"><div class="xbox">
+        <td data-label="Estado"><span class="st ${st[i].k}">${st[i].t}</span><span class="estado-fecha">${b.paid_until ? `${st[i].k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span>${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
+        <td data-label="Último pago" class="text-body-secondary">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
+        <td data-label="" style="white-space:nowrap">${owner ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="text-body-secondary">—</span>'}</td></tr>
+        ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td data-label="" colspan="6"><div class="xbox">
           <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="text-body-secondary" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
           <div class="sub" style="margin-top:8px">${lockHtml(b)}</div></div></td></tr>` : ''}`;
-    }).join('') : `<tr><td colspan="7" class="dw-empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
+    }).join('') : `<tr><td data-label="" colspan="6" class="dw-empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
     wireLock($('#bizBody'));
     if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
   }
@@ -283,7 +280,7 @@ Admin.tab('negocios', (A) => {
     const el = $('#bizDetail'); el.hidden = false;
     el.innerHTML = `<div class="dw-row" style="justify-content:space-between">
         <h2>${esc(b.name)} <span class="text-body-secondary" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="dw-row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink><i class="bi bi-box-arrow-in-right"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="bi bi-box-arrow-up-right"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn btn-sm btn-outline-secondary" data-mods><i class="bi bi-grid-1x2"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
+        <div class="dw-row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink><i class="bi bi-box-arrow-in-right"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="bi bi-box-arrow-up-right"></i>Ver reservas</a>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
       <div class="bizgrid">
         <div class="sub">
           <h3>Suscripción</h3>
@@ -345,10 +342,10 @@ Admin.tab('negocios', (A) => {
     bizApp = b.dataset.app; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
     if (showArchived) $('#bizArchived').innerHTML = '<p class="text-body-secondary" style="margin:0">Cargando…</p>';
     $$('#appSeg .btn').forEach((x) => x.classList.toggle('active', x === b));
-    loadBiz();
+    if (negView !== 'negocios') modsView(); else loadBiz();
   });
   $('#bizNewBtn').addEventListener('click', async () => {
-    const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trial_days; f.elements.name.focus();
+    const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trials?.[bizApp] ?? plat.trial_days; f.elements.name.focus();
     // Plan de módulos (si la app ya maneja módulos)
     const box = $('#bizPlan'); box.hidden = true;
     try {
@@ -394,7 +391,6 @@ Admin.tab('negocios', (A) => {
     try { await issueLink(b, u, '#inviteBox'); } catch (x) { toast(x.message); } finally { btn.disabled = false; }
   }, true);
   $('#bizDetail').addEventListener('click', async (e) => {
-    if (e.target.closest('[data-mods]')) { try { sessionStorage.setItem('dwl_mod_open', JSON.stringify({ app: bizApp, id: bizSel })); } catch {} A.go('modulos'); return; }
     if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
     const b = biz.find((x) => x.id === bizSel);
     if (e.target.closest('[data-loginlink]')) { const el = $('#userInvite'); el.innerHTML = inviteHtml(loginUrl(b), b.name, 'ingreso'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
@@ -452,11 +448,6 @@ Admin.tab('negocios', (A) => {
       } catch (x) { toast(x.message); } finally { lk.disabled = false; }
       return;
     }
-  });
-  $('#priceForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const r = await api('platform/config', { method: 'POST', body: formData(e.target) });
-    plat.prices = r.prices; plat.trial_days = r.trial_days; toast('Precios guardados');
   });
   // Pasar la propiedad a alguien del equipo.
   document.addEventListener('click', async (e) => {
@@ -548,5 +539,99 @@ Admin.tab('negocios', (A) => {
     catch (x) { toast(x.message); btn.disabled = false; }
   });
 
-  return { show: load };
+  /* ---------- vistas: Negocios | Planes | Catálogo | Bitácora (los módulos viven aquí) ---------- */
+  const NEG_VIEWS = [['negocios', 'Negocios', 'bi-buildings'], ['planes', 'Planes', 'bi-layers'], ['catalogo', 'Módulos', 'bi-grid-1x2'], ['bitacora', 'Bitácora', 'bi-clock-history']];
+  let negView = 'negocios';
+  const canNeg = () => A.me?.owner || A.me?.modules.includes('negocios');
+  const canMods = () => A.me?.owner || A.me?.modules.includes('modulos');
+  function drawSeg() {
+    $('#negSeg').innerHTML = NEG_VIEWS.filter(([k]) => (k === 'negocios' ? canNeg() : canMods()))
+      .map(([k, l, i]) => `<button class="btn btn-sm ${k === negView ? 'active' : ''} btn-outline-secondary" data-nv="${k}"><i class="bi ${i}"></i>${l}</button>`).join('');
+    $('#negSeg').hidden = !(canNeg() && canMods());
+  }
+  async function modsView() {
+    const m = await A.mount('modulos', $('#modHost'));
+    await m.tab.setView(bizApp, negView);
+  }
+  async function setNegView(v) {
+    negView = v; drawSeg();
+    const isNeg = v === 'negocios';
+    $('#bizView').hidden = !isNeg; $('#modHost').hidden = isNeg;
+    ['bizNewBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg; });
+    if (isNeg) { A.unmount('modulos'); return loadBiz(); }
+    $('#bizArchived').hidden = true;
+    try { await modsView(); } catch (e) { if (e.message !== 'sesión') toast(e.message); }
+  }
+  $('#negSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-nv]'); if (b) setNegView(b.dataset.nv); });
+
+  /* ---------- Precios y pruebas: resumen general (por app, por plan y por negocio) en un modal ---------- */
+  const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  async function openPricing() {
+    const d = document.createElement('dialog'); d.className = 'ask pricedlg';
+    d.innerHTML = '<form method="dialog"><h2>Precios y pruebas</h2><p class="text-body-secondary">Cargando…</p></form>';
+    document.body.appendChild(d); d.showModal();
+    d.addEventListener('cancel', (e) => { e.preventDefault(); d.close(); d.remove(); });
+    const apps = plat.apps;
+    const data = await Promise.all(apps.map(async (a) => {
+      if (!a.connected) return { a, planes: [], biz: [], today: '' };
+      const [mods, bz] = await Promise.all([api(`modulos/${a.key}`).catch(() => null), api(`platform/${a.key}/businesses`).catch(() => null)]);
+      return { a, planes: mods?.planes || [], biz: bz?.businesses || [], today: bz?.today || '' };
+    }));
+    const rows = [];
+    for (const { a, biz: list, today } of data) for (const b of list) {
+      const price = b.plan?.precio ?? plat.prices[a.key] ?? 0;
+      const k = !b.paid_until ? 'free' : (b.read_only || b.paid_until < today) ? 'bad' : daysBetween(today, b.paid_until) <= 7 ? 'soon' : 'ok';
+      rows.push({ app: a.name, negocio: b.name, plan: b.plan?.nombre || 'Precio de la app', precio: price, k, hasta: b.paid_until || '', pagos: b.total_paid || 0 });
+    }
+    const ESTADO = { ok: 'Al día', soon: 'Por vencer', bad: 'Solo lectura', free: 'Sin límite' };
+    const mrr = rows.filter((r) => r.k === 'ok' || r.k === 'soon').reduce((n, r) => n + r.precio, 0);
+    d.innerHTML = `<form method="dialog">
+      <div class="dw-row" style="justify-content:space-between"><h2 style="margin:0">Precios y pruebas</h2><button class="btn-close" type="button" data-no aria-label="Cerrar"></button></div>
+      <p class="text-body-secondary" style="margin:6px 0 0">Cada app tiene su precio base y sus días de prueba; cada negocio puede tener un plan con otro precio (se elige en su ficha). El precio se sugiere al registrar un pago y los días de prueba aplican a los negocios nuevos de esa app.</p>
+      <div class="dw-grid" style="--min:150px;margin:14px 0">${[['Apps', fmtN(apps.length)], ['Negocios', fmtN(rows.length)], ['Mensual estimado', fmtCOP(mrr)], ['Total cobrado', fmtCOP(rows.reduce((n, r) => n + r.pagos, 0))]]
+        .map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('')}</div>
+      <h3>Por app <span class="text-body-secondary fw-normal" style="font-size:12px">· editable</span></h3>
+      <div class="table-responsive"><table class="table dw-table align-middle"><thead><tr><th>App</th><th style="width:190px">Precio mensual (COP)</th><th style="width:150px">Días de prueba</th><th>Planes</th><th class="text-end">Negocios</th></tr></thead><tbody>
+        ${data.map(({ a, planes, biz: list }) => `<tr><td data-label="App" class="dw-td-main"><b>${esc(a.name)}</b>${a.connected ? '' : ' <span class="badge text-bg-secondary fw-normal">sin conectar</span>'}</td>
+          <td data-label="Precio mensual"><input class="form-control form-control-sm" type="number" min="0" step="1000" name="price_${a.key}" value="${plat.prices[a.key] || 0}"></td>
+          <td data-label="Días de prueba"><input class="form-control form-control-sm" type="number" min="0" max="365" name="trial_${a.key}" value="${plat.trials?.[a.key] ?? plat.trial_days}"></td>
+          <td data-label="Planes">${planes.length ? planes.map((p) => `<span class="badge text-bg-secondary fw-normal" title="${p.todos ? 'Todos los módulos' : fmtN(p.modulos.length) + ' módulos'}">${esc(p.nombre)} · ${fmtCOP(p.precio)}</span>`).join(' ') : '<span class="text-body-secondary">Sin planes</span>'}</td>
+          <td data-label="Negocios" class="text-end">${fmtN(list.length)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <h3>Por negocio</h3>
+      <div class="table-responsive"><table class="table dw-table align-middle"><thead><tr><th>App</th><th>Negocio</th><th>Plan</th><th class="text-end">Precio / mes</th><th>Estado</th></tr></thead><tbody>
+        ${rows.length ? rows.map((r) => `<tr><td data-label="App">${esc(r.app)}</td><td data-label="Negocio" class="dw-td-main"><b>${esc(r.negocio)}</b></td><td data-label="Plan">${esc(r.plan)}</td><td data-label="Precio / mes" class="text-end">${fmtCOP(r.precio)}</td>
+          <td data-label="Estado"><span class="st ${r.k}">${ESTADO[r.k]}</span>${r.hasta ? `<span class="estado-fecha">${r.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(r.hasta)}</span>` : ''}</td></tr>`).join('') : '<tr><td data-label="" colspan="5" class="dw-empty">Aún no hay negocios.</td></tr>'}
+      </tbody></table></div>
+      <p class="text-danger small" data-err></p>
+      <div class="dw-row" style="justify-content:space-between;margin-top:8px"><button class="btn btn-outline-secondary" type="button" data-csv><i class="bi bi-download"></i>Descargar CSV</button>
+        <span class="dw-row"><button class="btn btn-outline-secondary" type="button" data-no>Cerrar</button><button class="btn btn-primary" data-save><i class="bi bi-check-lg"></i>Guardar precios y pruebas</button></span></div></form>`;
+    const close = () => { d.close(); d.remove(); };
+    $$('[data-no]', d).forEach((b) => (b.onclick = close));
+    $('[data-csv]', d).onclick = () => {
+      const head = ['App', 'Negocio', 'Plan', 'Precio mensual COP', 'Estado', 'Termina', 'Total cobrado COP'];
+      const csv = '\ufeff' + [head, ...rows.map((r) => [r.app, r.negocio, r.plan, r.precio, ESTADO[r.k], r.hasta, r.pagos])].map((l) => l.map(csvCell).join(',')).join('\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `diwilo-precios-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(a.href);
+    };
+    $('form', d).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const body = {}; $$('input[name]', d).forEach((i) => { body[i.name] = i.value.trim(); });
+        const r = await api('platform/config', { method: 'POST', body });
+        plat.prices = r.prices; plat.trials = r.trials; plat.trial_days = r.trial_days;
+        toast('Precios y pruebas guardados'); close();
+      } catch (x) { $('[data-err]', d).textContent = x.message; }
+    });
+  }
+  $('#priceBtn').addEventListener('click', () => { if (plat) openPricing().catch((x) => toast(x.message)); });
+
+  const show = async () => {
+    try { if (!plat) await loadPlatform(); } catch (e) { $('#bizErr').textContent = e.message; return; }
+    let want = null; try { want = sessionStorage.getItem('dwl_neg_view'); sessionStorage.removeItem('dwl_neg_view'); } catch {}
+    if (want && NEG_VIEWS.some(([k]) => k === want)) negView = want;
+    if (!canNeg()) negView = negView === 'negocios' ? 'planes' : negView;
+    if (!canMods() && negView !== 'negocios') negView = 'negocios';
+    await setNegView(negView);
+  };
+  return { show, hide: () => A.unmount('modulos') };
 });

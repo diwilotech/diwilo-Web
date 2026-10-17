@@ -425,3 +425,10 @@ dialog.ask.signdlg{width:min(560px,94vw)}
 .dw-main .dw-card h2{margin-bottom:.75rem}
 .dw-main .btn-group .btn.active{background:var(--dw-p);border-color:var(--dw-p);color:#fff}
 #bizArchBtn.active,.dw-row>.btn.active{background:var(--dw-p);border-color:var(--dw-p);color:#fff}
+
+/* Planes, catálogo y bitácora dentro de Negocios: Negocios pone la app y la vista */
+.embedded #modApps,.embedded #modSeg,.embedded .dw-page-head h1{display:none}
+.embedded .dw-page-head{margin-bottom:8px;justify-content:flex-end}
+dialog.ask.pricedlg{width:min(980px,96vw);max-width:96vw}.pricedlg form{max-height:86vh;overflow:auto}
+.pricedlg h3{font-size:.95rem;font-weight:600;margin:18px 0 8px}
+.estado-fecha{display:block;margin-top:3px;font-size:.78rem;color:var(--bs-secondary-color)}

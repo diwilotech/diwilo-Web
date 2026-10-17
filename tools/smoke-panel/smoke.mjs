@@ -16,13 +16,14 @@ const stub = (p, method, body) => {
   if (p.startsWith('stats')) return { live: 3, kpi: { views: 120, visitors: 80, leads: 4, chats: 9, whatsapp: 5, link_clicks: 7 }, series: [{ date: today, views: 20, visitors: 10 }], pages: [{ k: '/', n: 50 }], refs: [], utm: [], countries: [{ k: 'CO', n: 40 }], devices: [] };
   if (p === 'live') return { live: [1], events: [] };
   if (p === 'platform') return { apps: APPS, prices: {}, trial_days: 15, today };
-  if (/^platform\/.+\/businesses/.test(p)) return { businesses: [{ id: 'b1', name: 'Demo', paid_until: today, read_only: 1 }], today };
+  if (/^platform\/.+\/businesses/.test(p)) return { businesses: [{ id: 'b1', name: 'Demo', slug: 'demo', users: [{ id: 'u1', email: 'o@d.co', role: 'owner', status: 'active' }], paid_until: today, read_only: 0, created_at: today + 'T00:00:00Z', total_paid: 0 }], today, month_income: 0 };
   if (p === 'leads') return [{ id: 1, status: 'nuevo', name: 'Ana', email: 'a@b.co', ts: Date.now() }];
   if (p === 'team') return { modules: { resumen: 'En vivo' }, defaults: [], members: [] };
   if (p === 'blog') return [];
   if (p === 'agents') return { agents: [], templates: [], tools: [] };
   if (p === 'hub/orgs') return { orgs: [{ id: 'diwilo', name: 'Diwilo', kind: 'diwilo' }] };
   if (p === 'modulos') return { apps: APPS };
+  if (/^modulos\/[a-z]+$/.test(p)) return { soporta: true, nombre: 'App', catalogo: [], planes: [{ id: 1, nombre: 'Básico', precio: 50000, modulos: [], todos: 1, negocios: 1 }], negocios: [] };
   return {};
 };
 const server = http.createServer((req, res) => {
@@ -42,7 +43,7 @@ const base = `http://localhost:${server.address().port}`;
 const fails = []; let checks = 0;
 const ok = (cond, msg) => { checks++; if (!cond) fails.push(msg); };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const TABS = [['resumen', 'En vivo'], ['negocios', 'Negocios'], ['modulos', 'Módulos'], ['marketing', 'Marketing'], ['finanzas', 'Finanzas'], ['blog', 'Blog'], ['ia', 'Integraciones e IA']];
+const TABS = [['resumen', 'En vivo'], ['negocios', 'Negocios'], ['marketing', 'Marketing'], ['finanzas', 'Finanzas'], ['blog', 'Blog'], ['ia', 'Integraciones e IA']];
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
 try {
@@ -66,6 +67,15 @@ try {
         ok(r.visible && r.activo, `${tag}/${id}: sección o menú sin marcar`);
         ok(r.desborde <= 0, `${tag}/${id}: desborde horizontal de ${r.desborde}px`);
       }
+      // Negocios: Precios y pruebas en un modal, y los módulos (planes) dentro de la misma pestaña
+      await p.evaluate(() => document.querySelector('.dw-nav a[data-mod="negocios"]').click()); await wait(500);
+      await p.evaluate(() => document.querySelector('#priceBtn').click()); await wait(900);
+      ok(await p.evaluate(() => !!document.querySelector('dialog.pricedlg[open] input[name^="price_"]') && !!document.querySelector('dialog.pricedlg [data-csv]')), `${tag}: el modal de precios y pruebas no abrió`);
+      await p.evaluate(() => document.querySelector('dialog.pricedlg [data-no]').click());
+      await p.evaluate(() => document.querySelector('[data-nv="planes"]').click()); await wait(900);
+      ok(await p.evaluate(() => !document.querySelector('#modHost').hidden && !!document.querySelector('#modHost .dw-card')), `${tag}: Planes no se vio dentro de Negocios`);
+      await p.evaluate(() => document.querySelector('[data-nv="negocios"]').click()); await wait(400);
+      ok(await p.evaluate(() => !!document.querySelector('#bizBody .estado-fecha')), `${tag}: Estado sin la fecha debajo`);
       // aviso de la campana (lead nuevo + negocio por vencer) y toast de Bootstrap
       ok(await p.evaluate(() => document.querySelectorAll('[data-notifs] a').length) >= 1, `${tag}: la campana no muestra avisos`);
       ok(await p.evaluate(() => { document.querySelector('[data-bs-toggle=dropdown][aria-label="Menú de usuario"]'); return true; }), `${tag}: menú de usuario`);

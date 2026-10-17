@@ -8,7 +8,7 @@
  * lectura cuando vence. El historial de pagos vive aquí, en la tabla sub_payments.
  *
  *   GET    /admin/api/platform                                   apps + precios + días de prueba
- *   POST   /admin/api/platform/config                            { trial_days, price_<app> }
+ *   POST   /admin/api/platform/config                            { trial_days, trial_<app>, price_<app> }
  *   GET    /admin/api/platform/:app/businesses
  *   POST   /admin/api/platform/:app/businesses                   { name, slug?, owner_email, owner_name?, trial_days?, plan_id? }  (módulos: modulos.js)
  *   PATCH  /admin/api/platform/:app/businesses/:id               { name?, slug?, paid_until? }  slug = dirección (la vieja redirige)
@@ -85,6 +85,8 @@ async function config(env) {
   const s = Object.fromEntries(results.map((r) => [r.key, r.value]));
   return {
     trial_days: Number(s.platform_trial_days ?? DEFAULT_TRIAL_DAYS),
+    // Días de prueba de cada app (si no se definió, vale el general)
+    trials: Object.fromEntries(Object.keys(APPS).map((a) => [a, Number(s[`platform_trial_${a}`] ?? s.platform_trial_days ?? DEFAULT_TRIAL_DAYS)])),
     prices: Object.fromEntries(Object.keys(APPS).map((a) => [a, Number(s[`platform_price_${a}`] || 0)])),
   };
 }
@@ -122,6 +124,7 @@ async function route(req, env, path, url, adminEmail) {
     const stmts = [];
     const put = (k, v) => stmts.push(db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(k, String(v)));
     if (b.trial_days !== undefined) put('platform_trial_days', Math.max(0, Math.min(365, parseInt(b.trial_days, 10) || 0)));
+    for (const a of Object.keys(APPS)) if (b[`trial_${a}`] !== undefined && b[`trial_${a}`] !== '') put(`platform_trial_${a}`, Math.max(0, Math.min(365, parseInt(b[`trial_${a}`], 10) || 0)));
     for (const a of Object.keys(APPS)) if (b[`price_${a}`] !== undefined) put(`platform_price_${a}`, Math.max(0, parseInt(b[`price_${a}`], 10) || 0));
     if (stmts.length) await db.batch(stmts);
     return json(await config(env));
@@ -154,7 +157,7 @@ async function route(req, env, path, url, adminEmail) {
 
   if (!id && M === 'POST') {
     const b = await req.json().catch(() => ({}));
-    const trial = b.trial_days !== undefined && b.trial_days !== '' ? parseInt(b.trial_days, 10) : (await config(env)).trial_days;
+    const trial = b.trial_days !== undefined && b.trial_days !== '' ? parseInt(b.trial_days, 10) : (await config(env)).trials[app];
     const r = await callApp(env, app, 'POST', '/businesses', {
       name: clip(b.name, 120), slug: clip(b.slug, 50) || undefined,
       owner_email: clip(b.owner_email, 254), owner_name: clip(b.owner_name, 100) || undefined,
