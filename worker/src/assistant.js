@@ -197,9 +197,9 @@ No inventes nada que no esté en los textos. Cita con [n].`,
     // run: módulo central (ver CENTRAL más abajo)
   },
   blog_crear_borrador: {
-    write: true, desc: 'Escribe un artículo completo y PROFUNDO para el blog con su imagen de portada y lo deja como BORRADOR (nunca se publica solo). Antes usa investigar_tema: sus notas y fuentes se le pasan solas al redactor.',
-    args: '{ "titulo": texto, "enfoque": "de qué trata, para quién y qué debe responder", "categoria"?: texto, "etiquetas"?: "a, b, c", "palabras"?: número, "idea_portada"?: "qué mostrar en la imagen", "portada"?: true|false }',
-    summary: (a) => `Escribir el borrador «${a.titulo}»${a.categoria ? ` (${a.categoria})` : ''} para el blog${a.portada === false ? '' : ', con portada'}${a._investigacion ? ` · con investigación de ${a._investigacion.fuentes.length} fuentes` : ''}`,
+    write: true, desc: 'Escribe un artículo completo y PROFUNDO para el blog y lo deja como BORRADOR (nunca se publica solo). La portada de marca (la misma de las primeras entradas, con el título exacto) se le pone sola al abrir Blog en el panel; no hace falta crearla. Antes usa investigar_tema: sus notas y fuentes se le pasan solas al redactor.',
+    args: '{ "titulo": texto, "enfoque": "de qué trata, para quién y qué debe responder", "categoria"?: texto, "etiquetas"?: "a, b, c", "palabras"?: número, "idea_portada"?: "qué mostrar en la imagen", "portada"?: true|false (solo si quieres una ilustración con IA; por defecto la portada de marca se pone sola) }',
+    summary: (a) => `Escribir el borrador «${a.titulo}»${a.categoria ? ` (${a.categoria})` : ''} para el blog${a.portada === true ? ', con ilustración IA' : ''}${a._investigacion ? ` · con investigación de ${a._investigacion.fuentes.length} fuentes` : ''}`,
     // Al proponer, la investigación se guarda con la acción para que esté cuando la apruebes
     prepare(a, ctx) { if (ctx.research && !a._investigacion) a._investigacion = ctx.research; return a; },
     async run(env, a, ctx) {
@@ -216,17 +216,17 @@ No pongas el título como # al inicio. Unas ${words} palabras. ${inv ? 'Usa los 
       if (content.length < 400) throw new Error('La IA no alcanzó a escribir el artículo');
       const excerpt = content.split(/\n{2,}/).find((p) => p && !p.startsWith('#'))?.replace(/[*_`>#]/g, '').slice(0, 300) || '';
       let cover, coverNote;
-      if (a.portada !== false) {
-        say('Creando la imagen de portada');
+      if (a.portada === true) {
+        say('Creando la ilustración de portada');
         try { cover = await generateCover(env, { title: a.titulo, idea: a.idea_portada || a.enfoque || '', source: ctx.source || 'blog' }); }
         catch (e) { coverNote = `Sin portada: ${e.message}`; }
       }
       const r = await createDraft(env, { title: a.titulo, excerpt, content, category: a.categoria, tags: a.etiquetas, author: 'Diwilo', seo_desc: excerpt.slice(0, 160), ...(cover ? { cover } : {}) });
-      return { id: r.id, slug: r.slug, estado: 'borrador', palabras: content.split(/\s+/).length, portada: cover ? 'sí' : (coverNote || 'no'), fuentes: inv ? inv.fuentes.length : 0 };
+      return { id: r.id, slug: r.slug, estado: 'borrador', palabras: content.split(/\s+/).length, portada: cover ? 'ilustración IA' : (coverNote || 'de marca (se pone sola al abrir Blog)'), fuentes: inv ? inv.fuentes.length : 0 };
     },
   },
   blog_crear_portada: {
-    write: true, desc: 'Crea con IA la imagen de portada de una entrada del blog que ya existe (por id o título) y la reemplaza.',
+    write: true, desc: 'Crea con IA una ILUSTRACIÓN de portada para una entrada del blog que ya existe (por id o título) y la reemplaza. Úsala solo si te la piden; la portada de marca se hace desde el editor del blog.',
     args: '{ "id"?: número, "titulo"?: texto, "idea"?: "qué mostrar en la imagen" }',
     summary: (a) => `Crear con IA la portada de la entrada ${a.titulo ? `«${a.titulo}»` : `#${a.id}`}`,
     async run(env, a, ctx) {
@@ -348,7 +348,7 @@ function systemPrompt(ctx) {
 Ayudas al administrador a entender y gestionar: el sitio (visitas, leads, chats), los negocios de las apps (Pedidos, Nutrición, Citas, Residentes, Academia), Marketing y Finanzas.
 Cómo está organizado: AUTOMATIZACIONES = reglas fijas sin IA en Marketing (cuando pasa X → crear tareas/oportunidad). AGENTES = trabajadores de IA con rol, herramientas y horario (Integraciones e IA → Agentes). LISTAS = datos que vigilan los agentes en Marketing (competidores, fuentes, temas, tendencias, prospectos). Tú (IA Diwilo) los creas y editas cuando te lo piden.
 FINANZAS: para cobrarle a un cliente usa crear_cuenta_cobro (queda con consecutivo y PDF en Finanzas → Facturas). Para asignar un centro de costo o una cuenta, míralos con ver_centros_y_cuentas y usa su nombre exacto; si no existe y el usuario lo quiere, créalo con crear_centro_costo o crear_cuenta (nunca registres un movimiento para «crear» algo). Un centro de costo agrupa gastos e ingresos por app, cliente, proyecto o área (por ejemplo «Infraestructura e IA» para Claude, Cloudflare y dominios). Antes de crear un gasto recurrente o registrar un movimiento, revisa si ya existe (ver_gastos_recurrentes / buscar_movimientos); si ya está, no lo vuelvas a crear: edítalo (editar_gasto_recurrente / editar_movimiento). Si piden poner «los gastos» en centros de costo: revisa los recurrentes (ver_gastos_recurrentes → editar_gasto_recurrente, que también pasa sus cobros) Y los gastos sueltos sin centro (buscar_movimientos con sin_centro → editar_movimiento con todos sus ids), según a qué centro corresponda cada uno. Si en esta conversación una acción ya quedó «Listo», no la repitas aunque el usuario vuelva a pedir lo mismo: dile que ya está hecha y ofrece cambiarla.
-BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas y crea la portada. Para ponerle o cambiarle la imagen a una entrada existente usa blog_crear_portada.
+BLOG: antes de escribir un artículo usa investigar_tema (lee las fuentes completas); luego blog_crear_borrador, que redacta con esas notas (la portada de marca se le pone sola al abrir Blog; no la crees). blog_crear_portada solo hace una ilustración con IA si te la piden.
 Hoy es ${today()} (hora de Colombia). El administrador está en la sección «${SECTIONS[ctx.tab] || ctx.tab || 'En vivo'}». Organización activa en Marketing/Finanzas: ${ctx.org} ("diwilo" = la operación de Diwilo).
 
 HERRAMIENTAS

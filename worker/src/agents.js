@@ -50,7 +50,7 @@ const READ = ['estado_general', 'leads_recientes', 'negocios', 'organizaciones',
 // Plantillas listas para usar (se pueden editar después).
 export const TEMPLATES = {
   blog: { name: 'Agente de blog', schedule: 'semanal', autonomy: 'ejecutar',
-    tools: ['temas_de_clientes', 'blog_resumen', 'revisar_competidores', 'noticias_web', 'buscar_web', 'investigar_tema', 'leer_pagina', 'ver_listas', 'leer_lista', 'agregar_a_lista', 'blog_crear_borrador', 'blog_crear_portada'],
+    tools: ['temas_de_clientes', 'blog_resumen', 'revisar_competidores', 'noticias_web', 'buscar_web', 'investigar_tema', 'leer_pagina', 'ver_listas', 'leer_lista', 'agregar_a_lista', 'blog_crear_borrador'],
     instructions: `Eres el editor del blog de Diwilo (software, datos, automatización e IA para pymes en Colombia; apps para restaurantes, nutricionistas, negocios con citas, propiedad horizontal y academias). Cada vez que trabajes:
 1) Mira qué publica la competencia: revisar_competidores con la lista «Competidores» (si no existe, sigue sin ella).
 2) Mira tendencias del nicho con noticias_web (máximo 2 consultas, por ejemplo «automatización pymes Colombia», «inteligencia artificial empresas Colombia»).
@@ -58,7 +58,7 @@ export const TEMPLATES = {
 4) Guarda en la lista «Tendencias» (si existe) máximo 2 tendencias útiles con su enlace (agregar_a_lista).
 5) Elige UN tema con intención de compra que no tengamos y hazlo concreto (no «automatización», sino «Cómo automatizar las respuestas de WhatsApp de un restaurante: pasos, costos y errores»).
 6) Investiga ese tema a fondo con investigar_tema (di qué debe quedar claro: pasos, costos, límites, herramientas).
-7) Escribe el borrador con blog_crear_borrador (título concreto, enfoque, para quién es, e idea_portada con lo que debe mostrar la imagen). La investigación se le pasa sola al redactor.
+7) Escribe el borrador con blog_crear_borrador (título concreto, enfoque, para quién es, sin portada: la de marca, igual a las primeras entradas, se le pone sola al abrir Blog en el panel). La investigación se le pasa sola al redactor.
 8) Responde con: qué está publicando la competencia, las tendencias, el tema elegido y por qué, las fuentes que usaste y 3 ideas para las próximas semanas.` },
   leads: { name: 'Seguimiento de leads', schedule: 'diario', autonomy: 'ejecutar',
     tools: ['leads_recientes', 'buscar_contactos', 'tareas_pendientes', 'crear_tarea'],

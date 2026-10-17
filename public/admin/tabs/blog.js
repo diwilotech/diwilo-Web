@@ -17,6 +17,7 @@ Admin.tab('blog', (A) => {
       ['Borradores', st.filter((s) => s[0] === 'draft').length], ['Lecturas totales', posts.reduce((n, p) => n + p.views, 0)]];
     $('#blogKpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
     renderPosts();
+    fillCovers();
   };
   function renderPosts() {
     const q = $('#blogSearch').value.trim().toLowerCase();
@@ -206,8 +207,37 @@ Admin.tab('blog', (A) => {
       const r = await api('blog/portada-ia', { method: 'POST', body: { title: post.title, excerpt: post.excerpt, idea } });
       post.cover = r.cover; setCover(r.cover); refresh(); toast('Portada lista: guarda para conservarla');
     } catch (x) { toast(x.message); }
-    b.disabled = false; b.innerHTML = `<i class="bi bi-magic"></i>${post.cover ? 'Otra portada con IA' : 'Generar portada con IA'}`;
+    b.disabled = false; b.innerHTML = `<i class="bi bi-magic"></i>${post.cover ? 'Otra ilustración con IA' : 'Ilustración con IA'}`;
   });
+
+  /* ---------- Portada de marca: la misma de las primeras entradas (texto exacto, sin gastar cuota de IA) ---------- */
+  let coverLib = null;
+  const brandCover = (p) => (coverLib ||= import('/admin/cover.js')).then((m) => m.composeCover({ title: p.title, category: p.category || '', tags: p.tags || '' }));
+  $('#pCoverBrand').addEventListener('click', async () => {
+    readForm();
+    if (!post.title.trim()) { toast('Escribe primero el título'); $('#pTitle').focus(); return; }
+    const b = $('#pCoverBrand'); b.disabled = true;
+    try { post.cover = await brandCover(post); setCover(post.cover); refresh(); toast('Portada lista: guarda para conservarla'); }
+    catch (x) { toast('No se pudo crear la portada: ' + x.message); }
+    b.disabled = false;
+  });
+  // Los borradores que escribe el agente de blog llegan sin portada: se les pone la de marca al abrir Blog.
+  let filling = false;
+  async function fillCovers() {
+    if (filling) return; filling = true;
+    try {
+      let n = 0;
+      for (const p of posts.filter((x) => !x.cover_url && x.status !== 'published')) {
+        const full = await api('blog/' + p.id);
+        const cover = await brandCover(full);
+        await api('blog', { method: 'POST', body: { id: full.id, title: full.title, slug: full.slug, excerpt: full.excerpt, content: full.content, category: full.category, tags: full.tags, author: full.author,
+          status: full.status, published_at: full.published_at, featured: full.featured, seo_title: full.seo_title, seo_desc: full.seo_desc, cover } });
+        n++;
+      }
+      if (n) { toast(`Portada de marca en ${n} borrador${n === 1 ? '' : 'es'}`); posts = await api('blog'); renderPosts(); }
+    } catch (e) { /* si falla, queda el cuadro sin imagen y se puede crear desde el editor */ }
+    filling = false;
+  }
 
   async function savePost(publish) {
     readForm();
