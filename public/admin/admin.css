@@ -436,9 +436,8 @@ dialog.ask.pricedlg{width:min(980px,96vw);max-width:96vw}.pricedlg form{max-heig
 
 /* Finanzas y Marketing: la página del módulo ocupa todo el espacio, igual que en las apps (sin título repetido) */
 body[data-tab="finanzas"] .dw-main,body[data-tab="marketing"] .dw-main{padding:var(--dw-top-h) 0 0}
-.modbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 16px;border-bottom:1px solid var(--dw-borde);background:var(--dw-barra-bg)}
-.modframe{display:block;width:100%;border:0;background:transparent;height:calc(100vh - var(--dw-top-h) - var(--dw-bottom-h) - 53px);height:calc(100dvh - var(--dw-top-h) - var(--dw-bottom-h) - 53px - env(safe-area-inset-bottom,0px))}
-@media (min-width:992px){.modframe{height:calc(100vh - var(--dw-top-h) - 53px);height:calc(100dvh - var(--dw-top-h) - 53px)}}
+.modframe{display:block;width:100%;border:0;background:transparent;height:calc(100vh - var(--dw-top-h) - var(--dw-bottom-h));height:calc(100dvh - var(--dw-top-h) - var(--dw-bottom-h) - env(safe-area-inset-bottom,0px))}
+@media (min-width:992px){.modframe{height:calc(100vh - var(--dw-top-h));height:calc(100dvh - var(--dw-top-h))}}
 
 /* ---------- Celular y tableta (< 992 px): botones cómodos al tacto, filas de pestañas que se deslizan, ventanas tipo hoja ---------- */
 @media (max-width:991.98px){
@@ -468,10 +467,7 @@ body[data-tab="finanzas"] .dw-main,body[data-tab="marketing"] .dw-main{padding:v
   /* Campana y menú de usuario dentro de la pantalla */
   .dw-top .dropdown-menu{max-width:calc(100vw - 16px)}
   .dw-top .dropdown-menu[style*="width:300px"]{width:min(300px,calc(100vw - 16px))!important}
-  /* Selector de organización (Finanzas y Marketing) a todo el ancho */
-  .modbar{padding:8px 12px;justify-content:space-between}
-  .modbar .dw-row{flex:1;min-width:0}.orgpick{width:100%;min-height:44px}.orgpick select{flex:1;min-width:0;max-width:none;font-size:16px}
-  /* Tarjetas KPI y rejillas más compactas */
+    /* Tarjetas KPI y rejillas más compactas */
   .dw-grid{gap:10px}
   .kpi .v{font-size:24px}
   .dw-main .dw-card{padding:14px}

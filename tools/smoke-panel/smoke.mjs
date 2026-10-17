@@ -79,8 +79,8 @@ try {
       // Finanzas y Marketing: la página del módulo ocupa el espacio como en las apps, sin título repetido
       for (const t of ['finanzas', 'marketing']) {
         await p.evaluate((t) => document.querySelector(`.dw-nav a[data-mod="${t}"]`).click(), t); await wait(500);
-        const m = await p.evaluate((t) => { const f = document.querySelector(`[data-section="${t}"] iframe`); return { h: f.getBoundingClientRect().height, h1: !!document.querySelector(`[data-section="${t}"] h1`), org: !!document.querySelector(`[data-section="${t}"] .modbar`) }; }, t);
-        ok(m.h > 300 && !m.h1 && m.org, `${tag}/${t}: marco ${Math.round(m.h)}px, h1 repetido: ${m.h1}`);
+        const m = await p.evaluate((t) => { const f = document.querySelector(`[data-section="${t}"] iframe`); return { h: f.getBoundingClientRect().height, h1: !!document.querySelector(`[data-section="${t}"] h1`) }; }, t);
+        ok(m.h > 300 && !m.h1, `${tag}/${t}: marco ${Math.round(m.h)}px, h1 repetido: ${m.h1}`);
       }
       // aviso de la campana (lead nuevo + negocio por vencer) y toast de Bootstrap
       ok(await p.evaluate(() => document.querySelectorAll('[data-notifs] a').length) >= 1, `${tag}: la campana no muestra avisos`);

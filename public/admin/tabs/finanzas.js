@@ -1,13 +1,7 @@
 // Panel Diwilo · pestaña «Finanzas». Muestra la página del módulo central (la misma que ven los negocios en sus apps)
-// en /admin/m/finanzas y deja elegir la organización (Diwilo o un negocio de una app).
+// con los datos de Diwilo. Para ver los de un negocio: Negocios → «Entrar como dueño».
 Admin.tab('finanzas', (A) => {
   const { $ } = A;
-  const H = window.Hub;
-  let org = null;
-  const open = () => { org = H.current(); $('#fiFrame').src = `/admin/m/finanzas?org=${encodeURIComponent(org)}`; };
-  async function load() {
-    if (!$('#fiOrg').children.length) { await H.orgPicker($('#fiOrg'), () => open()); open(); return; }
-    if (H.current() !== org) { $('#fiOrg select').value = H.current(); open(); }
-  }
+  const load = () => { const f = $('#fiFrame'); if (!f.getAttribute('src')) f.src = '/admin/m/finanzas?org=diwilo'; };
   return { show: load, hide: () => {} };
 });
