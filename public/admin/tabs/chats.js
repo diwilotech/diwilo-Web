@@ -8,8 +8,8 @@ Admin.tab('chats', (A) => {
     const chats = await api('chats');
     $('#chatList').innerHTML = chats.length ? chats.map((c) => `<button class="ci ${c.id === currentChat ? 'on' : ''}" data-chat="${esc(c.id)}">
       <span class="t">${esc(c.first || '(sin mensajes)')}</span>
-      <span class="muted" style="font-size:12px">${fmtDate(c.last_at)} · ${c.msg_count} mensajes · ${flag(c.country)} ${esc(c.device || '')}</span></button>`).join('')
-      : '<p class="empty card">Aún no hay conversaciones.</p>';
+      <span class="text-body-secondary" style="font-size:12px">${fmtDate(c.last_at)} · ${c.msg_count} mensajes · ${flag(c.country)} ${esc(c.device || '')}</span></button>`).join('')
+      : '<p class="dw-empty dw-card">Aún no hay conversaciones.</p>';
   };
   $('#chatList').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-chat]'); if (!b) return;

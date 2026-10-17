@@ -1,9 +1,9 @@
-<div class="head"><div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Ajustes del chat IA</h1></div></div>
-<form class="card" id="setForm">
-  <div class="row" style="justify-content:space-between;margin-bottom:12px">
-    <span class="muted">Motor de IA: <span class="tag" id="aiProvider"></span></span>
-    <label class="row" style="gap:6px"><input type="checkbox" name="chat_enabled"> Chat activo en el sitio</label>
+<div class="dw-page-head"><div class="dw-row"><h1>Ajustes del chat IA</h1></div></div>
+<form class="dw-card" id="setForm">
+  <div class="dw-row" style="justify-content:space-between;margin-bottom:12px">
+    <span class="text-body-secondary">Motor de IA: <span class="badge text-bg-secondary fw-normal" id="aiProvider"></span></span>
+    <label class="dw-row" style="gap:6px"><input type="checkbox" name="chat_enabled"> Chat activo en el sitio</label>
   </div>
-  <label class="f">Instrucciones del asistente (qué sabe y cómo responde)<textarea class="in" name="chat_prompt" rows="18" style="font-family:var(--f-mono);font-size:12px"></textarea></label>
-  <div class="row" style="margin-top:12px"><button class="btn pri" type="submit">Guardar</button><button class="btn" type="button" id="resetPrompt">Restaurar texto original</button></div>
+  <label class="dw-field">Instrucciones del asistente (qué sabe y cómo responde)<textarea class="form-control" name="chat_prompt" rows="18" style="font-family:var(--f-mono);font-size:12px"></textarea></label>
+  <div class="dw-row" style="margin-top:12px"><button class="btn btn-primary" type="submit">Guardar</button><button class="btn btn-outline-secondary" type="button" id="resetPrompt">Restaurar texto original</button></div>
 </form>

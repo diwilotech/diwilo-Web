@@ -17,11 +17,12 @@
  *   /admin/api/modulos/*   catálogo de módulos de cada app, planes y excepciones por negocio (modulos.js)
  */
 import { checkBudget, recordUsage, usageApi, BudgetError, QUOTA_MSG } from './usage.js';
-import { adminEmail } from './access.js';
+import { adminEmail, adminAccess, getPrefs, setPrefs } from './access.js';
+import { teamApi } from './team.js';
 import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
-import { hubProxy, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
+import { hubProxy, hubModule, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
@@ -470,11 +471,29 @@ async function saveLink(env, b) {
   return { id: r.meta.last_row_id, slug };
 }
 
+// Módulo del panel que protege cada ruta de /admin/api ('owner' = solo titulares).
+function adminModule(path) {
+  const p = path.replace('/admin/api/', '');
+  if (/^(stats|live)$/.test(p)) return 'resumen';
+  if (/^platform(\/|$)/.test(p)) return 'negocios';
+  if (/^modulos(\/|$)/.test(p)) return 'modulos';
+  if (p.startsWith('hub/')) return hubModule(path);
+  if (/^(cards|leads|links|link-clicks)$/.test(p)) return 'marketing';
+  if (/^blog(\/|$)/.test(p)) return 'blog';
+  if (/^(chats|settings|webhook-test|keys)$/.test(p)) return 'ia';
+  return 'owner'; // asistente, agentes, uso y lo demás ven todo: solo titulares
+}
+
 async function adminApi(req, env, path, url, ctx) {
-  // Solo entra quien pasó por Cloudflare Access (y está en ADMIN_EMAILS, si se definió).
-  const email = await adminEmail(req, env);
-  if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
-  if (path === '/admin/api/me') return json({ email });
+  // Solo entra quien pasó por Cloudflare Access y es titular (ADMIN_EMAILS) o del equipo; el equipo solo usa sus módulos.
+  const access = await adminAccess(req, env);
+  if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
+  const email = access.email;
+  if (path === '/admin/api/me') return json({ email, owner: access.owner, modules: access.modules, prefs: await getPrefs(env, email) });
+  if (path === '/admin/api/prefs' && req.method === 'POST') return (await setPrefs(env, email, await req.json().catch(() => ({})))) ? json({ ok: true }) : json({ error: 'Tema no válido' }, 400);
+  if (path === '/admin/api/team') return teamApi(req, env, access);
+  const need = adminModule(path);
+  if (need === 'owner' ? !access.owner : need === 'any' ? !access.modules.some((m) => m === 'marketing' || m === 'finanzas') : !access.modules.includes(need)) return json({ error: 'No tienes acceso a esta sección' }, 403);
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path === '/admin/api/modulos' || path.startsWith('/admin/api/modulos/')) return modulosApi(req, env, path, url, email);
   // Marketing y Finanzas: módulo central Diwilo Modulos (central.js)
@@ -567,8 +586,11 @@ export default {
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
       if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing)(\/|$)/.test(path)) {
-        const email = await adminEmail(req, env);
-        if (!email) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
+        const access = await adminAccess(req, env);
+        if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
+        const email = access.email;
+        const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email);
       }
       if (path.startsWith('/api/')) {

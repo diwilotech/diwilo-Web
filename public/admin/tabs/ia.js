@@ -2,8 +2,8 @@
 // e IA Diwilo. Las tres primeras son las pestañas de antes, montadas aquí (mismos archivos de /admin/tabs/).
 Admin.tab('ia', (A) => {
   const { $, esc, toast } = A;
-  const VIEWS = [['agentes', 'Agentes', 'ph-users-three'], ['asistente', 'IA Diwilo', 'ph-robot'], ['consumo', 'Consumo de IA', 'ph-gauge'], ['chats', 'Conversaciones del chat', 'ph-chats-circle'],
-    ['ajustes', 'Ajustes del chat', 'ph-sliders-horizontal'], ['api', 'API y webhooks', 'ph-plugs-connected']];
+  const VIEWS = [['agentes', 'Agentes', 'bi-people'], ['asistente', 'IA Diwilo', 'bi-robot'], ['consumo', 'Consumo de IA', 'bi-speedometer2'], ['chats', 'Conversaciones del chat', 'bi-chat-dots'],
+    ['ajustes', 'Ajustes del chat', 'bi-sliders'], ['api', 'API y webhooks', 'bi-plug']];
   const EMBED = ['chats', 'ajustes', 'api'];
   let view = (() => { try { const v = sessionStorage.getItem('dwl_ia_view'); sessionStorage.removeItem('dwl_ia_view'); return v || 'agentes'; } catch { return 'agentes'; } })();
 
@@ -11,20 +11,20 @@ Admin.tab('ia', (A) => {
     const old = $('#iaView'), el = old.cloneNode(false);
     old.replaceWith(el);
     EMBED.forEach((id) => A.unmount(id));
-    if (EMBED.includes(view)) { try { await A.mount(view, el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="err">${esc(x.message)}</p>`; } return; }
+    if (EMBED.includes(view)) { try { await A.mount(view, el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; } return; }
     if (view === 'agentes') return agents(el);
     if (view === 'consumo') return usage(el);
-    el.innerHTML = `<div class="grid" style="--min:340px">
-      <div class="card"><h2><i class="ph-light ph-robot"></i> IA Diwilo</h2>
-        <p class="muted" style="font-size:13px;line-height:1.6">Asistente del panel (botón flotante abajo a la derecha). Responde con los datos reales del sitio, los negocios de las apps, Marketing y Finanzas.
+    el.innerHTML = `<div class="dw-grid" style="--min:340px">
+      <div class="dw-card"><h2><i class="bi bi-robot"></i> IA Diwilo</h2>
+        <p class="text-body-secondary" style="font-size:13px;line-height:1.6">Asistente del panel (botón flotante abajo a la derecha). Responde con los datos reales del sitio, los negocios de las apps, Marketing y Finanzas.
         Las acciones que cambian datos te piden confirmar antes de ejecutarse y quedan en «Actividad en tiempo real».</p>
-        <button class="btn pri" data-open><i class="ph-light ph-chat-circle-dots"></i>Abrir IA Diwilo</button></div>
-      <div class="card"><h2>Qué puede hacer</h2>
+        <button class="btn btn-primary" data-open><i class="bi bi-chat-dots"></i>Abrir IA Diwilo</button></div>
+      <div class="dw-card"><h2>Qué puede hacer</h2>
         <div class="ia-caps"><b>Consulta</b><span>Estado del sitio, leads, negocios y vencimientos, organizaciones, resumen de marketing y de finanzas, tareas, contactos, el blog, lo que preguntan los clientes y tus agentes.</span>
         <b>Con tu confirmación</b><span>Crear tareas, contactos y campañas; registrar ingresos, gastos y gastos recurrentes (también en dólares); crear centros de costo y cuentas y asignarlos; crear cuentas de cobro en PDF; cambiar la etapa de un contacto; marcar tareas hechas; escribir borradores del blog; crear agentes y ponerlos a trabajar.</span>
         <b>No hace</b><span>Borrar, archivar negocios, cambiar dueños ni registrar pagos de suscripciones.</span></div></div>
-      <div class="card"><h2>Modelo de IA</h2><p class="muted" style="font-size:13px;line-height:1.6" data-provider>…</p></div>
-      <div class="card"><h2>Por MCP (próximo paso)</h2><p class="muted" style="font-size:13px;line-height:1.6">Las mismas herramientas se pueden abrir por MCP para usar Diwilo desde Claude Desktop u otra IA, con una clave de API de «API y webhooks».</p></div></div>`;
+      <div class="dw-card"><h2>Modelo de IA</h2><p class="text-body-secondary" style="font-size:13px;line-height:1.6" data-provider>…</p></div>
+      <div class="dw-card"><h2>Por MCP (próximo paso)</h2><p class="text-body-secondary" style="font-size:13px;line-height:1.6">Las mismas herramientas se pueden abrir por MCP para usar Diwilo desde Claude Desktop u otra IA, con una clave de API de «API y webhooks».</p></div></div>`;
     $('[data-open]', el).onclick = () => document.getElementById('iaFab')?.click();
     A.api('settings').then((s) => { $('[data-provider]', el).textContent = `Usa ${s.ai_provider}. El chat del sitio y IA Diwilo comparten este modelo. Para usar Gemini, configura el secreto GEMINI_API_KEY en Cloudflare.`; }).catch(() => {});
   }
@@ -32,28 +32,28 @@ Admin.tab('ia', (A) => {
   const tok = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 2 })} M` : n >= 1000 ? `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : String(n || 0));
   const SRC = (k) => k === 'chat-sitio' ? 'Chat del sitio' : k === 'ia-diwilo' ? 'IA Diwilo (panel)' : k === 'informes' ? 'Informes de Marketing y Finanzas' : k === 'blog (editor)' ? 'Portadas desde el editor del blog' : k.startsWith('agente:') ? `Agente «${k.slice(7)}»` : 'Otros';
   async function usage(el) {
-    el.innerHTML = '<p class="muted">Cargando…</p>';
-    let u; try { u = await A.api('usage'); } catch (x) { el.innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
+    el.innerHTML = '<p class="text-body-secondary">Cargando…</p>';
+    let u; try { u = await A.api('usage'); } catch (x) { el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; return; }
     const H = window.Hub, s = u.settings, cop = (usd) => H.money(usd * s.usd_cop), usd = (n) => `US$${n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 3 : 2 })}`;
     const todayT = u.today.tokens_in + u.today.tokens_out, monthT = u.month.tokens_in + u.month.tokens_out;
     const p = s.daily_limit ? Math.round(todayT / s.daily_limit * 100) : 0;
-    el.innerHTML = `<p class="muted" style="margin:0 0 12px;font-size:13px;max-width:820px">Cada vez que la IA responde se cuentan los tokens (lo que lee + lo que escribe). Modelo actual: <b>${esc(u.provider)}</b>. Los costos son estimados con los precios de abajo.</p>
-      ${p >= 80 ? `<div class="card" style="border-color:var(--${p >= 100 ? 'bad' : 'warn'});margin-bottom:12px"><b><i class="ph-light ph-warning"></i> ${p >= 100 ? 'La IA está en pausa hasta mañana: se llegó al tope diario.' : `Hoy ya va el ${p}% del tope diario.`}</b><span class="muted"> Puedes subir el tope abajo.</span></div>` : ''}
-      <div class="grid kpis" data-k style="--min:200px"></div>
-      <div class="grid" style="--min:360px;margin-top:14px">
-        <div class="card"><h2>Últimos 30 días</h2><div data-chart></div></div>
-        <div class="card"><h2>Quién gasta este mes</h2><div data-src></div></div>
+    el.innerHTML = `<p class="text-body-secondary" style="margin:0 0 12px;font-size:13px;max-width:820px">Cada vez que la IA responde se cuentan los tokens (lo que lee + lo que escribe). Modelo actual: <b>${esc(u.provider)}</b>. Los costos son estimados con los precios de abajo.</p>
+      ${p >= 80 ? `<div class="dw-card" style="border-color:var(--${p >= 100 ? 'bad' : 'warn'});margin-bottom:12px"><b><i class="bi bi-exclamation-triangle"></i> ${p >= 100 ? 'La IA está en pausa hasta mañana: se llegó al tope diario.' : `Hoy ya va el ${p}% del tope diario.`}</b><span class="text-body-secondary"> Puedes subir el tope abajo.</span></div>` : ''}
+      <div class="dw-grid kpis" data-k style="--min:200px"></div>
+      <div class="dw-grid" style="--min:360px;margin-top:14px">
+        <div class="dw-card"><h2>Últimos 30 días</h2><div data-chart></div></div>
+        <div class="dw-card"><h2>Quién gasta este mes</h2><div data-src></div></div>
       </div>
-      <div class="grid" style="--min:360px;margin-top:14px">
-        <form class="card" data-cfg><h2>Topes y precios</h2>
-          <label class="f"><span>Tope diario de tokens (entre todo)</span><input class="in" name="daily_limit" type="number" min="0" step="10000" value="${s.daily_limit}"><small class="muted">Al llegar, IA Diwilo y los agentes se pausan hasta mañana y el chat del sitio pasa a WhatsApp. 0 = sin tope.</small></label>
-          <label class="f"><span>Tope por ejecución de un agente</span><input class="in" name="run_limit" type="number" min="5000" step="5000" value="${s.run_limit}"><small class="muted">Si un agente llega aquí, para y entrega lo que alcanzó.</small></label>
-          <div class="row" style="gap:10px;flex-wrap:wrap"><label class="f" style="flex:1;min-width:140px"><span>Imágenes con IA por día</span><input class="in" name="images_daily" type="number" min="0" step="1" value="${s.images_daily}"></label>
-          <label class="f" style="flex:1;min-width:140px"><span>Costo por imagen (US$)</span><input class="in" name="image_usd" type="number" min="0" step="0.0001" value="${s.image_usd}"></label></div>
-          <label class="f"><span>Dólar en pesos</span><input class="in" name="usd_cop" type="number" min="1000" step="10" value="${s.usd_cop}"></label>
-          <div class="row" style="gap:10px;flex-wrap:wrap">${Object.entries(s.prices).map(([k, v]) => `<label class="f" style="flex:1;min-width:140px"><span>${k === 'gemini' ? 'Gemini' : 'Workers AI'} · US$ por millón (entrada / salida)</span><span class="row" style="gap:6px"><input class="in" name="${k}.in" type="number" step="0.01" min="0" value="${v.in}"><input class="in" name="${k}.out" type="number" step="0.01" min="0" value="${v.out}"></span></label>`).join('')}</div>
-          <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri">Guardar</button></div></form>
-        <div class="card"><h2>Qué te protege de gastar de más</h2><div class="ia-caps">
+      <div class="dw-grid" style="--min:360px;margin-top:14px">
+        <form class="dw-card" data-cfg><h2>Topes y precios</h2>
+          <label class="dw-field"><span>Tope diario de tokens (entre todo)</span><input class="form-control" name="daily_limit" type="number" min="0" step="10000" value="${s.daily_limit}"><small class="text-body-secondary">Al llegar, IA Diwilo y los agentes se pausan hasta mañana y el chat del sitio pasa a WhatsApp. 0 = sin tope.</small></label>
+          <label class="dw-field"><span>Tope por ejecución de un agente</span><input class="form-control" name="run_limit" type="number" min="5000" step="5000" value="${s.run_limit}"><small class="text-body-secondary">Si un agente llega aquí, para y entrega lo que alcanzó.</small></label>
+          <div class="dw-row" style="gap:10px;flex-wrap:wrap"><label class="dw-field" style="flex:1;min-width:140px"><span>Imágenes con IA por día</span><input class="form-control" name="images_daily" type="number" min="0" step="1" value="${s.images_daily}"></label>
+          <label class="dw-field" style="flex:1;min-width:140px"><span>Costo por imagen (US$)</span><input class="form-control" name="image_usd" type="number" min="0" step="0.0001" value="${s.image_usd}"></label></div>
+          <label class="dw-field"><span>Dólar en pesos</span><input class="form-control" name="usd_cop" type="number" min="1000" step="10" value="${s.usd_cop}"></label>
+          <div class="dw-row" style="gap:10px;flex-wrap:wrap">${Object.entries(s.prices).map(([k, v]) => `<label class="dw-field" style="flex:1;min-width:140px"><span>${k === 'gemini' ? 'Gemini' : 'Workers AI'} · US$ por millón (entrada / salida)</span><span class="dw-row" style="gap:6px"><input class="form-control" name="${k}.in" type="number" step="0.01" min="0" value="${v.in}"><input class="form-control" name="${k}.out" type="number" step="0.01" min="0" value="${v.out}"></span></label>`).join('')}</div>
+          <div class="dw-row" style="justify-content:flex-end;margin-top:10px"><button class="btn btn-primary">Guardar</button></div></form>
+        <div class="dw-card"><h2>Qué te protege de gastar de más</h2><div class="ia-caps">
           <b>Tope diario</b><span>Nada llama a la IA cuando se llega al tope del día.</span>
           <b>Tope por agente</b><span>Cada ejecución tiene su límite de tokens y de pasos (16).</span>
           <b>Sin repeticiones</b><span>Si un agente pide lo mismo dos veces, se le recuerda que ya lo tiene; a la tercera vez que se enreda, para.</span>
@@ -73,10 +73,10 @@ Admin.tab('ia', (A) => {
     $('[data-chart]', el).innerHTML = `<div class="ubars">${u.days.map((d, i) => { const t = d.tokens_in + d.tokens_out; return `<div title="${A.esc(H.day(d.day))} · ${tok(t)} tokens · ${cop(d.usd)}">
         <i style="height:${(d.tokens_in / max * 100).toFixed(1)}%"></i><b style="height:${(d.tokens_out / max * 100).toFixed(1)}%"></b>
         <span>${i % 5 === 4 || i === u.days.length - 1 ? +d.day.slice(8) : ''}</span></div>`; }).join('')}</div>
-      <div class="legend"><span><i class="ba"></i>Leídos (entrada)</span><span><i class="bb"></i>Escritos (salida)</span><span class="muted">Día más alto: ${tok(max)} tokens</span></div>`;
-    $('[data-src]', el).innerHTML = u.by_source.length ? `<div class="tbl-wrap"><table><thead><tr><th>Origen</th><th>Llamadas</th><th>Tokens</th><th>Costo</th></tr></thead><tbody>
-      ${u.by_source.map((r) => `<tr><td>${esc(SRC(r.key))}</td><td>${H.num(r.calls)}</td><td>${tok(r.tokens_in + r.tokens_out)} <span class="muted" style="font-size:12px">${r.images ? `+ ${r.images} imagen${r.images === 1 ? '' : 'es'}` : `(${tok(Math.round((r.tokens_in + r.tokens_out) / r.calls))} por llamada)`}</span></td><td>${cop(r.usd)}</td></tr>`).join('')}</tbody></table></div>`
-      : '<p class="empty">Aún no hay consumo este mes.</p>';
+      <div class="legend"><span><i class="ba"></i>Leídos (entrada)</span><span><i class="bb"></i>Escritos (salida)</span><span class="text-body-secondary">Día más alto: ${tok(max)} tokens</span></div>`;
+    $('[data-src]', el).innerHTML = u.by_source.length ? `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Origen</th><th>Llamadas</th><th>Tokens</th><th>Costo</th></tr></thead><tbody>
+      ${u.by_source.map((r) => `<tr><td>${esc(SRC(r.key))}</td><td>${H.num(r.calls)}</td><td>${tok(r.tokens_in + r.tokens_out)} <span class="text-body-secondary" style="font-size:12px">${r.images ? `+ ${r.images} imagen${r.images === 1 ? '' : 'es'}` : `(${tok(Math.round((r.tokens_in + r.tokens_out) / r.calls))} por llamada)`}</span></td><td>${cop(r.usd)}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="dw-empty">Aún no hay consumo este mes.</p>';
     $('[data-cfg]', el).onsubmit = async (e) => {
       e.preventDefault();
       const f = A.formData(e.target), prices = {};
@@ -90,27 +90,27 @@ Admin.tab('ia', (A) => {
   const SCHED = { manual: 'A mano', diario: 'Cada día (3:00 a. m.)', semanal: 'Cada lunes' };
   const AUTO = { proponer: ['soon', 'Propone, tú apruebas'], ejecutar: ['ok', 'Actúa solo'] };
   const RUN_ST = { trabajando: 'soon', 'por aprobar': 'soon', lista: 'ok', error: 'bad', interrumpida: 'bad' };
-  const ICON = { blog: 'ph-article', leads: 'ph-user-plus', cobranza: 'ph-hand-coins', renovaciones: 'ph-arrows-clockwise', analista: 'ph-chart-line-up' };
+  const ICON = { blog: 'bi-journal-text', leads: 'bi-person-plus', cobranza: 'bi-cash-coin', renovaciones: 'bi-arrow-clockwise', analista: 'bi-graph-up' };
   const md = (t) => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,3}\s+(.*)$/gm, '<b>$1</b>').replace(/^[-•*]\s+(.*)$/gm, '<span class="li">$1</span>').replace(/\n/g, '<br>');
   let meta = null, openRuns = null;
 
   async function agents(el) {
-    el.innerHTML = `<div class="row hubbar"><p class="muted" style="margin:0;font-size:13px;max-width:760px">Cada agente tiene un rol, las herramientas que puede usar y cuándo trabaja. Si «propone», sus acciones esperan tu aprobación aquí; si «actúa solo», las hace y queda registro. Ninguno puede borrar, archivar, cambiar dueños ni registrar pagos, y los artículos del blog siempre quedan como borrador.</p>
-      <span class="grow"></span><button class="btn pri" data-new><i class="ph-light ph-plus"></i>Nuevo agente</button></div>
+    el.innerHTML = `<div class="dw-row hubbar"><p class="text-body-secondary" style="margin:0;font-size:13px;max-width:760px">Cada agente tiene un rol, las herramientas que puede usar y cuándo trabaja. Si «propone», sus acciones esperan tu aprobación aquí; si «actúa solo», las hace y queda registro. Ninguno puede borrar, archivar, cambiar dueños ni registrar pagos, y los artículos del blog siempre quedan como borrador.</p>
+      <span class="grow"></span><button class="btn btn-primary" data-new><i class="bi bi-plus-lg"></i>Nuevo agente</button></div>
       <div class="agrid" data-list></div><div data-runs style="margin-top:16px"></div>`;
     async function load() {
-      try { meta = await A.api('agents'); } catch (x) { $('[data-list]', el).innerHTML = `<p class="err">${esc(x.message)}</p>`; return; }
+      try { meta = await A.api('agents'); } catch (x) { $('[data-list]', el).innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; return; }
       const orgs = (await window.Hub.loadOrgs().catch(() => ({ orgs: [] }))).orgs;
       const oname = (id) => orgs.find((o) => o.id === id)?.name || (id === 'diwilo' ? 'Diwilo' : id);
-      $('[data-list]', el).innerHTML = meta.agents.length ? meta.agents.map((a) => `<article class="card acard ${a.active ? '' : 'off'}" data-id="${a.id}">
-          <div class="row" style="gap:10px"><span class="aico"><i class="ph-light ${ICON[a.template] || 'ph-robot'}"></i></span><div style="flex:1;min-width:0"><b>${esc(a.name)}</b><br><span class="muted" style="font-size:12px">${esc(oname(a.org_id))}</span></div>
-            ${a.pending_runs ? `<span class="badge" title="Ejecuciones con acciones por aprobar">${a.pending_runs}</span>` : ''}</div>
-          <p class="muted aitext">${esc(a.instructions.slice(0, 160))}${a.instructions.length > 160 ? '…' : ''}</p>
-          <div class="row" style="gap:6px;flex-wrap:wrap"><span class="st ${a.active ? 'ok' : 'free'}">${a.active ? SCHED[a.schedule] : 'Pausado'}</span><span class="st ${AUTO[a.autonomy][0]}">${AUTO[a.autonomy][1]}</span><span class="tag">${a.tools.length} herramientas</span></div>
-          <span class="muted" style="font-size:12px">${a.last_run_at ? `Última vez: ${A.fmtDate(a.last_run_at)} · ${a.runs} ejecuciones` : 'Aún no ha trabajado'}</span>
-          <div class="row" style="gap:6px"><button class="btn sm pri" data-run><i class="ph-light ph-play"></i>Ejecutar ahora</button><button class="btn sm" data-runs-btn><i class="ph-light ph-clock-counter-clockwise"></i>Ejecuciones</button><button class="btn sm" data-edit><i class="ph-light ph-pencil-simple"></i></button></div>
+      $('[data-list]', el).innerHTML = meta.agents.length ? meta.agents.map((a) => `<article class="dw-card acard ${a.active ? '' : 'off'}" data-id="${a.id}">
+          <div class="dw-row" style="gap:10px"><span class="aico"><i class="bi ${ICON[a.template] || 'bi-robot'}"></i></span><div style="flex:1;min-width:0"><b>${esc(a.name)}</b><br><span class="text-body-secondary" style="font-size:12px">${esc(oname(a.org_id))}</span></div>
+            ${a.pending_runs ? `<span class="badge text-bg-primary" title="Ejecuciones con acciones por aprobar">${a.pending_runs}</span>` : ''}</div>
+          <p class="text-body-secondary aitext">${esc(a.instructions.slice(0, 160))}${a.instructions.length > 160 ? '…' : ''}</p>
+          <div class="dw-row" style="gap:6px;flex-wrap:wrap"><span class="st ${a.active ? 'ok' : 'free'}">${a.active ? SCHED[a.schedule] : 'Pausado'}</span><span class="st ${AUTO[a.autonomy][0]}">${AUTO[a.autonomy][1]}</span><span class="badge text-bg-secondary fw-normal">${a.tools.length} herramientas</span></div>
+          <span class="text-body-secondary" style="font-size:12px">${a.last_run_at ? `Última vez: ${A.fmtDate(a.last_run_at)} · ${a.runs} ejecuciones` : 'Aún no ha trabajado'}</span>
+          <div class="dw-row" style="gap:6px"><button class="btn btn-sm btn-primary" data-run><i class="bi bi-play-fill"></i>Ejecutar ahora</button><button class="btn btn-sm btn-outline-secondary" data-runs-btn><i class="bi bi-clock-history"></i>Ejecuciones</button><button class="btn btn-sm btn-outline-secondary" data-edit><i class="bi bi-pencil"></i></button></div>
         </article>`).join('')
-        : `<div class="card"><h2>Empieza con una plantilla</h2><div class="tplgrid">${meta.templates.map((t) => `<button class="tplbtn" data-tpl="${t.key}"><i class="ph-light ${ICON[t.key] || 'ph-robot'}"></i><b>${esc(t.name)}</b><span>${esc(t.instructions.split('\n')[0].slice(0, 110))}</span></button>`).join('')}</div></div>`;
+        : `<div class="dw-card"><h2>Empieza con una plantilla</h2><div class="tplgrid">${meta.templates.map((t) => `<button class="tplbtn" data-tpl="${t.key}"><i class="bi ${ICON[t.key] || 'bi-robot'}"></i><b>${esc(t.name)}</b><span>${esc(t.instructions.split('\n')[0].slice(0, 110))}</span></button>`).join('')}</div></div>`;
       if (openRuns) showRuns(openRuns);
     }
     el.addEventListener('click', async (e) => {
@@ -124,10 +124,10 @@ Admin.tab('ia', (A) => {
       if (e.target.closest('[data-run]')) {
         const pedido = await A.ask({ title: `Ejecutar «${a.name}»`, text: 'Opcional: algo puntual para esta vez (por ejemplo «escribe sobre facturación electrónica para restaurantes»).', input: true, placeholder: 'Déjalo vacío para que siga sus instrucciones', ok: 'Ejecutar ahora' });
         if (pedido === null) return;
-        const b = card.querySelector('[data-run]'); b.disabled = true; b.innerHTML = '<i class="ph-light ph-circle-notch spin"></i>Trabajando…';
+        const b = card.querySelector('[data-run]'); b.disabled = true; b.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>Trabajando…';
         const box = $('[data-runs]', el);
         box.onclick = null;
-        box.innerHTML = '<div class="card"><div data-prog></div></div>';
+        box.innerHTML = '<div class="dw-card"><div data-prog></div></div>';
         box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         const p = A.progress($('[data-prog]', box), a.name);
         try {
@@ -144,13 +144,13 @@ Admin.tab('ia', (A) => {
       const box = $('[data-runs]', el), a = meta.agents.find((x) => x.id === id);
       if (!a) { box.innerHTML = ''; return; }
       const { runs } = await A.api(`agents/${id}/runs`);
-      box.innerHTML = `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Ejecuciones · ${esc(a.name)}</h2><button class="btn sm" data-close>Cerrar</button></div>
+      box.innerHTML = `<div class="dw-card"><div class="dw-row" style="justify-content:space-between;margin-bottom:10px"><h2>Ejecuciones · ${esc(a.name)}</h2><button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div>
         ${runs.length ? runs.map((r) => `<div class="arun" data-run-id="${r.id}">
-          <div class="row" style="gap:8px"><span class="st ${RUN_ST[r.status] || 'free'}">${esc(r.status)}</span><span class="muted" style="font-size:12px">${A.fmtDate(r.started_at)} · ${r.trigger === 'manual' ? 'a mano' : r.trigger}${r.used?.length ? ` · consultó ${r.used.length}` : ''}${r.tokens ? ` · ${tok(r.tokens)} tokens` : ''}</span></div>
+          <div class="dw-row" style="gap:8px"><span class="st ${RUN_ST[r.status] || 'free'}">${esc(r.status)}</span><span class="text-body-secondary" style="font-size:12px">${A.fmtDate(r.started_at)} · ${r.trigger === 'manual' ? 'a mano' : r.trigger}${r.used?.length ? ` · consultó ${r.used.length}` : ''}${r.tokens ? ` · ${tok(r.tokens)} tokens` : ''}</span></div>
           <div class="aout">${md(r.output)}</div>
-          ${r.actions.length ? `<div class="aacts">${r.actions.map((x, i) => `<div class="aact"><span><i class="ph-light ${x.status === 'hecha' ? 'ph-check-circle' : x.status === 'pendiente' ? 'ph-hourglass-medium' : x.status === 'error' ? 'ph-warning' : 'ph-x-circle'}"></i>${esc(x.summary)}${x.result?.error ? ` <span style="color:var(--bad)">· ${esc(x.result.error)}</span>` : ''}${x.tool === 'blog_crear_borrador' && x.status === 'hecha' ? ' <button class="btn sm" data-goblog>Ver en Blog</button>' : ''}</span>
-            ${x.status === 'pendiente' ? `<span class="row" style="gap:6px"><button class="btn sm pri" data-approve="${i}">Aprobar</button><button class="btn sm" data-discard="${i}">Descartar</button></span>` : `<span class="muted" style="font-size:12px">${esc(x.status)}</span>`}</div>`).join('')}</div>` : ''}
-        </div>`).join('') : '<p class="muted" style="margin:0">Aún no ha trabajado. Usa «Ejecutar ahora».</p>'}</div>`;
+          ${r.actions.length ? `<div class="aacts">${r.actions.map((x, i) => `<div class="aact"><span><i class="bi ${x.status === 'hecha' ? 'bi-check-circle' : x.status === 'pendiente' ? 'bi-hourglass-split' : x.status === 'error' ? 'bi-exclamation-triangle' : 'bi-x-circle'}"></i>${esc(x.summary)}${x.result?.error ? ` <span style="color:var(--bad)">· ${esc(x.result.error)}</span>` : ''}${x.tool === 'blog_crear_borrador' && x.status === 'hecha' ? ' <button class="btn btn-sm btn-outline-secondary" data-goblog>Ver en Blog</button>' : ''}</span>
+            ${x.status === 'pendiente' ? `<span class="dw-row" style="gap:6px"><button class="btn btn-sm btn-primary" data-approve="${i}">Aprobar</button><button class="btn btn-sm btn-outline-secondary" data-discard="${i}">Descartar</button></span>` : `<span class="text-body-secondary" style="font-size:12px">${esc(x.status)}</span>`}</div>`).join('')}</div>` : ''}
+        </div>`).join('') : '<p class="text-body-secondary" style="margin:0">Aún no ha trabajado. Usa «Ejecutar ahora».</p>'}</div>`;
       box.onclick = async (e) => {
         if (e.target.closest('[data-close]')) { openRuns = null; box.innerHTML = ''; return; }
         if (e.target.closest('[data-goblog]')) return A.go('blog');
@@ -169,10 +169,10 @@ Admin.tab('ia', (A) => {
   async function pickTemplate(done) {
     const tpls = meta.templates;
     const d = document.createElement('dialog'); d.className = 'ask hubdlg';
-    d.innerHTML = `<form method="dialog"><h2>Nuevo agente</h2><p class="muted">Elige una plantilla (luego puedes cambiar todo) o empieza en blanco.</p>
-      <div class="tplgrid">${tpls.map((t) => `<button class="tplbtn" type="button" data-t="${t.key}"><i class="ph-light ${ICON[t.key] || 'ph-robot'}"></i><b>${esc(t.name)}</b><span>${esc(t.instructions.split('\n')[0].slice(0, 110))}</span></button>`).join('')}
-      <button class="tplbtn" type="button" data-t=""><i class="ph-light ph-plus-circle"></i><b>En blanco</b><span>Defines el rol, las herramientas y cuándo trabaja.</span></button></div>
-      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" type="button" data-no>Cancelar</button></div></form>`;
+    d.innerHTML = `<form method="dialog"><h2>Nuevo agente</h2><p class="text-body-secondary">Elige una plantilla (luego puedes cambiar todo) o empieza en blanco.</p>
+      <div class="tplgrid">${tpls.map((t) => `<button class="tplbtn" type="button" data-t="${t.key}"><i class="bi ${ICON[t.key] || 'bi-robot'}"></i><b>${esc(t.name)}</b><span>${esc(t.instructions.split('\n')[0].slice(0, 110))}</span></button>`).join('')}
+      <button class="tplbtn" type="button" data-t=""><i class="bi bi-plus-circle"></i><b>En blanco</b><span>Defines el rol, las herramientas y cuándo trabaja.</span></button></div>
+      <div class="dw-row" style="justify-content:flex-end;margin-top:12px"><button class="btn btn-outline-secondary" type="button" data-no>Cancelar</button></div></form>`;
     document.body.appendChild(d);
     const close = () => { d.close(); d.remove(); };
     $('[data-no]', d).onclick = close; d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
@@ -186,18 +186,18 @@ Admin.tab('ia', (A) => {
     const d = document.createElement('dialog'); d.className = 'ask hubdlg';
     const toolBox = (write) => tools.filter((t) => !!t.write === write).map((t) => `<label class="tchk" title="${esc(t.desc)}"><input type="checkbox" name="tools" value="${t.name}" ${a.tools.includes(t.name) ? 'checked' : ''}><span><b>${esc(t.name.replace(/_/g, ' '))}</b><small>${esc(t.desc)}</small></span></label>`).join('');
     d.innerHTML = `<form method="dialog"><h2>${isNew ? 'Nuevo agente' : 'Editar agente'}</h2>
-      <div class="form hubform">
-        <label class="f">Nombre<input class="in" name="name" value="${esc(a.name)}" required maxlength="80"></label>
-        <label class="f">Trabaja para<select class="in" name="org_id">${orgs.map((o) => `<option value="${esc(o.id)}" ${o.id === a.org_id ? 'selected' : ''}>${esc(o.name)}${o.app_name ? ` · ${esc(o.app_name)}` : ''}</option>`).join('')}</select></label>
-        <label class="f">Cuándo trabaja<select class="in" name="schedule">${Object.entries(SCHED).map(([k, l]) => `<option value="${k}" ${a.schedule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-        <label class="f">Permiso<select class="in" name="autonomy"><option value="proponer" ${a.autonomy !== 'ejecutar' ? 'selected' : ''}>Propone, yo apruebo</option><option value="ejecutar" ${a.autonomy === 'ejecutar' ? 'selected' : ''}>Actúa solo</option></select></label>
-        <label class="f full">Instrucciones (rol, qué revisar, qué hacer y cómo responder)${a.template && meta.templates.some((t) => t.key === a.template) ? ' <button class="btn sm" type="button" data-tplreset title="Trae las instrucciones y herramientas más nuevas de su plantilla"><i class="ph-light ph-arrows-counter-clockwise"></i>Usar la versión actual de la plantilla</button>' : ''}<textarea class="in" name="instructions" rows="7" required>${esc(a.instructions)}</textarea></label>
-        <div class="full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede consultar</b><div class="tgrid">${toolBox(false)}</div></div>
-        <div class="full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede hacer</b><div class="tgrid">${toolBox(true)}</div></div>
-        <label class="f"><span>Estado</span><label class="row" style="gap:8px;font-size:13px"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}> Activo</label></label></div>
-      <p class="err" data-err></p>
-      <div class="row" style="justify-content:space-between;margin-top:12px"><span>${!isNew && a.id ? '<button class="btn sm danger" type="button" data-del><i class="ph-light ph-trash"></i>Borrar</button>' : ''}</span>
-        <span class="row"><button class="btn" type="button" data-no>Cancelar</button><button class="btn pri" data-yes>Guardar</button></span></div></form>`;
+      <div class="dw-form hubform">
+        <label class="dw-field">Nombre<input class="form-control" name="name" value="${esc(a.name)}" required maxlength="80"></label>
+        <label class="dw-field">Trabaja para<select class="form-select" name="org_id">${orgs.map((o) => `<option value="${esc(o.id)}" ${o.id === a.org_id ? 'selected' : ''}>${esc(o.name)}${o.app_name ? ` · ${esc(o.app_name)}` : ''}</option>`).join('')}</select></label>
+        <label class="dw-field">Cuándo trabaja<select class="form-select" name="schedule">${Object.entries(SCHED).map(([k, l]) => `<option value="${k}" ${a.schedule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="dw-field">Permiso<select class="form-select" name="autonomy"><option value="proponer" ${a.autonomy !== 'ejecutar' ? 'selected' : ''}>Propone, yo apruebo</option><option value="ejecutar" ${a.autonomy === 'ejecutar' ? 'selected' : ''}>Actúa solo</option></select></label>
+        <label class="dw-field dw-full">Instrucciones (rol, qué revisar, qué hacer y cómo responder)${a.template && meta.templates.some((t) => t.key === a.template) ? ' <button class="btn btn-sm btn-outline-secondary" type="button" data-tplreset title="Trae las instrucciones y herramientas más nuevas de su plantilla"><i class="bi bi-arrow-counterclockwise"></i>Usar la versión actual de la plantilla</button>' : ''}<textarea class="form-control" name="instructions" rows="7" required>${esc(a.instructions)}</textarea></label>
+        <div class="dw-full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede consultar</b><div class="tgrid">${toolBox(false)}</div></div>
+        <div class="dw-full"><b style="font-size:13px;color:var(--hi);font-weight:500">Puede hacer</b><div class="tgrid">${toolBox(true)}</div></div>
+        <label class="dw-field"><span>Estado</span><label class="dw-row" style="gap:8px;font-size:13px"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}> Activo</label></label></div>
+      <p class="text-danger small" data-err></p>
+      <div class="dw-row" style="justify-content:space-between;margin-top:12px"><span>${!isNew && a.id ? '<button class="btn btn-sm btn-outline-danger" type="button" data-del><i class="bi bi-trash"></i>Borrar</button>' : ''}</span>
+        <span class="dw-row"><button class="btn btn-outline-secondary" type="button" data-no>Cancelar</button><button class="btn btn-primary" data-yes>Guardar</button></span></div></form>`;
     document.body.appendChild(d);
     const f = $('form', d), close = () => { d.close(); d.remove(); };
     $('[data-no]', d).onclick = close; d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });

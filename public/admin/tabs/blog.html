@@ -1,50 +1,50 @@
 <div id="blogList">
-  <div class="head">
-    <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Blog</h1></div>
-    <div class="row"><a class="btn" href="/blog" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver blog</a><button class="btn pri" id="postNew"><i class="ph-light ph-plus"></i>Nueva entrada</button></div>
+  <div class="dw-page-head">
+    <div class="dw-row"><h1>Blog</h1></div>
+    <div class="dw-row"><a class="btn btn-outline-secondary" href="/blog" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Ver blog</a><button class="btn btn-primary" id="postNew"><i class="bi bi-plus-lg"></i>Nueva entrada</button></div>
   </div>
-  <div class="grid" style="--min:150px;margin-bottom:14px" id="blogKpis"></div>
-  <div class="row" style="justify-content:space-between;margin-bottom:12px">
-    <div class="bfil seg" id="blogFilter"><button class="btn sm on" data-f="">Todas</button><button class="btn sm" data-f="pub">Publicadas</button><button class="btn sm" data-f="sched">Programadas</button><button class="btn sm" data-f="draft">Borradores</button></div>
-    <input class="in" id="blogSearch" placeholder="Buscar por título…" style="max-width:260px">
+  <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="blogKpis"></div>
+  <div class="dw-row" style="justify-content:space-between;margin-bottom:12px">
+    <div class="bfil btn-group" id="blogFilter"><button class="btn btn-sm active btn-outline-secondary" data-f="">Todas</button><button class="btn btn-sm btn-outline-secondary" data-f="pub">Publicadas</button><button class="btn btn-sm btn-outline-secondary" data-f="sched">Programadas</button><button class="btn btn-sm btn-outline-secondary" data-f="draft">Borradores</button></div>
+    <input class="form-control" id="blogSearch" placeholder="Buscar por título…" style="max-width:260px">
   </div>
-  <div class="card tbl-wrap"><table><thead><tr><th></th><th>Entrada</th><th>Categoría</th><th>Estado</th><th>Fecha</th><th class="num">Lecturas</th><th></th></tr></thead><tbody id="blogBody"></tbody></table></div>
+  <div class="dw-card table-responsive"><table class="table table-sm align-middle"><thead><tr><th></th><th>Entrada</th><th>Categoría</th><th>Estado</th><th>Fecha</th><th class="text-end">Lecturas</th><th></th></tr></thead><tbody id="blogBody"></tbody></table></div>
 </div>
 
 <div id="blogEditor" hidden>
-  <div class="head">
-    <div class="row"><button class="btn" id="edBack2"><i class="ph-light ph-arrow-left"></i>Entradas</button><h1 id="pTitleHead">Nueva entrada</h1><span class="dirty" id="pDirty" hidden>Cambios sin guardar</span></div>
-    <div class="row">
-      <a class="btn" id="pView" target="_blank" rel="noopener" hidden><i class="ph-light ph-eye"></i>Ver en el sitio</a>
-      <button class="btn" id="pSaveDraft"><i class="ph-light ph-floppy-disk"></i>Guardar borrador</button>
-      <button class="btn pri" id="pPublish"><i class="ph-light ph-paper-plane-tilt"></i>Publicar</button>
+  <div class="dw-page-head">
+    <div class="dw-row"><button class="btn btn-outline-secondary" id="edBack2"><i class="bi bi-arrow-left"></i>Entradas</button><h1 id="pTitleHead">Nueva entrada</h1><span class="dirty" id="pDirty" hidden>Cambios sin guardar</span></div>
+    <div class="dw-row">
+      <a class="btn btn-outline-secondary" id="pView" target="_blank" rel="noopener" hidden><i class="bi bi-eye"></i>Ver en el sitio</a>
+      <button class="btn btn-outline-secondary" id="pSaveDraft"><i class="bi bi-floppy"></i>Guardar borrador</button>
+      <button class="btn btn-primary" id="pPublish"><i class="bi bi-send"></i>Publicar</button>
     </div>
   </div>
-  <p class="err" id="pErr"></p>
+  <p class="text-danger small" id="pErr"></p>
   <div class="ed">
     <div class="ed-main">
       <input class="ed-title" id="pTitle" placeholder="Título de la entrada" maxlength="200" autocomplete="off">
       <div class="ed-slug">diwilo.com/blog/<input id="pSlug" spellcheck="false" aria-label="Dirección de la entrada" placeholder="se-genera-con-el-titulo"></div>
-      <textarea class="in ed-excerpt" id="pExcerpt" maxlength="400" placeholder="Resumen: una o dos frases que invitan a leer (aparece en las tarjetas y en Google)."></textarea>
+      <textarea class="form-control ed-excerpt" id="pExcerpt" maxlength="400" placeholder="Resumen: una o dos frases que invitan a leer (aparece en las tarjetas y en Google)."></textarea>
       <div class="ed-box">
         <div class="ed-bar" id="pBar">
-          <button type="button" data-md="b" title="Negrita (⌘B)"><i class="ph-light ph-text-b"></i></button>
-          <button type="button" data-md="i" title="Cursiva (⌘I)"><i class="ph-light ph-text-italic"></i></button>
+          <button type="button" data-md="b" title="Negrita (⌘B)"><i class="bi bi-type-bold"></i></button>
+          <button type="button" data-md="i" title="Cursiva (⌘I)"><i class="bi bi-type-italic"></i></button>
           <span class="sep"></span>
-          <button type="button" data-md="h2" title="Título de sección"><i class="ph-light ph-text-h-two"></i></button>
-          <button type="button" data-md="h3" title="Subtítulo"><i class="ph-light ph-text-h-three"></i></button>
+          <button type="button" data-md="h2" title="Título de sección"><i class="bi bi-type-h2"></i></button>
+          <button type="button" data-md="h3" title="Subtítulo"><i class="bi bi-type-h3"></i></button>
           <span class="sep"></span>
-          <button type="button" data-md="link" title="Enlace (⌘K)"><i class="ph-light ph-link-simple"></i></button>
-          <button type="button" data-md="quote" title="Cita o destacado"><i class="ph-light ph-quotes"></i></button>
-          <button type="button" data-md="ul" title="Lista"><i class="ph-light ph-list-bullets"></i></button>
-          <button type="button" data-md="ol" title="Lista numerada"><i class="ph-light ph-list-numbers"></i></button>
-          <button type="button" data-md="code" title="Bloque de código"><i class="ph-light ph-code"></i></button>
-          <button type="button" data-md="table" title="Tabla"><i class="ph-light ph-table"></i></button>
-          <button type="button" data-md="hr" title="Separador"><i class="ph-light ph-minus"></i></button>
-          <button type="button" data-md="img" title="Subir imagen"><i class="ph-light ph-image"></i></button>
+          <button type="button" data-md="link" title="Enlace (⌘K)"><i class="bi bi-link-45deg"></i></button>
+          <button type="button" data-md="quote" title="Cita o destacado"><i class="bi bi-quote"></i></button>
+          <button type="button" data-md="ul" title="Lista"><i class="bi bi-list-ul"></i></button>
+          <button type="button" data-md="ol" title="Lista numerada"><i class="bi bi-list-ol"></i></button>
+          <button type="button" data-md="code" title="Bloque de código"><i class="bi bi-code-slash"></i></button>
+          <button type="button" data-md="table" title="Tabla"><i class="bi bi-table"></i></button>
+          <button type="button" data-md="hr" title="Separador"><i class="bi bi-dash-lg"></i></button>
+          <button type="button" data-md="img" title="Subir imagen"><i class="bi bi-image"></i></button>
           <input type="file" id="pImgFile" accept="image/*" hidden>
           <span class="grow"></span>
-          <span class="seg" id="pMode"><button class="btn sm" data-mode="write">Escribir</button><button class="btn sm on" data-mode="split">Dividido</button><button class="btn sm" data-mode="read">Vista previa</button></span>
+          <span class="btn-group" id="pMode"><button class="btn btn-sm btn-outline-secondary" data-mode="write">Escribir</button><button class="btn btn-sm active btn-outline-secondary" data-mode="split">Dividido</button><button class="btn btn-sm btn-outline-secondary" data-mode="read">Vista previa</button></span>
         </div>
         <div class="ed-panes" id="pPanes">
           <textarea class="ed-text" id="pContent" spellcheck="true" placeholder="Escribe aquí. Usa la barra para dar formato o Markdown directamente: ## Título, **negrita**, - lista…  Arrastra o pega imágenes."></textarea>
@@ -55,36 +55,36 @@
     </div>
 
     <aside class="ed-side">
-      <div class="card">
+      <div class="dw-card">
         <h2>Publicación</h2>
         <div class="radio-row" style="margin-bottom:12px"><label><input type="radio" name="pStatus" value="draft" checked>Borrador</label><label><input type="radio" name="pStatus" value="published">Publicada</label></div>
-        <label class="f">Fecha de publicación<input class="in" type="datetime-local" id="pDate"></label>
-        <p class="muted" style="margin:-4px 0 10px;font-size:12px" id="pDateHint">Si eliges una fecha futura, se publica sola ese día.</p>
-        <label class="row" style="gap:8px;font-size:13px;color:var(--ink2)"><input type="checkbox" id="pFeatured"> Destacar en el blog</label>
+        <label class="dw-field">Fecha de publicación<input class="form-control" type="datetime-local" id="pDate"></label>
+        <p class="text-body-secondary" style="margin:-4px 0 10px;font-size:12px" id="pDateHint">Si eliges una fecha futura, se publica sola ese día.</p>
+        <label class="dw-row" style="gap:8px;font-size:13px;color:var(--ink2)"><input type="checkbox" id="pFeatured"> Destacar en el blog</label>
       </div>
-      <div class="card">
+      <div class="dw-card">
         <h2>Portada</h2>
-        <div class="cover-drop" id="pCover" tabindex="0" role="button" aria-label="Subir portada"><i class="ph-light ph-image-square"></i><span>Arrastra una imagen o haz clic<br><small>Horizontal, 1600 × 900 ideal</small></span></div>
+        <div class="cover-drop" id="pCover" tabindex="0" role="button" aria-label="Subir portada"><i class="bi bi-image"></i><span>Arrastra una imagen o haz clic<br><small>Horizontal, 1600 × 900 ideal</small></span></div>
         <input type="file" id="pCoverFile" accept="image/*" hidden>
-        <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn sm" id="pCoverAI" type="button"><i class="ph-light ph-magic-wand"></i>Generar portada con IA</button>
-        <button class="btn sm danger" id="pCoverDel" type="button" hidden><i class="ph-light ph-trash"></i>Quitar portada</button></div>
+        <div class="dw-row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-sm btn-outline-secondary" id="pCoverAI" type="button"><i class="bi bi-magic"></i>Generar portada con IA</button>
+        <button class="btn btn-sm btn-outline-danger" id="pCoverDel" type="button" hidden><i class="bi bi-trash"></i>Quitar portada</button></div>
       </div>
-      <div class="card">
+      <div class="dw-card">
         <h2>Organización</h2>
-        <label class="f">Categoría<input class="in" id="pCategory" list="pCats" maxlength="60" placeholder="Automatización"></label>
+        <label class="dw-field">Categoría<input class="form-control" id="pCategory" list="pCats" maxlength="60" placeholder="Automatización"></label>
         <datalist id="pCats"></datalist>
-        <label class="f">Etiquetas<input class="in" id="pTags" maxlength="300" placeholder="n8n, whatsapp, pymes"></label>
-        <label class="f">Autor<input class="in" id="pAuthor" list="pAuthors" maxlength="100"></label>
+        <label class="dw-field">Etiquetas<input class="form-control" id="pTags" maxlength="300" placeholder="n8n, whatsapp, pymes"></label>
+        <label class="dw-field">Autor<input class="form-control" id="pAuthor" list="pAuthors" maxlength="100"></label>
         <datalist id="pAuthors"></datalist>
       </div>
-      <div class="card">
+      <div class="dw-card">
         <h2>SEO</h2>
-        <label class="f">Título para Google <span class="cnt" id="pSeoTc">0/60</span><input class="in" id="pSeoTitle" maxlength="70" placeholder="Por defecto, el título"></label>
-        <label class="f">Descripción <span class="cnt" id="pSeoDc">0/160</span><textarea class="in" id="pSeoDesc" rows="3" maxlength="170" placeholder="Por defecto, el resumen"></textarea></label>
+        <label class="dw-field">Título para Google <span class="cnt" id="pSeoTc">0/60</span><input class="form-control" id="pSeoTitle" maxlength="70" placeholder="Por defecto, el título"></label>
+        <label class="dw-field">Descripción <span class="cnt" id="pSeoDc">0/160</span><textarea class="form-control" id="pSeoDesc" rows="3" maxlength="170" placeholder="Por defecto, el resumen"></textarea></label>
         <div class="serp" aria-label="Así se vería en Google"><div class="u">diwilo.com › blog › <span id="serpSlug"></span></div><div class="t" id="serpT"></div><div class="d" id="serpD"></div></div>
       </div>
-      <div class="card ed-stats" id="pStats"></div>
-      <button class="btn sm danger" id="pDelete" hidden><i class="ph-light ph-trash"></i>Borrar esta entrada</button>
+      <div class="dw-card ed-stats" id="pStats"></div>
+      <button class="btn btn-sm btn-outline-danger" id="pDelete" hidden><i class="bi bi-trash"></i>Borrar esta entrada</button>
     </aside>
   </div>
 </div>

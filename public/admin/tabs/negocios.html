@@ -1,37 +1,37 @@
-<div class="head">
-  <div class="row"><button class="btn menu-btn" data-menu><i class="ph-light ph-list"></i></button><h1>Negocios y suscripciones</h1></div>
-  <div class="row">
-    <div class="seg" id="appSeg"></div>
-    <button class="btn" id="bizArchBtn" aria-pressed="false"><i class="ph-light ph-archive"></i>Archivados<span class="badge" id="bizArchCount" hidden></span></button>
-    <button class="btn pri" id="bizNewBtn"><i class="ph-light ph-plus"></i>Nuevo negocio</button>
+<div class="dw-page-head">
+  <div class="dw-row"><h1>Negocios y suscripciones</h1></div>
+  <div class="dw-row">
+    <div class="btn-group" id="appSeg"></div>
+    <button class="btn btn-outline-secondary" id="bizArchBtn" aria-pressed="false"><i class="bi bi-archive"></i>Archivados<span class="badge text-bg-primary" id="bizArchCount" hidden></span></button>
+    <button class="btn btn-primary" id="bizNewBtn"><i class="bi bi-plus-lg"></i>Nuevo negocio</button>
   </div>
 </div>
-<p class="err" id="bizErr"></p>
-<div class="grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
+<p class="text-danger small" id="bizErr"></p>
+<div class="dw-grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
 
-<form class="card" id="bizNew" style="margin-bottom:14px" hidden>
+<form class="dw-card" id="bizNew" style="margin-bottom:14px" hidden>
   <h2>Nuevo negocio en <span data-appname></span></h2>
-  <p class="muted" style="margin:4px 0 0;font-size:13px">Se crea el negocio con su dueño y se genera un link para que el dueño cree su contraseña.</p>
-  <div class="form" style="margin-top:12px">
-    <label class="f">Nombre del negocio<input class="in" name="name" maxlength="120" required></label>
-    <label class="f" id="bizSlug">Slug (va en la URL)<input class="in" name="slug" maxlength="40" pattern="[a-z0-9\-]{3,40}" placeholder="mi-negocio"></label>
-    <label class="f">Correo del dueño<input class="in" name="owner_email" type="email" required></label>
-    <label class="f">Nombre del dueño<input class="in" name="owner_name" maxlength="100"></label>
-    <label class="f">Días de prueba<input class="in" name="trial_days" type="number" min="0" max="365"></label>
-    <label class="f" id="bizPlan" hidden>Plan de módulos<select class="in" name="plan_id"></select></label>
+  <p class="text-body-secondary" style="margin:4px 0 0;font-size:13px">Se crea el negocio con su dueño y se genera un link para que el dueño cree su contraseña.</p>
+  <div class="dw-form" style="margin-top:12px">
+    <label class="dw-field">Nombre del negocio<input class="form-control" name="name" maxlength="120" required></label>
+    <label class="dw-field" id="bizSlug">Slug (va en la URL)<input class="form-control" name="slug" maxlength="40" pattern="[a-z0-9\-]{3,40}" placeholder="mi-negocio"></label>
+    <label class="dw-field">Correo del dueño<input class="form-control" name="owner_email" type="email" required></label>
+    <label class="dw-field">Nombre del dueño<input class="form-control" name="owner_name" maxlength="100"></label>
+    <label class="dw-field">Días de prueba<input class="form-control" name="trial_days" type="number" min="0" max="365"></label>
+    <label class="dw-field" id="bizPlan" hidden>Plan de módulos<select class="form-select" name="plan_id"></select></label>
   </div>
-  <div class="row" style="margin-top:14px"><button class="btn pri" type="submit"><i class="ph-light ph-check"></i>Crear e invitar</button><button class="btn" type="button" data-cancel>Cancelar</button><span class="err" data-err></span></div>
+  <div class="dw-row" style="margin-top:14px"><button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i>Crear e invitar</button><button class="btn btn-outline-secondary" type="button" data-cancel>Cancelar</button><span class="text-danger small" data-err></span></div>
 </form>
 <div id="inviteBox" style="margin-bottom:14px" hidden></div>
 
-<div class="card" id="bizArchived" style="margin-bottom:14px" hidden></div>
+<div class="dw-card" id="bizArchived" style="margin-bottom:14px" hidden></div>
 
-<div class="card tbl-wrap" id="bizTable"><table><thead><tr><th>Negocio</th><th>Dueño</th><th>Usuarios y permisos</th><th>Activa hasta</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
-<div class="card" id="bizDetail" style="margin-top:14px" hidden></div>
+<div class="dw-card table-responsive" id="bizTable"><table class="table table-sm align-middle"><thead><tr><th>Negocio</th><th>Dueño</th><th>Usuarios y permisos</th><th>Activa hasta</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
+<div class="dw-card" id="bizDetail" style="margin-top:14px" hidden></div>
 
-<form class="card" id="priceForm" style="margin-top:14px">
+<form class="dw-card" id="priceForm" style="margin-top:14px">
   <h2>Precios y período de prueba</h2>
-  <p class="muted" style="margin:4px 0 0;font-size:13px">El precio mensual se sugiere al registrar un pago. Los días de prueba aplican a cada negocio nuevo.</p>
-  <div class="form" style="margin-top:12px" id="priceFields"></div>
-  <div class="row" style="margin-top:14px"><button class="btn pri" type="submit">Guardar</button></div>
+  <p class="text-body-secondary" style="margin:4px 0 0;font-size:13px">El precio mensual se sugiere al registrar un pago. Los días de prueba aplican a cada negocio nuevo.</p>
+  <div class="dw-form" style="margin-top:12px" id="priceFields"></div>
+  <div class="dw-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">Guardar</button></div>
 </form>

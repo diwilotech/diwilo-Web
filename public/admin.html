@@ -1,47 +1,57 @@
 <!doctype html>
-<html lang="es" data-v="2026-11-03">
+<html lang="es" data-v="2026-11-05">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Panel Diwilo</title>
+<!-- Tema guardado: se aplica antes de pintar para que no parpadee -->
+<script>try{var t=JSON.parse(localStorage.getItem('dw_tema')||'{}');document.documentElement.setAttribute('data-dw-tema',t.tema||'violeta');document.documentElement.setAttribute('data-bs-theme',t.modo||'light')}catch(e){}</script>
 <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
 <link rel="icon" type="image/png" href="/assets/img/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&family=JetBrains+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/light/style.css">
-<link rel="stylesheet" href="/admin/admin.css?v=2026-11-03">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/admin/embed/diwilo.css?v=2026-11-05">
+<link rel="stylesheet" href="/admin/login.css?v=2026-11-05">
+<link rel="stylesheet" href="/admin/admin.css?v=2026-11-05">
 </head>
-<body>
+<body class="dw">
 
-<!-- Sin Cloudflare Access -->
-<section class="login" id="login" hidden>
-  <form id="loginForm">
-    <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo · Panel</div>
-    <p class="muted" style="margin:0">El panel se abre con Cloudflare Access. Si tu sesión venció, vuelve a cargar la página para entrar con tu correo.</p>
-    <a class="btn pri" href="/admin" style="justify-content:center;padding:11px">Entrar con Cloudflare Access</a>
-    <p class="err" id="loginErr"></p>
-  </form>
+<!-- Sin Cloudflare Access: misma pantalla de ingreso que las apps (el acceso real lo da Access) -->
+<section id="login" hidden>
+<div class="dl-shell" style="--dl-accent:#6d28d9;--dl-accent-2:#8b5cf6;--dl-m1:hsla(265,70%,76%,1);--dl-m2:hsla(230,70%,72%,1);--dl-m3:hsla(40,95%,74%,1);--dl-m4:hsla(300,70%,74%,1)">
+  <div class="dl-box">
+  <aside class="dl-brand">
+    <a class="dl-logo" href="/" target="_blank" rel="noopener"><svg viewBox="18 14 168 172" aria-hidden="true"><defs><linearGradient id="dwl" gradientUnits="userSpaceOnUse" x1="30" y1="20" x2="170" y2="180"><stop offset="0" stop-color="#F3E8FF"/><stop offset="1" stop-color="#A78BFA"/></linearGradient></defs><g fill="none" stroke="url(#dwl)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path d="M48 72V146Q48 170 72 170H84"/><path d="M156.6 135A70 70 0 0 0 96 30H86"/><path d="M84 134V124Q84 108 100 108H124"/></g><g fill="url(#dwl)"><circle cx="48" cy="34" r="13"/><circle cx="112" cy="72" r="13"/><circle cx="125.6" cy="163.4" r="13"/></g></svg>Diwilo</a>
+    <div class="dl-hero">
+      <span class="dl-chip"><i class="bi bi-speedometer2"></i>Panel Diwilo</span>
+      <h1>Todo el ecosistema Diwilo en un solo lugar.</h1>
+      <p>Negocios, módulos, marketing, finanzas, blog e IA de todas las apps.</p>
+    </div>
+    <div class="dl-foot">© Diwilo · <a href="https://diwilo.com" target="_blank" rel="noopener">diwilo.com</a></div>
+    <span class="dl-m">una app de Diwilo</span>
+  </aside>
+  <main class="dl-side">
+    <div class="dl-card">
+      <div class="dl-icon"><i class="bi bi-shield-lock"></i></div>
+      <p class="dl-kicker">¡Centro de control!</p>
+      <h1 class="dl-title">Ingresa</h1>
+      <p class="dl-sub">El panel se abre con Cloudflare Access. Si tu sesión venció, entra de nuevo con tu correo.</p>
+      <div class="dl-form"><a class="dl-btn" href="/admin" style="text-decoration:none;text-align:center">Entrar con Cloudflare Access</a></div>
+      <p class="dl-powered">Panel Diwilo · <a href="/privacidad">Política de datos</a></p>
+    </div>
+  </main>
+  </div>
+</div>
 </section>
 
 <!-- App -->
-<div class="app" id="app" hidden>
-  <nav class="side" id="side">
-    <div class="brand"><img src="/assets/img/brand/logo-mark.svg" alt="">Diwilo</div>
-    <button class="tab" data-view="resumen"><i class="ph-light ph-pulse"></i>En vivo</button>
-    <button class="tab" data-view="negocios"><i class="ph-light ph-buildings"></i>Negocios<span class="badge" id="bizBadge" hidden></span></button>
-    <button class="tab" data-view="modulos"><i class="ph-light ph-squares-four"></i>Módulos</button>
-    <button class="tab" data-view="marketing"><i class="ph-light ph-megaphone"></i>Marketing<span class="badge" id="leadBadge" hidden title="Leads nuevos del formulario"></span></button>
-    <button class="tab" data-view="finanzas"><i class="ph-light ph-chart-pie-slice"></i>Finanzas</button>
-    <button class="tab" data-view="blog"><i class="ph-light ph-article"></i>Blog</button>
-    <button class="tab" data-view="ia"><i class="ph-light ph-robot"></i>Integraciones e IA</button>
-    <div class="spacer"></div>
-    <a class="tab" href="/" target="_blank" rel="noopener"><i class="ph-light ph-arrow-square-out"></i>Ver sitio</a>
-    <span class="muted" id="whoami" style="font-size:12px;padding:4px 12px;overflow:hidden;text-overflow:ellipsis"></span>
-    <a class="tab" id="logout" href="/cdn-cgi/access/logout"><i class="ph-light ph-sign-out"></i>Salir</a>
-  </nav>
+<div id="app" hidden>
+  <div id="dw-shell"></div>
 
   <!-- Cada pestaña se carga desde /admin/tabs/<id>.html + .js la primera vez que se abre (ver /admin/core.js). -->
-  <main>
+  <main class="dw-main" id="dw-content">
     <section data-section="resumen" hidden></section>
     <section data-section="negocios" hidden></section>
     <section data-section="modulos" hidden></section>
@@ -49,13 +59,15 @@
     <section data-section="finanzas" hidden></section>
     <section data-section="blog" hidden></section>
     <section data-section="ia" hidden></section>
+    <section data-section="equipo" hidden></section>
   </main>
 </div>
-<div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="/admin/core.js?v=2026-11-03"></script>
-<script src="/admin/hub.js?v=2026-11-03"></script>
-<script src="/admin/assistant.js?v=2026-11-03"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/admin/shell.js?v=2026-11-05"></script>
+<script src="/admin/core.js?v=2026-11-05"></script>
+<script src="/admin/hub.js?v=2026-11-05"></script>
+<script src="/admin/assistant.js?v=2026-11-05"></script>
 </body>
 </html>

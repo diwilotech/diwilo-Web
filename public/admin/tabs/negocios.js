@@ -28,7 +28,7 @@ Admin.tab('negocios', (A) => {
     },
   };
   const permText = (role) => (PERMS[bizApp] || PERMS._)[role] || PERMS._[role] || '';
-  const ICON = { owner: 'ph-crown-simple', admin: 'ph-shield-check', staff: 'ph-user' };
+  const ICON = { owner: 'bi-award', admin: 'bi-shield-check', staff: 'bi-person' };
 
   // Editor de bloqueo: fecha hasta la que la app funciona (inclusive) o "No bloquear".
   function lockHtml(b) {
@@ -36,13 +36,13 @@ Admin.tab('negocios', (A) => {
     return `<form class="lock" data-lock="${esc(b.id)}">
       <h3 style="margin:0">Bloqueo de la app</h3>
       <label class="nolock"><input type="checkbox" name="nolock" ${free ? 'checked' : ''}> No bloquear (sin fecha límite, no se cobra)</label>
-      <label class="f">Activa hasta (incluido)<input class="in" type="date" name="paid_until" value="${esc(b.paid_until || '')}" ${free ? 'disabled' : ''}></label>
+      <label class="dw-field">Activa hasta (incluido)<input class="form-control" type="date" name="paid_until" value="${esc(b.paid_until || '')}" ${free ? 'disabled' : ''}></label>
       <div class="chips">
-        <button class="btn sm" type="button" data-add="1">+1 mes</button><button class="btn sm" type="button" data-add="3">+3 meses</button>
-        <button class="btn sm" type="button" data-add="12">+1 año</button><button class="btn sm danger" type="button" data-lockNow>Bloquear ya</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-add="1">+1 mes</button><button class="btn btn-sm btn-outline-secondary" type="button" data-add="3">+3 meses</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-add="12">+1 año</button><button class="btn btn-sm btn-outline-danger" type="button" data-lockNow>Bloquear ya</button>
       </div>
       <p class="when" data-when></p>
-      <div class="row"><button class="btn pri sm" type="submit"><i class="ph-light ph-check"></i>Guardar bloqueo</button><span class="err" data-err></span></div>
+      <div class="dw-row"><button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check-lg"></i>Guardar bloqueo</button><span class="text-danger small" data-err></span></div>
     </form>`;
   }
   function addMonthsIso(iso, n) {
@@ -97,17 +97,17 @@ Admin.tab('negocios', (A) => {
 
   // Tabla de usuarios con sus permisos. Desde Diwilo solo se maneja al dueño; el equipo se crea en la app.
   function usersHtml(b) {
-    if (!b.users.length) return '<p class="muted" style="margin:0">Sin usuarios.</p>';
-    return `<div class="tbl-wrap"><table class="utbl"><thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th></th></tr></thead><tbody>
+    if (!b.users.length) return '<p class="text-body-secondary" style="margin:0">Sin usuarios.</p>';
+    return `<div class="table-responsive"><table class="utbl"><thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th></th></tr></thead><tbody>
       ${b.users.map((u) => `<tr>
-        <td><b style="font-weight:500;color:var(--hi)">${esc(u.name || u.email.split('@')[0])}</b><br><span class="muted" style="font-size:12px">${esc(u.email)}</span>
-          ${u.role === 'owner' ? `<button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo del dueño" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="ph-light ph-pencil-simple"></i></button>` : ''}</td>
-        <td><span class="rolechip"><i class="ph-light ${ICON[u.role] || 'ph-user'}"></i>${ROLE[u.role] || esc(u.role)}</span>
+        <td><b style="font-weight:500;color:var(--hi)">${esc(u.name || u.email.split('@')[0])}</b><br><span class="text-body-secondary" style="font-size:12px">${esc(u.email)}</span>
+          ${u.role === 'owner' ? `<button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo del dueño" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="bi bi-pencil"></i></button>` : ''}</td>
+        <td><span class="rolechip"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${ROLE[u.role] || esc(u.role)}</span>
           <span class="perm">${esc(permText(u.role))}</span></td>
         <td><span class="st ${u.status === 'active' ? 'ok' : u.status === 'invited' ? 'soon' : 'free'}">${USTATUS[u.status] || esc(u.status)}</span></td>
-        <td style="white-space:nowrap">${u.role === 'owner' ? linkBtn(u, 'data-xlink') : `<button class="btn sm" data-mkowner="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Le pasa la propiedad del negocio"><i class="ph-light ph-crown-simple"></i>Hacer dueño</button>`}</td></tr>`).join('')}
+        <td style="white-space:nowrap">${u.role === 'owner' ? linkBtn(u, 'data-xlink') : `<button class="btn btn-sm btn-outline-secondary" data-mkowner="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Le pasa la propiedad del negocio"><i class="bi bi-award"></i>Hacer dueño</button>`}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="muted" style="margin:8px 0 0;font-size:12px"><i class="ph-light ph-info"></i> El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
+      <p class="text-body-secondary" style="margin:8px 0 0;font-size:12px"><i class="bi bi-info-circle"></i> El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
   }
 
   function subState(b) {
@@ -128,15 +128,15 @@ Admin.tab('negocios', (A) => {
   function inviteHtml(url, who, kind = 'registro') {
     if (!url) return '';
     const [title, hint, wa] = LINK_TEXT[kind];
-    return `<div class="newkey"><p style="margin:0 0 6px"><b style="color:#fff;font-weight:500">${title}</b>${who ? ` para ${esc(who)}` : ''}. ${hint}</p>
-      <code class="mono" style="font-size:12px;color:#fff">${esc(url)}</code>
-      <div class="row" style="margin-top:8px"><button class="btn sm" type="button" data-copy="${esc(url)}"><i class="ph-light ph-copy"></i>Copiar</button>
-      <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(wa + ' ' + url)}"><i class="ph-light ph-whatsapp-logo"></i>WhatsApp</a></div></div>`;
+    return `<div class="newkey"><p style="margin:0 0 6px"><b style="color:var(--hi);font-weight:500">${title}</b>${who ? ` para ${esc(who)}` : ''}. ${hint}</p>
+      <code class="font-monospace small" style="font-size:12px;color:var(--hi)">${esc(url)}</code>
+      <div class="dw-row" style="margin-top:8px"><button class="btn btn-sm btn-outline-secondary" type="button" data-copy="${esc(url)}"><i class="bi bi-clipboard"></i>Copiar</button>
+      <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(wa + ' ' + url)}"><i class="bi bi-whatsapp"></i>WhatsApp</a></div></div>`;
   }
   const linkKind = (u) => (u.status === 'active' ? 'reset' : 'registro');
   const linkBtn = (u, attr) => u.status === 'active'
-    ? `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera un link para que elija una contraseña nueva"><i class="ph-light ph-key"></i>Restablecer contraseña</button>`
-    : `<button class="btn sm" ${attr}="${esc(u.id)}" title="Genera el link para que cree su contraseña"><i class="ph-light ph-envelope-simple"></i>Link de registro</button>`;
+    ? `<button class="btn btn-sm btn-outline-secondary" ${attr}="${esc(u.id)}" title="Genera un link para que elija una contraseña nueva"><i class="bi bi-key"></i>Restablecer contraseña</button>`
+    : `<button class="btn btn-sm btn-outline-secondary" ${attr}="${esc(u.id)}" title="Genera el link para que cree su contraseña"><i class="bi bi-envelope"></i>Link de registro</button>`;
   // Dirección general de ingreso de la app (sin token ni negocio): la persona entra con su correo y
   // contraseña y la app la lleva a su negocio (o le deja elegir si tiene varios).
   function loginUrl(b) {
@@ -155,14 +155,14 @@ Admin.tab('negocios', (A) => {
 
   async function loadPlatform() {
     plat = await api('platform');
-    $('#appSeg').innerHTML = plat.apps.map((a) => `<button class="btn sm ${a.key === bizApp ? 'on' : ''}" data-app="${a.key}">${esc(a.name)}</button>`).join('');
-    $('#priceFields').innerHTML = plat.apps.map((a) => `<label class="f">Precio mensual ${esc(a.name)} (COP)<input class="in" type="number" min="0" step="1000" name="price_${a.key}" value="${plat.prices[a.key] || 0}"></label>`).join('')
-      + `<label class="f">Días de prueba<input class="in" type="number" min="0" max="365" name="trial_days" value="${plat.trial_days}"></label>`;
+    $('#appSeg').innerHTML = plat.apps.map((a) => `<button class="btn btn-sm ${a.key === bizApp ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+    $('#priceFields').innerHTML = plat.apps.map((a) => `<label class="dw-field">Precio mensual ${esc(a.name)} (COP)<input class="form-control" type="number" min="0" step="1000" name="price_${a.key}" value="${plat.prices[a.key] || 0}"></label>`).join('')
+      + `<label class="dw-field">Días de prueba<input class="form-control" type="number" min="0" max="365" name="trial_days" value="${plat.trial_days}"></label>`;
   }
 
   async function loadBiz() {
     $('#bizErr').textContent = '';
-    $('#bizBody').innerHTML = '<tr><td colspan="7" class="empty">Cargando…</td></tr>';
+    $('#bizBody').innerHTML = '<tr><td colspan="7" class="dw-empty">Cargando…</td></tr>';
     const app = appCfg();
     $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
     $('#bizSlug').hidden = !app.slug;
@@ -188,25 +188,25 @@ Admin.tab('negocios', (A) => {
     const tiles = [['Negocios', fmtN(biz.length)], ['Al día', fmtN(st.filter((s) => s.k === 'ok' || s.k === 'free').length)],
       ['Vencen en 7 días', fmtN(st.filter((s) => s.k === 'soon').length)], ['Solo lectura', fmtN(st.filter((s) => s.k === 'bad').length)],
       ['Cobrado este mes', fmtCOP(monthIncome)]];
-    $('#bizKpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    $('#bizKpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
     $('#bizBody').innerHTML = biz.length ? biz.map((b, i) => {
       const owner = b.users.find((u) => u.role === 'owner');
       const open = bizOpen.has(b.id);
       const shown = b.users.slice(0, 2);
       return `<tr data-biz="${esc(b.id)}" class="${b.id === bizSel ? 'sel' : ''}" style="cursor:pointer">
-        <td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="muted mono">/${esc(b.slug)}</span>` : ''}</td>
-        <td>${owner ? esc(owner.email) : '<span class="muted">—</span>'}</td>
-        <td><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="ph-light ${ICON[u.role] || 'ph-user'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
-          ${b.users.length > 2 ? `<span class="muted" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
-          <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="ph-light ph-caret-down"></i></button></div></td>
-        <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="muted">No se bloquea</span>'}</td>
-        <td><span class="st ${st[i].k}">${st[i].t}</span>${b.plan?.nombre ? `<div class="muted" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
-        <td class="muted">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
-        <td style="white-space:nowrap">${owner ? `<button class="btn sm pri" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="muted">—</span>'}</td></tr>
+        <td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}</td>
+        <td>${owner ? esc(owner.email) : '<span class="text-body-secondary">—</span>'}</td>
+        <td><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
+          ${b.users.length > 2 ? `<span class="text-body-secondary" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
+          <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="bi bi-chevron-down"></i></button></div></td>
+        <td>${b.paid_until ? fmtDay(b.paid_until) : '<span class="text-body-secondary">No se bloquea</span>'}</td>
+        <td><span class="st ${st[i].k}">${st[i].t}</span>${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
+        <td class="text-body-secondary">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
+        <td style="white-space:nowrap">${owner ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="text-body-secondary">—</span>'}</td></tr>
         ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td colspan="7"><div class="xbox">
-          <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="muted" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
+          <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="text-body-secondary" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
           <div class="sub" style="margin-top:8px">${lockHtml(b)}</div></div></td></tr>` : ''}`;
-    }).join('') : `<tr><td colspan="7" class="empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="dw-empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
     wireLock($('#bizBody'));
     if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
   }
@@ -222,7 +222,7 @@ Admin.tab('negocios', (A) => {
       [d, planes] = await Promise.all([api(`modulos/${app}/negocios/${encodeURIComponent(id)}`), api(`modulos/${app}`).then((x) => x.planes)]);
     } catch (e) {
       // El negocio aún no está en módulos (app sin módulos o sin sincronizar)
-      box.innerHTML = `<h3>Módulos</h3><p class="muted" style="margin:0 0 10px;font-size:13px">${esc(e.message)}</p><button class="btn sm" data-modsync><i class="ph-light ph-arrows-clockwise"></i>Sincronizar ${esc(appCfg().name)}</button>`;
+      box.innerHTML = `<h3>Módulos</h3><p class="text-body-secondary" style="margin:0 0 10px;font-size:13px">${esc(e.message)}</p><button class="btn btn-sm btn-outline-secondary" data-modsync><i class="bi bi-arrow-clockwise"></i>Sincronizar ${esc(appCfg().name)}</button>`;
       $('[data-modsync]', box).onclick = async (ev) => {
         ev.target.disabled = true;
         try { const r = await api(`modulos/${app}/sincronizar`, { method: 'POST' }); toast(r.soporta === false ? 'Esta app aún no tiene módulos: tiene todo activo' : `${r.revisados} negocios revisados`); } catch (x) { toast(x.message); }
@@ -233,24 +233,24 @@ Admin.tab('negocios', (A) => {
     if (bizSel !== id || bizApp !== app) return;
     const [sc, st] = MST[d.negocio.estado] || ['free', d.negocio.estado];
     const on = d.modulos.filter((m) => m.activo).length;
-    box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center">
-        <h3 style="margin:0">Módulos <span class="muted" style="font-size:12px;font-weight:400">· ${on} de ${d.modulos.length} activos</span></h3>
+    box.innerHTML = `<div class="dw-row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Módulos <span class="text-body-secondary" style="font-size:12px;font-weight:400">· ${on} de ${d.modulos.length} activos</span></h3>
         <span class="st ${sc}">${st}</span></div>
-      ${d.negocio.error ? `<p class="err" style="font-size:12px;margin:6px 0 0">${esc(d.negocio.error)}</p>` : ''}
-      <form class="row" data-mplan style="gap:8px;margin:12px 0">
-        <label class="f" style="min-width:240px;flex:1">Plan<select class="in" name="plan_id">${planes.map((p) => `<option value="${p.id}" ${p.id === d.plan_id ? 'selected' : ''}>${esc(p.nombre)} · ${fmtCOP(p.precio)}/mes${p.todos ? ' · todos los módulos' : ''}</option>`).join('')}</select></label>
-        <button class="btn pri sm" style="align-self:flex-end">Cambiar plan</button></form>
+      ${d.negocio.error ? `<p class="text-danger small" style="font-size:12px;margin:6px 0 0">${esc(d.negocio.error)}</p>` : ''}
+      <form class="dw-row" data-mplan style="gap:8px;margin:12px 0">
+        <label class="dw-field" style="min-width:240px;flex:1">Plan<select class="form-select" name="plan_id">${planes.map((p) => `<option value="${p.id}" ${p.id === d.plan_id ? 'selected' : ''}>${esc(p.nombre)} · ${fmtCOP(p.precio)}/mes${p.todos ? ' · todos los módulos' : ''}</option>`).join('')}</select></label>
+        <button class="btn btn-primary btn-sm" style="align-self:flex-end">Cambiar plan</button></form>
       <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${d.modulos.map((m) => {
         const [c, t] = ORIGEN[m.origen];
-        return `<div class="card" style="padding:12px;display:grid;gap:6px;${m.activo ? '' : 'opacity:.75'}">
-          <div class="row" style="justify-content:space-between;gap:6px"><b style="font-weight:500;color:var(--hi)">${esc(m.nombre)}</b><span class="st ${c}">${t}</span></div>
-          <span class="muted" style="font-size:12px">${m.tipo === 'compartido' ? 'Diwilo Modulos' : 'Propio de la app'}${m.registros != null ? ` · ${fmtN(m.registros)} registros` : ''}${m.hasta ? ` · hasta ${esc(m.hasta)}` : ''}</span>
-          <div>${m.activo ? `<button class="btn sm danger" data-mq="${esc(m.modulo)}">Quitar</button>` : `<button class="btn sm" data-ma="${esc(m.modulo)}">Agregar</button>`}</div></div>`;
+        return `<div class="dw-card" style="padding:12px;display:grid;gap:6px;${m.activo ? '' : 'opacity:.75'}">
+          <div class="dw-row" style="justify-content:space-between;gap:6px"><b style="font-weight:500;color:var(--hi)">${esc(m.nombre)}</b><span class="st ${c}">${t}</span></div>
+          <span class="text-body-secondary" style="font-size:12px">${m.tipo === 'compartido' ? 'Diwilo Modulos' : 'Propio de la app'}${m.registros != null ? ` · ${fmtN(m.registros)} registros` : ''}${m.hasta ? ` · hasta ${esc(m.hasta)}` : ''}</span>
+          <div>${m.activo ? `<button class="btn btn-sm btn-outline-danger" data-mq="${esc(m.modulo)}">Quitar</button>` : `<button class="btn btn-sm btn-outline-secondary" data-ma="${esc(m.modulo)}">Agregar</button>`}</div></div>`;
       }).join('')}</div>
       ${d.excepciones.length ? `<h3 style="margin:14px 0 6px">Excepciones al plan</h3>${d.excepciones.map((e) => `<div class="urow"><span class="e"><span class="st ${e.modo === 'agregar' ? 'soon' : 'bad'}">${e.modo === 'agregar' ? 'Agregado' : 'Quitado'}</span>
         <b style="font-weight:500">${esc(d.modulos.find((m) => m.modulo === e.modulo)?.nombre || e.modulo)}</b>${e.desde || e.hasta ? ` · ${esc(e.desde || '…')} → ${esc(e.hasta || '…')}` : ''}<br><span style="font-size:12px">${esc(e.nota || '')} · ${esc(e.por || '')}</span></span>
-        <button class="btn sm" data-mundo="${e.id}" title="Volver a lo del plan"><i class="ph-light ph-arrow-counter-clockwise"></i></button></div>`).join('')}` : ''}
-      <p class="muted" style="font-size:12px;margin:10px 0 0">Quitar un módulo no borra sus datos: si se vuelve a activar, todo sigue ahí. Todo cambio queda en la bitácora de Módulos.</p>`;
+        <button class="btn btn-sm btn-outline-secondary" data-mundo="${e.id}" title="Volver a lo del plan"><i class="bi bi-arrow-counterclockwise"></i></button></div>`).join('')}` : ''}
+      <p class="text-body-secondary" style="font-size:12px;margin:10px 0 0">Quitar un módulo no borra sus datos: si se vuelve a activar, todo sigue ahí. Todo cambio queda en la bitácora de Módulos.</p>`;
     const reload = async (r, msg) => { toast(r?.estado === 'error' ? `Guardado, pero la app no respondió: ${r.error}` : msg); loadBiz(); };
     $('[data-mplan]', box).onsubmit = async (e) => {
       e.preventDefault();
@@ -281,19 +281,19 @@ Admin.tab('negocios', (A) => {
     const b = biz.find((x) => x.id === bizSel); if (!b) return;
     const app = appCfg(), s = subState(b), price = b.plan?.precio ?? plat.prices[bizApp] ?? 0;
     const el = $('#bizDetail'); el.hidden = false;
-    el.innerHTML = `<div class="row" style="justify-content:space-between">
-        <h2>${esc(b.name)} <span class="muted" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn sm pri" data-sso="${esc(b.id)}"><i class="ph-light ph-sign-in"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn sm" data-loginlink><i class="ph-light ph-sign-in"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn sm" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="ph-light ph-arrow-square-out"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn sm" data-mods><i class="ph-light ph-squares-four"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn sm" data-close>Cerrar</button></div></div>
+    el.innerHTML = `<div class="dw-row" style="justify-content:space-between">
+        <h2>${esc(b.name)} <span class="text-body-secondary" style="font-size:13px">· ${esc(app.name)}</span></h2>
+        <div class="dw-row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink><i class="bi bi-box-arrow-in-right"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="bi bi-box-arrow-up-right"></i>Ver reservas</a>` : ''}${b.plan?.estado && b.plan.estado !== 'sin_soporte' ? `<button class="btn btn-sm btn-outline-secondary" data-mods><i class="bi bi-grid-1x2"></i>Módulos${b.plan.nombre ? ` · ${esc(b.plan.nombre)}` : ''}</button>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
       <div class="bizgrid">
         <div class="sub">
           <h3>Suscripción</h3>
-          <div class="row"><span class="st ${s.k}">${s.t}</span><span class="muted">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
-          ${b.plan?.nombre ? `<p class="muted" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
-          <form class="form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
-            <label class="f">Meses<input class="in" type="number" name="months" min="1" max="24" value="1" required></label>
-            <label class="f">Monto (COP)<input class="in" type="number" name="amount" min="0" step="1000" value="${price}"></label>
-            <label class="f full">Nota<input class="in" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
-            <div class="row full"><button class="btn pri" type="submit"><i class="ph-light ph-currency-circle-dollar"></i>Registrar pago</button><span class="err" data-err></span></div>
+          <div class="dw-row"><span class="st ${s.k}">${s.t}</span><span class="text-body-secondary">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
+          ${b.plan?.nombre ? `<p class="text-body-secondary" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
+          <form class="dw-form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            <label class="dw-field">Meses<input class="form-control" type="number" name="months" min="1" max="24" value="1" required></label>
+            <label class="dw-field">Monto (COP)<input class="form-control" type="number" name="amount" min="0" step="1000" value="${price}"></label>
+            <label class="dw-field dw-full">Nota<input class="form-control" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
+            <div class="dw-row dw-full"><button class="btn btn-primary" type="submit"><i class="bi bi-currency-dollar"></i>Registrar pago</button><span class="text-danger small" data-err></span></div>
           </form>
           ${lockHtml(b)}
         </div>
@@ -301,29 +301,29 @@ Admin.tab('negocios', (A) => {
           <h3>Usuarios</h3>
           <div id="bizUsers">${usersHtml(b)}</div>
           <div id="userInvite"></div>
-          <form class="form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-            <p class="muted full" style="margin:0;font-size:12px">Cambiar el dueño: se le envía un link para crear su contraseña. El dueño actual queda como ${app.roles.includes('admin') ? 'administrador' : 'personal'}.</p>
-            <label class="f">Correo del nuevo dueño<input class="in" type="email" name="email" required></label>
-            <label class="f">Nombre<input class="in" name="name" maxlength="100"></label>
-            <div class="row full"><button class="btn" type="submit"><i class="ph-light ph-crown-simple"></i>Asignar como dueño</button><span class="err" data-err></span></div>
+          <form class="dw-form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+            <p class="text-body-secondary dw-full" style="margin:0;font-size:12px">Cambiar el dueño: se le envía un link para crear su contraseña. El dueño actual queda como ${app.roles.includes('admin') ? 'administrador' : 'personal'}.</p>
+            <label class="dw-field">Correo del nuevo dueño<input class="form-control" type="email" name="email" required></label>
+            <label class="dw-field">Nombre<input class="form-control" name="name" maxlength="100"></label>
+            <div class="dw-row dw-full"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-award"></i>Asignar como dueño</button><span class="text-danger small" data-err></span></div>
           </form>
         </div>
         <div class="sub">
           <h3>Datos</h3>
-          <form class="row" id="renameForm" style="flex-wrap:nowrap"><input class="in" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn sm" type="submit">Renombrar</button></form>
+          <form class="dw-row" id="renameForm" style="flex-wrap:nowrap"><input class="form-control" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn btn-sm btn-outline-secondary" type="submit">Renombrar</button></form>
           ${b.slug ? `<form id="slugForm" style="display:grid;gap:6px">
-            <label class="muted" for="slugIn" style="font-size:12px">Dirección del negocio · <span class="mono">${esc((app.url || '').replace(/^https?:\/\//, ''))}/…</span></label>
-            <div class="row" style="flex-wrap:nowrap"><input class="in mono" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn sm" type="submit">Cambiar</button></div>
-            <span class="muted" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
-          <p class="muted" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
+            <label class="text-body-secondary" for="slugIn" style="font-size:12px">Dirección del negocio · <span class="font-monospace small">${esc((app.url || '').replace(/^https?:\/\//, ''))}/…</span></label>
+            <div class="dw-row" style="flex-wrap:nowrap"><input class="form-control font-monospace small" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn btn-sm btn-outline-secondary" type="submit">Cambiar</button></div>
+            <span class="text-body-secondary" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
+          <p class="text-body-secondary" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
           <h3 style="margin-top:6px">Historial de pagos</h3>
-          <div id="payHist" class="muted">Cargando…</div>
+          <div id="payHist" class="text-body-secondary">Cargando…</div>
           <h3 style="margin-top:6px">Eliminar</h3>
-          <p class="muted" style="margin:0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
-          <button class="btn sm danger" type="button" data-archive="${esc(b.id)}"><i class="ph-light ph-trash"></i>Eliminar negocio</button>
+          <p class="text-body-secondary" style="margin:0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
+          <button class="btn btn-sm btn-outline-danger" type="button" data-archive="${esc(b.id)}"><i class="bi bi-trash"></i>Eliminar negocio</button>
         </div>
       </div>
-      <div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="muted" style="margin:0">Cargando…</p></div>`;
+      <div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div>`;
     wireLock(el);
     loadMods(b);
     const pay = $('#payForm', el);
@@ -343,8 +343,8 @@ Admin.tab('negocios', (A) => {
   $('#appSeg').addEventListener('click', (e) => {
     const b = e.target.closest('[data-app]'); if (!b) return;
     bizApp = b.dataset.app; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
-    if (showArchived) $('#bizArchived').innerHTML = '<p class="muted" style="margin:0">Cargando…</p>';
-    $$('#appSeg .btn').forEach((x) => x.classList.toggle('on', x === b));
+    if (showArchived) $('#bizArchived').innerHTML = '<p class="text-body-secondary" style="margin:0">Cargando…</p>';
+    $$('#appSeg .btn').forEach((x) => x.classList.toggle('active', x === b));
     loadBiz();
   });
   $('#bizNewBtn').addEventListener('click', async () => {
@@ -523,23 +523,23 @@ Admin.tab('negocios', (A) => {
       const d = await api(`platform/${bizApp}/businesses?archived=1`);
       setBadge('bizArchCount', d.businesses.length);
       if (!showArchived) return;
-      el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Archivados en ${esc(appCfg().name)}</h2><span class="muted" style="font-size:12px">Se borran solos, con todos sus datos, a los ${ARCHIVE_DAYS} días</span></div>`
-        + (d.businesses.length ? `<div class="tbl-wrap"><table><thead><tr><th>Negocio</th><th>Dueño</th><th>Archivado</th><th>Se borra</th><th></th></tr></thead><tbody>${d.businesses.map((b) => {
+      el.innerHTML = `<div class="dw-row" style="justify-content:space-between;margin-bottom:10px"><h2>Archivados en ${esc(appCfg().name)}</h2><span class="text-body-secondary" style="font-size:12px">Se borran solos, con todos sus datos, a los ${ARCHIVE_DAYS} días</span></div>`
+        + (d.businesses.length ? `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Negocio</th><th>Dueño</th><th>Archivado</th><th>Se borra</th><th></th></tr></thead><tbody>${d.businesses.map((b) => {
           const owner = b.users.find((u) => u.role === 'owner');
           const left = b.purge_on ? daysBetween(d.today, b.purge_on) : null;
           return `<tr><td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b></td><td>${owner ? esc(owner.email) : '—'}</td>
-            <td class="muted">${b.archived_at ? fmtDate(Date.parse(b.archived_at)) : '—'}</td>
+            <td class="text-body-secondary">${b.archived_at ? fmtDate(Date.parse(b.archived_at)) : '—'}</td>
             <td><span class="st ${left !== null && left <= 3 ? 'bad' : 'soon'}">${b.purge_on ? `${fmtDay(b.purge_on)}${left !== null ? ` · ${left <= 0 ? 'hoy' : `en ${left} d`}` : ''}` : '—'}</span></td>
-            <td><button class="btn sm" data-restore="${esc(b.id)}"><i class="ph-light ph-arrow-counter-clockwise"></i>Restaurar</button></td></tr>`;
-        }).join('')}</tbody></table></div>` : '<p class="muted" style="margin:0">No hay negocios archivados.</p>');
-    } catch (x) { if (showArchived) el.innerHTML = `<p class="err">${esc(x.message)}</p>`; }
+            <td><button class="btn btn-sm btn-outline-secondary" data-restore="${esc(b.id)}"><i class="bi bi-arrow-counterclockwise"></i>Restaurar</button></td></tr>`;
+        }).join('')}</tbody></table></div>` : '<p class="text-body-secondary" style="margin:0">No hay negocios archivados.</p>');
+    } catch (x) { if (showArchived) el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; }
   }
   $('#bizArchBtn').addEventListener('click', () => {
     showArchived = !showArchived;
-    $('#bizArchBtn').classList.toggle('on', showArchived);
+    $('#bizArchBtn').classList.toggle('active', showArchived);
     $('#bizArchBtn').setAttribute('aria-pressed', showArchived);
     $('#bizArchived').hidden = !showArchived;
-    if (showArchived) { $('#bizArchived').innerHTML = '<p class="muted" style="margin:0">Cargando…</p>'; loadArchived(); }
+    if (showArchived) { $('#bizArchived').innerHTML = '<p class="text-body-secondary" style="margin:0">Cargando…</p>'; loadArchived(); }
   });
   $('#bizArchived').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-restore]'); if (!btn) return;

@@ -15,7 +15,7 @@
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401 && data.code === 'NO_SESSION' && location.pathname.startsWith('/staff')) location.replace('/');
+    if (res.status === 401 && data.code === 'NO_SESSION' && location.pathname.startsWith('/staff')) (window.top || window).location.replace('/');
     if (!res.ok) {
       const err = new Error(data.error || `Error ${res.status}`);
       err.status = res.status;
@@ -45,7 +45,7 @@
     const el = document.createElement('div');
     el.className = 'modal fade';
     el.tabIndex = -1;
-    el.innerHTML = `<div class="modal-dialog modal-dialog-centered ${size}"><div class="modal-content">${html}</div></div>`;
+    el.innerHTML = `<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable ${size}"><div class="modal-content">${html}</div></div>`;
     document.body.appendChild(el);
     const m = new bootstrap.Modal(el);
     el.addEventListener('hidden.bs.modal', () => el.remove());

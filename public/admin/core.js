@@ -12,7 +12,17 @@
   const ago = (ts) => { const s = Math.round((Date.now() - ts) / 1000); if (s < 60) return `${s}s`; if (s < 3600) return `${Math.round(s / 60)}m`; if (s < 86400) return `${Math.round(s / 3600)}h`; return `${Math.round(s / 86400)}d`; };
   const flag = (cc) => cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))) : '·';
 
-  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
+  // Aviso breve con el toast de Bootstrap (se apila abajo, por encima de la barra inferior en celular).
+  function toast(t) {
+    let box = document.getElementById('toasts');
+    if (!box) { box = document.createElement('div'); box.id = 'toasts'; box.className = 'toast-container position-fixed bottom-0 start-50 translate-middle-x p-3 dw-toasts'; document.body.appendChild(box); }
+    const el = document.createElement('div');
+    el.className = 'toast align-items-center text-bg-dark border-0'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+    el.innerHTML = `<div class="d-flex"><div class="toast-body">${esc(t)}</div></div>`;
+    box.appendChild(el);
+    el.addEventListener('hidden.bs.toast', () => el.remove());
+    new bootstrap.Toast(el, { delay: 2400 }).show();
+  }
   async function api(path, opts = {}) {
     const r = await fetch('/admin/api/' + path, { headers: { 'content-type': 'application/json' }, credentials: 'same-origin', ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
     if (r.status === 401) { showLogin(); throw new Error('sesión'); }
@@ -30,9 +40,9 @@
       const d = document.createElement('dialog');
       d.className = 'ask';
       d.innerHTML = `<form method="dialog">
-        <h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text).replace(/\n/g, '<br>')}</p>` : ''}
-        ${input ? `<input class="in" name="v" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false">` : ''}
-        <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" value="cancel" type="button" data-no>Cancelar</button><button class="btn ${danger ? 'danger' : 'pri'}" value="ok" data-yes>${esc(ok)}</button></div>
+        <h2>${esc(title)}</h2>${text ? `<p class="text-body-secondary">${esc(text).replace(/\n/g, '<br>')}</p>` : ''}
+        ${input ? `<input class="form-control" name="v" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false">` : ''}
+        <div class="dw-row" style="justify-content:flex-end;margin-top:16px"><button class="btn btn-outline-secondary" value="cancel" type="button" data-no>Cancelar</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" value="ok" data-yes>${esc(ok)}</button></div>
       </form>`;
       document.body.appendChild(d);
       const inp = $('input', d), yes = $('[data-yes]', d);
@@ -53,7 +63,7 @@
 
   /* ---------- gráficas (En vivo y Links) ---------- */
   function barChart(el, rows, label) {
-    if (!rows.length) { el.innerHTML = '<p class="empty">Aún no hay datos en este periodo.</p>'; return; }
+    if (!rows.length) { el.innerHTML = '<p class="dw-empty">Aún no hay datos en este periodo.</p>'; return; }
     const W = 640, H = 220, pl = 36, pb = 24, pt = 8;
     const max = Math.max(...rows.map((r) => r.v), 1);
     const nice = Math.pow(10, Math.floor(Math.log10(max))); const top = Math.ceil(max / nice) * nice;
@@ -87,7 +97,7 @@
     });
   }
   function rank(el, rows, fmtKey = (k) => k || '(sin dato)') {
-    if (!rows.length) { el.innerHTML = '<p class="muted" style="margin:0">Sin datos todavía.</p>'; return; }
+    if (!rows.length) { el.innerHTML = '<p class="text-body-secondary" style="margin:0">Sin datos todavía.</p>'; return; }
     const max = Math.max(...rows.map((r) => r.n), 1);
     el.innerHTML = rows.map((r) => `<div class="r"><span title="${esc(r.k)}">${fmtKey(r.k)}</span><span>${fmtN(r.n)}</span><div class="track"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></div></div>`).join('');
   }
@@ -147,17 +157,17 @@
   async function go(id) {
     if (MOVED[id]) { try { sessionStorage.setItem(MOVED[id][0] === 'ia' ? 'dwl_ia_view' : 'dwl_mk_view', MOVED[id][1]); } catch {} id = MOVED[id][0]; }
     if (!$(`[data-section="${id}"]`)) id = 'resumen';
+    if (Admin.me && !Admin.me.owner && !(id === 'equipo' ? false : Admin.me.modules.includes(id))) id = Admin.first;
     if (current && current !== id) tabs[current]?.hide?.();
     current = id;
-    $$('.tab[data-view]').forEach((t) => t.classList.toggle('on', t.dataset.view === id));
+    window.AdminShell?.mark(id);
     $$('[data-section]').forEach((s) => { s.hidden = s.dataset.section !== id; });
-    $('#side').classList.remove('open');
     try { sessionStorage.setItem('dwl_admin_tab', id); } catch {}
     try {
       const t = await ensure(id);
       if (current === id) await t.show?.();
     } catch (e) {
-      if (e.message !== 'sesión') $(`[data-section="${id}"]`).innerHTML = `<p class="err" style="padding:20px">${esc(e.message)}</p>`;
+      if (e.message !== 'sesión') $(`[data-section="${id}"]`).innerHTML = `<p class="text-danger small" style="padding:20px">${esc(e.message)}</p>`;
     }
   }
 
@@ -167,7 +177,15 @@
   }
 
   /* ---------- avisos del menú (sin abrir las pestañas) ---------- */
-  const refreshLeadBadge = () => api('leads').then((l) => setBadge('leadBadge', l.filter((x) => x.status === 'nuevo').length)).catch(() => {});
+  // La campana de la barra superior junta los mismos avisos que los números del menú.
+  const avisos = { leads: 0, negocios: 0 };
+  function pintarAvisos() {
+    const l = [];
+    if (avisos.leads) l.push({ id: 'marketing', icono: 'bi-person-plus', texto: `${avisos.leads} lead${avisos.leads === 1 ? '' : 's'} nuevo${avisos.leads === 1 ? '' : 's'} del formulario` });
+    if (avisos.negocios) l.push({ id: 'negocios', icono: 'bi-exclamation-triangle', texto: `${avisos.negocios} negocio${avisos.negocios === 1 ? '' : 's'} con suscripción vencida o por vencer (7 días)` });
+    window.AdminShell?.setNotifs(l);
+  }
+  const refreshLeadBadge = () => api('leads').then((l) => { avisos.leads = l.filter((x) => x.status === 'nuevo').length; setBadge('leadBadge', avisos.leads); pintarAvisos(); }).catch(() => {});
   async function refreshBizBadge() {
     try {
       const plat = await api('platform');
@@ -179,7 +197,7 @@
           n += d.businesses.filter((b) => b.paid_until && (b.read_only || b.paid_until <= soon)).length;
         } catch {}
       }
-      setBadge('bizBadge', n);
+      avisos.negocios = n; setBadge('bizBadge', n); pintarAvisos();
     } catch {}
   }
 
@@ -212,8 +230,8 @@
   // Barra de progreso con lo que va haciendo la IA y lo que ya hizo.
   // const p = progress(contenedor, 'Agente de blog'); p.update(evento); p.finish(true|false, 'texto')
   function progress(host, title = 'Trabajando') {
-    const t0 = Date.now(), ICON = { consultada: 'ph-check-circle', hecha: 'ph-check-circle', propuesta: 'ph-hourglass-medium', error: 'ph-warning' };
-    host.innerHTML = `<div class="prog"><div class="prog-head"><i class="ph-light ph-circle-notch spin"></i><b>${esc(title)}</b><span class="prog-now">Empezando…</span><span class="prog-tok" hidden></span><span class="prog-time">0:00</span></div>
+    const t0 = Date.now(), ICON = { consultada: 'bi-check-circle', hecha: 'bi-check-circle', propuesta: 'bi-hourglass-split', error: 'bi-exclamation-triangle' };
+    host.innerHTML = `<div class="prog"><div class="prog-head"><i class="bi bi-arrow-repeat spin"></i><b>${esc(title)}</b><span class="prog-now">Empezando…</span><span class="prog-tok" hidden></span><span class="prog-time">0:00</span></div>
       <div class="prog-bar"><i></i></div><ol class="prog-steps"></ol></div>`;
     const box = $('.prog', host), bar = $('.prog-bar i', box), now = $('.prog-now', box), list = $('.prog-steps', box), clock = $('.prog-time', box);
     let step = 0, done = 0, live = null;
@@ -222,19 +240,19 @@
     // No se sabe cuántos pasos tomará: la barra avanza rápido al principio y se frena cerca del final
     const pct = () => Math.min(94, Math.round(100 * (1 - Math.exp(-(step + done) / 9))));
     const draw = () => { bar.style.width = `${pct()}%`; };
-    const add = (cls, icon, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i class="ph-light ${icon}"></i><span>${esc(text)}</span>`; list.appendChild(li); list.scrollTop = list.scrollHeight; return li; };
+    const add = (cls, icon, text) => { const li = document.createElement('li'); li.className = cls; li.innerHTML = `<i class="bi ${icon}"></i><span>${esc(text)}</span>`; list.appendChild(li); list.scrollTop = list.scrollHeight; return li; };
     draw();
     return {
       update(ev) {
         if (ev.type === 'tokens') { const t = $('.prog-tok', box); t.hidden = false; t.textContent = `${ev.total >= 1000 ? `${(ev.total / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : ev.total} tokens`; return; }
         if (ev.type === 'sub') { now.textContent = `Paso ${step} · ${ev.label}…`; if (live && !live.querySelector('small')) live.insertAdjacentHTML('beforeend', '<small class="sub"></small>'); if (live) live.querySelector('small').textContent = ev.label; return; }
         if (ev.type === 'pensando') { step = ev.step; now.textContent = `Paso ${ev.step} · pensando qué sigue`; }
-        if (ev.type === 'usando') { live = add('now', 'ph-circle-notch spin', ev.label); now.textContent = `Paso ${step} · ${ev.label}`; }
+        if (ev.type === 'usando') { live = add('now', 'bi-arrow-repeat spin', ev.label); now.textContent = `Paso ${step} · ${ev.label}`; }
         if (ev.type === 'paso') {
           done++;
           const li = live && ev.status !== 'propuesta' ? live : add('', '', ev.label);
           live = null;
-          li.className = ev.status; li.querySelector('i').className = `ph-light ${ICON[ev.status] || 'ph-check-circle'}`;
+          li.className = ev.status; li.querySelector('i').className = `bi ${ICON[ev.status] || 'bi-check-circle'}`;
           if (ev.status === 'propuesta') li.insertAdjacentHTML('beforeend', '<small>por aprobar</small>');
           if (ev.error) li.insertAdjacentHTML('beforeend', `<small>${esc(ev.error)}</small>`);
         }
@@ -243,9 +261,9 @@
       finish(ok = true, text) {
         clearInterval(timer); tick();
         box.classList.add(ok ? 'ok' : 'fail'); bar.style.width = '100%';
-        $('.prog-head i', box).className = `ph-light ${ok ? 'ph-check-circle' : 'ph-warning'}`;
+        $('.prog-head i', box).className = `bi ${ok ? 'bi-check-circle' : 'bi-exclamation-triangle'}`;
         now.textContent = text || (ok ? `Terminado en ${step} paso${step === 1 ? '' : 's'}` : 'No terminó');
-        if (live) { live.className = 'error'; live.querySelector('i').className = 'ph-light ph-warning'; }
+        if (live) { live.className = 'error'; live.querySelector('i').className = 'bi bi-exclamation-triangle'; }
       },
     };
   }
@@ -255,13 +273,14 @@
     tab(id, factory) { factories[id] = factory; },
   };
 
-  $$('.tab[data-view]').forEach((t) => t.addEventListener('click', () => go(t.dataset.view)));
-  document.addEventListener('click', (e) => { if (e.target.closest('[data-menu]')) $('#side').classList.toggle('open'); });
 
   async function start() {
     let me;
     try { me = await api('me'); } catch { return showLogin(); }
-    $('#whoami').textContent = me.email;
+    // Cada persona ve solo las pestañas de sus módulos; Equipo es del titular (lo filtra el shell).
+    Admin.me = me;
+    AdminShell.render(me, go);
+    Admin.first = me.modules[0] || 'resumen';
     $('#login').hidden = true; $('#app').hidden = false;
     refreshLeadBadge();
     refreshBizBadge();

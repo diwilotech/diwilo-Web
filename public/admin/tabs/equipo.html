@@ -1,0 +1,13 @@
+<div class="dw-page-head"><div class="dw-row"><h1>Equipo</h1></div></div>
+<div class="dw-card">
+  <h2>Personal con acceso al panel</h2>
+  <p class="text-body-secondary" style="margin:0 0 12px">Cada persona entra con su correo y solo ve los módulos que marques. Por defecto no ven Negocios (matrículas), Finanzas ni Marketing.</p>
+  <form id="teamForm" class="dw-grid" style="--min:200px;align-items:end">
+    <label class="dw-field">Correo<input class="form-control" name="email" type="email" placeholder="persona@correo.com" required></label>
+    <label class="dw-field">Nombre<input class="form-control" name="name" placeholder="Nombre (opcional)"></label>
+    <div class="dw-full"><div class="text-body-secondary" style="font-size:12px;margin-bottom:6px">Módulos que puede abrir</div><div class="dw-row" id="newMods" style="gap:12px"></div></div>
+    <div><button class="btn btn-primary" type="submit"><i class="bi bi-person-plus"></i>Agregar</button></div>
+  </form>
+  <p class="text-body-secondary" style="margin:12px 0 0;font-size:12px"><i class="bi bi-info-circle"></i> Además hay que permitir su correo en la política de Cloudflare Access de /admin.</p>
+</div>
+<div class="dw-card" style="margin-top:14px"><div id="teamList"></div></div>

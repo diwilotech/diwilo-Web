@@ -18,10 +18,10 @@
     <button class="ia-fab" id="iaFab" aria-label="Abrir IA Diwilo" title="IA Diwilo"><img src="/assets/img/brand/logo-mark.svg" alt=""><span>IA Diwilo</span></button>
     <aside class="ia-panel" id="iaPanel" hidden aria-label="IA Diwilo">
       <header><img src="/assets/img/brand/logo-mark.svg" alt=""><div><b>IA Diwilo</b><small>Consulta y gestiona el panel. Las acciones te piden confirmar.</small></div>
-        <button class="btn sm" id="iaNew" title="Nueva conversación"><i class="ph-light ph-note-pencil"></i></button><button class="btn sm" id="iaClose" aria-label="Cerrar"><i class="ph-light ph-x"></i></button></header>
+        <button class="btn btn-sm btn-outline-secondary" id="iaNew" title="Nueva conversación"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-secondary" id="iaClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></header>
       <div class="ia-log" id="iaLog" aria-live="polite"></div>
       <div class="ia-sugg" id="iaSugg"></div>
-      <form class="ia-form" id="iaForm"><textarea class="in" name="q" rows="1" placeholder="Pregunta o pide algo: «crea una tarea para llamar a…»" maxlength="2000"></textarea><button class="btn pri" aria-label="Enviar"><i class="ph-light ph-paper-plane-tilt"></i></button></form>
+      <form class="ia-form" id="iaForm"><textarea class="form-control" name="q" rows="1" placeholder="Pregunta o pide algo: «crea una tarea para llamar a…»" maxlength="2000"></textarea><button class="btn btn-primary" aria-label="Enviar"><i class="bi bi-send"></i></button></form>
     </aside>`);
   const panel = $('#iaPanel'), log = $('#iaLog'), form = $('#iaForm'), ta = form.q;
   const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^[-•]\s+(.*)$/gm, '<span class="li">$1</span>').replace(/\n/g, '<br>');
@@ -30,11 +30,11 @@
     const div = document.createElement('div');
     div.className = `ia-msg ${m.role}`;
     div.innerHTML = m.role === 'user' ? esc(m.content) : md(m.content)
-      + (m.open ? `<button class="btn sm ia-open" data-open="${esc(m.open)}"><i class="ph-light ph-arrow-square-out"></i>Abrir ${esc(SECTION[m.open] || m.open)}</button>` : '')
+      + (m.open ? `<button class="btn btn-sm ia-open btn-outline-secondary" data-open="${esc(m.open)}"><i class="bi bi-box-arrow-up-right"></i>Abrir ${esc(SECTION[m.open] || m.open)}</button>` : '')
       + (m.used?.length ? `<small class="ia-used">Consultó: ${m.used.map((u) => esc(u.replace(/_/g, ' '))).join(', ')}</small>` : '');
     if (m.pending) {
-      div.insertAdjacentHTML('beforeend', `<div class="ia-pending"><span><i class="ph-light ph-lightning"></i>${esc(m.pending.summary)}</span>
-        ${m.done ? `<small class="muted">${esc(m.done)}</small>` : '<div class="row"><button class="btn sm pri" data-ok>Confirmar</button><button class="btn sm" data-no>Cancelar</button></div>'}</div>`);
+      div.insertAdjacentHTML('beforeend', `<div class="ia-pending"><span><i class="bi bi-lightning-charge"></i>${esc(m.pending.summary)}</span>
+        ${m.done ? `<small class="text-body-secondary">${esc(m.done)}</small>` : '<div class="dw-row"><button class="btn btn-sm btn-primary" data-ok>Confirmar</button><button class="btn btn-sm btn-outline-secondary" data-no>Cancelar</button></div>'}</div>`);
       $('[data-ok]', div)?.addEventListener('click', () => run(m, div));
       $('[data-no]', div)?.addEventListener('click', () => { m.done = 'Cancelado'; save(); div.replaceWith(bubble(m)); });
     }

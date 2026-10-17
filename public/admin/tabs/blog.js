@@ -11,11 +11,11 @@ Admin.tab('blog', (A) => {
 
   const load = async () => {
     if (!$('#blogEditor').hidden) return;
-    try { posts = await api('blog'); } catch (e) { $('#blogBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`; return; }
+    try { posts = await api('blog'); } catch (e) { $('#blogBody').innerHTML = `<tr><td colspan="7" class="dw-empty">${esc(e.message)}</td></tr>`; return; }
     const st = posts.map(postState);
     const tiles = [['Entradas', posts.length], ['Publicadas', st.filter((s) => s[0] === 'pub').length], ['Programadas', st.filter((s) => s[0] === 'sched').length],
       ['Borradores', st.filter((s) => s[0] === 'draft').length], ['Lecturas totales', posts.reduce((n, p) => n + p.views, 0)]];
-    $('#blogKpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
+    $('#blogKpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
     renderPosts();
   };
   function renderPosts() {
@@ -24,16 +24,16 @@ Admin.tab('blog', (A) => {
     $('#blogBody').innerHTML = list.length ? list.map((p) => {
       const [k, t] = postState(p);
       return `<tr data-post="${p.id}" style="cursor:pointer">
-        <td style="width:84px">${p.cover_url ? `<img class="bthumb" src="${esc(p.cover_url)}" alt="">` : '<span class="bthumb bthumb-ph"><i class="ph-light ph-article"></i></span>'}</td>
-        <td><b style="font-weight:500;color:var(--hi)">${esc(p.title)}</b>${p.featured ? ' <i class="ph-light ph-star" title="Destacada" style="color:var(--warn)"></i>' : ''}<br><span class="muted mono">/blog/${esc(p.slug)}</span></td>
-        <td>${p.category ? `<span class="tag">${esc(p.category)}</span>` : '<span class="muted">—</span>'}</td>
+        <td style="width:84px">${p.cover_url ? `<img class="bthumb" src="${esc(p.cover_url)}" alt="">` : '<span class="bthumb bthumb-ph"><i class="bi bi-journal-text"></i></span>'}</td>
+        <td><b style="font-weight:500;color:var(--hi)">${esc(p.title)}</b>${p.featured ? ' <i class="bi bi-star" title="Destacada" style="color:var(--warn)"></i>' : ''}<br><span class="text-body-secondary font-monospace small">/blog/${esc(p.slug)}</span></td>
+        <td>${p.category ? `<span class="badge text-bg-secondary fw-normal">${esc(p.category)}</span>` : '<span class="text-body-secondary">—</span>'}</td>
         <td><span class="st ${k}">${t}</span></td>
-        <td class="muted" style="white-space:nowrap">${p.published_at ? fmtDate(p.published_at) : 'Editada ' + fmtDate(p.updated_at)}</td>
-        <td class="num">${fmtN(p.views)}</td>
-        <td style="white-space:nowrap"><a class="btn sm" href="/blog/${esc(p.slug)}${k === 'pub' ? '' : '?preview'}" target="_blank" rel="noopener" data-stop title="Ver"><i class="ph-light ph-eye"></i></a></td></tr>`;
-    }).join('') : `<tr><td colspan="7" class="empty">${posts.length ? 'Ninguna entrada coincide.' : 'Aún no hay entradas. Escribe la primera con “Nueva entrada”.'}</td></tr>`;
+        <td class="text-body-secondary" style="white-space:nowrap">${p.published_at ? fmtDate(p.published_at) : 'Editada ' + fmtDate(p.updated_at)}</td>
+        <td class="text-end">${fmtN(p.views)}</td>
+        <td style="white-space:nowrap"><a class="btn btn-sm btn-outline-secondary" href="/blog/${esc(p.slug)}${k === 'pub' ? '' : '?preview'}" target="_blank" rel="noopener" data-stop title="Ver"><i class="bi bi-eye"></i></a></td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="dw-empty">${posts.length ? 'Ninguna entrada coincide.' : 'Aún no hay entradas. Escribe la primera con “Nueva entrada”.'}</td></tr>`;
   }
-  $('#blogFilter').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; postFilter = b.dataset.f; $$('#blogFilter .btn').forEach((x) => x.classList.toggle('on', x === b)); renderPosts(); });
+  $('#blogFilter').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; postFilter = b.dataset.f; $$('#blogFilter .btn').forEach((x) => x.classList.toggle('active', x === b)); renderPosts(); });
   $('#blogSearch').addEventListener('input', renderPosts);
   $('#blogBody').addEventListener('click', (e) => { if (e.target.closest('[data-stop]')) return; const tr = e.target.closest('[data-post]'); if (tr) openPost(+tr.dataset.post); });
   $('#postNew').addEventListener('click', () => openPost(null));
@@ -82,7 +82,7 @@ Admin.tab('blog', (A) => {
     $('#pWords').textContent = `${fmtN(r.words)} palabras · ${r.minutes} min de lectura · ${r.toc.length} secciones`;
     $('#pStats').innerHTML = `<div><b>${fmtN(r.words)}</b><span>palabras</span></div><div><b>${r.minutes}</b><span>min lectura</span></div><div><b>${fmtN(post.views || 0)}</b><span>lecturas</span></div>`;
     const st = post.status === 'published' ? (post.published_at && post.published_at > nowMs() ? 'sched' : 'pub') : 'draft';
-    $('#pPublish').innerHTML = st === 'sched' ? '<i class="ph-light ph-clock"></i>Programar' : post.id && postState(post)[0] === 'pub' ? '<i class="ph-light ph-check"></i>Actualizar' : '<i class="ph-light ph-paper-plane-tilt"></i>Publicar';
+    $('#pPublish').innerHTML = st === 'sched' ? '<i class="bi bi-clock"></i>Programar' : post.id && postState(post)[0] === 'pub' ? '<i class="bi bi-check-lg"></i>Actualizar' : '<i class="bi bi-send"></i>Publicar';
     $('#pDateHint').textContent = post.published_at && post.published_at > nowMs() ? `Se publicará sola el ${fmtDate(post.published_at)}.` : 'Si eliges una fecha futura, se publica sola ese día.';
     const v = $('#pView'); v.hidden = !post.id; v.href = `/blog/${post.slug}${st === 'pub' && postState(post)[0] === 'pub' ? '' : '?preview'}`;
     // SEO
@@ -98,7 +98,7 @@ Admin.tab('blog', (A) => {
     const fr = $('#pPrev');
     const html = `<header class="post-head" style="padding-top:28px;max-width:none"><h1 class="post-title">${esc(post.title || 'Título de la entrada')}</h1>${post.excerpt ? `<p class="post-lead">${esc(post.excerpt)}</p>` : ''}</header>
       ${post.cover_url || post.cover ? `<div class="post-hero-img" style="margin:0 0 28px"><img src="${esc(post.cover || post.cover_url)}" alt=""></div>` : ''}
-      <article class="prose post-body">${r.html || '<p style="color:#9da7ba">La vista previa aparece aquí mientras escribes.</p>'}</article>`;
+      <article class="prose post-body">${r.html || '<p style="color:var(--bs-secondary-color)">La vista previa aparece aquí mientras escribes.</p>'}</article>`;
     const doc = fr.contentDocument;
     if (!prevReady || !doc || !doc.getElementById('root')) {
       fr.srcdoc = `<!doctype html><html lang="es"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet"><link rel="stylesheet" href="/assets/css/styles.css"><style>body{background:#05060f;padding:0 26px 40px}</style></head><body><main class="blog" id="root">${html}</main></body></html>`;
@@ -112,7 +112,7 @@ Admin.tab('blog', (A) => {
   $('#pSlug').addEventListener('blur', () => { $('#pSlug').value = md.slugify($('#pSlug').value); refresh(); });
   $$('input[name=pStatus]').forEach((r) => r.addEventListener('change', refresh));
   $('#pFeatured').addEventListener('change', refresh);
-  $('#pMode').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (!b) return; $$('#pMode .btn').forEach((x) => x.classList.toggle('on', x === b)); $('#pPanes').className = 'ed-panes ' + (b.dataset.mode === 'split' ? '' : b.dataset.mode); });
+  $('#pMode').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (!b) return; $$('#pMode .btn').forEach((x) => x.classList.toggle('active', x === b)); $('#pPanes').className = 'ed-panes ' + (b.dataset.mode === 'split' ? '' : b.dataset.mode); });
 
   // Barra de formato
   const ta = () => $('#pContent');
@@ -201,12 +201,12 @@ Admin.tab('blog', (A) => {
     if (!post.title.trim()) { toast('Escribe primero el título'); $('#pTitle').focus(); return; }
     const idea = await Admin.ask({ title: 'Generar portada con IA', text: 'Opcional: describe qué debe mostrar la imagen. Si lo dejas vacío, se inspira en el título y el resumen. La imagen no lleva texto.', input: true, placeholder: 'Ej.: dueña de un restaurante respondiendo pedidos por WhatsApp desde el celular', ok: 'Generar' });
     if (idea === null) return;
-    const b = $('#pCoverAI'); b.disabled = true; b.innerHTML = '<i class="ph-light ph-circle-notch spin"></i>Generando…';
+    const b = $('#pCoverAI'); b.disabled = true; b.innerHTML = '<i class="bi bi-arrow-repeat spin"></i>Generando…';
     try {
       const r = await api('blog/portada-ia', { method: 'POST', body: { title: post.title, excerpt: post.excerpt, idea } });
       post.cover = r.cover; setCover(r.cover); refresh(); toast('Portada lista: guarda para conservarla');
     } catch (x) { toast(x.message); }
-    b.disabled = false; b.innerHTML = `<i class="ph-light ph-magic-wand"></i>${post.cover ? 'Otra portada con IA' : 'Generar portada con IA'}`;
+    b.disabled = false; b.innerHTML = `<i class="bi bi-magic"></i>${post.cover ? 'Otra portada con IA' : 'Generar portada con IA'}`;
   });
 
   async function savePost(publish) {

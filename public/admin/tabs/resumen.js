@@ -4,7 +4,7 @@ Admin.tab('resumen', (A) => {
 
   /* ---------- EN VIVO ---------- */
   let days = 7, liveTimer = null, lastTs = 0;
-  $$('#range .btn').forEach((b) => b.addEventListener('click', () => { days = +b.dataset.days; $$('#range .btn').forEach((x) => x.classList.toggle('on', x === b)); loadStats(); }));
+  $$('#range .btn').forEach((b) => b.addEventListener('click', () => { days = +b.dataset.days; $$('#range .btn').forEach((x) => x.classList.toggle('active', x === b)); loadStats(); }));
   async function loadStats() {
     const s = await api('stats?days=' + days);
     const k = s.kpi;
@@ -12,7 +12,7 @@ Admin.tab('resumen', (A) => {
       ['<span class="live-dot"></span>En línea ahora', s.live], ['Visitas', k.views], ['Visitantes únicos', k.visitors],
       ['Leads', k.leads], ['Chats IA', k.chats], ['Clics WhatsApp', k.whatsapp], ['Clics en links', k.link_clicks]
     ];
-    $('#kpis').innerHTML = tiles.map(([l, v]) => `<div class="card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
+    $('#kpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
     // completa días sin visitas con cero
     const map = Object.fromEntries(s.series.map((r) => [r.date, r]));
     const rows = [];
@@ -31,16 +31,16 @@ Admin.tab('resumen', (A) => {
     rank($('#rCountries'), s.countries, (k) => `${flag(k)} ${esc(k || '—')}`);
     rank($('#rDevices'), s.devices, esc);
   }
-  const EV = { pageview: ['ph-eye', 'Visita'], click_whatsapp: ['ph-whatsapp-logo', 'Clic WhatsApp'], chat_open: ['ph-chats-circle', 'Abrió el chat'], lead: ['ph-user-plus', 'Nuevo lead'], cta: ['ph-cursor-click', 'Clic en botón'] };
+  const EV = { pageview: ['bi-eye', 'Visita'], click_whatsapp: ['bi-whatsapp', 'Clic WhatsApp'], chat_open: ['bi-chat-dots', 'Abrió el chat'], lead: ['bi-person-plus', 'Nuevo lead'], cta: ['bi-cursor', 'Clic en botón'] };
   async function loadLive() {
     const d = await api('live');
     const feed = $('#feed');
-    if (!d.events.length) { feed.innerHTML = '<p class="empty">Sin actividad en los últimos 30 minutos.</p>'; }
+    if (!d.events.length) { feed.innerHTML = '<p class="dw-empty">Sin actividad en los últimos 30 minutos.</p>'; }
     else {
       feed.innerHTML = d.events.map((e) => {
-        const [icon, name] = EV[e.type] || ['ph-lightning', e.type];
+        const [icon, name] = EV[e.type] || ['bi-lightning-charge', e.type];
         const isNew = lastTs && e.ts > lastTs;
-        return `<div class="ev" style="${isNew ? '' : 'animation:none'}"><span class="muted mono">${ago(e.ts)}</span><i class="ph-light ${icon}"></i><span class="p">${esc(name)} · ${esc(e.label || e.path || '')}</span><span class="muted">${flag(e.country)} ${esc(e.device || '')}</span></div>`;
+        return `<div class="ev" style="${isNew ? '' : 'animation:none'}"><span class="text-body-secondary font-monospace small">${ago(e.ts)}</span><i class="bi ${icon}"></i><span class="p">${esc(name)} · ${esc(e.label || e.path || '')}</span><span class="text-body-secondary">${flag(e.country)} ${esc(e.device || '')}</span></div>`;
       }).join('');
     }
     lastTs = d.events[0]?.ts || lastTs;

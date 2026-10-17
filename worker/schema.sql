@@ -355,3 +355,17 @@ CREATE TABLE IF NOT EXISTS fin_bank_lines (
   imported_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_fin_bank_org ON fin_bank_lines(org_id, account_id, date);
+
+-- Equipo del panel: quién entra a /admin y qué pestañas ve (lo crea también team.js al vuelo)
+CREATE TABLE IF NOT EXISTS team (
+  email TEXT PRIMARY KEY, name TEXT, modules TEXT NOT NULL DEFAULT '[]',
+  active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT
+);
+
+-- Apariencia del panel por persona del equipo (la crea también access.js al vuelo)
+CREATE TABLE IF NOT EXISTS admin_prefs (
+  email TEXT PRIMARY KEY,
+  tema TEXT NOT NULL,
+  modo TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);

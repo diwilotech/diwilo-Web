@@ -48,8 +48,22 @@ function cookie(req, name) {
   return m ? m[1] : null;
 }
 
-// Correo de quien usa el panel, o null si no pasó por Access.
-export async function adminEmail(req, env) {
+// Pestañas del panel que se pueden dar o quitar a cada persona del equipo.
+export const MODULES = {
+  resumen: 'En vivo', negocios: 'Negocios (matrículas)', modulos: 'Módulos', marketing: 'Marketing',
+  finanzas: 'Finanzas', blog: 'Blog', ia: 'Integraciones e IA',
+};
+// Lo que ve una persona nueva del equipo: sin Negocios, Finanzas ni Marketing (se le pueden dar luego).
+export const DEFAULT_MODULES = ['resumen', 'modulos', 'blog'];
+
+export async function ensureTeam(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS team (email TEXT PRIMARY KEY, name TEXT, modules TEXT NOT NULL DEFAULT '[]',
+    active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL, created_by TEXT)`).run();
+}
+
+// Quién es y qué puede abrir: { email, owner, modules } o null. Los correos de ADMIN_EMAILS (o todos, si no se
+// definió) son titulares con todo; los demás deben estar activos en la tabla «team» con sus módulos.
+export async function adminAccess(req, env) {
   let email = null;
   if (env.ACCESS_AUD && env.ACCESS_TEAM_DOMAIN) {
     const token = req.headers.get('cf-access-jwt-assertion') || cookie(req, 'CF_Authorization');
@@ -59,5 +73,35 @@ export async function adminEmail(req, env) {
   }
   if (!email) return null;
   const allowed = (env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  return !allowed.length || allowed.includes(email) ? email : null;
+  if (!allowed.length || allowed.includes(email)) return { email, owner: true, modules: Object.keys(MODULES) };
+  await ensureTeam(env);
+  const row = await env.DB.prepare('SELECT modules FROM team WHERE email=? AND active=1').bind(email).first();
+  if (!row) return null;
+  let mods = []; try { mods = JSON.parse(row.modules); } catch {}
+  return { email, owner: false, modules: mods.filter((m) => m in MODULES) };
+}
+
+// Correo de quien usa el panel, o null si no pasó por Access (o no es del equipo).
+export async function adminEmail(req, env) {
+  return (await adminAccess(req, env))?.email || null;
+}
+
+// Apariencia del panel por persona del equipo (tema de color y modo claro/oscuro), como en las apps CD.
+export const TEMAS = ['violeta', 'azul', 'indigo', 'rosa', 'rojo', 'naranja', 'verde', 'turquesa', 'grafito'];
+async function ensurePrefs(env) {
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS admin_prefs (email TEXT PRIMARY KEY, tema TEXT NOT NULL, modo TEXT NOT NULL, updated_at INTEGER NOT NULL)').run();
+}
+export async function getPrefs(env, email) {
+  try {
+    await ensurePrefs(env);
+    return (await env.DB.prepare('SELECT tema, modo FROM admin_prefs WHERE email=?').bind(email).first()) || null;
+  } catch { return null; }
+}
+export async function setPrefs(env, email, b) {
+  const tema = String(b?.tema || ''), modo = String(b?.modo || '');
+  if (!TEMAS.includes(tema) || !['light', 'dark'].includes(modo)) return false;
+  await ensurePrefs(env);
+  await env.DB.prepare('INSERT INTO admin_prefs (email, tema, modo, updated_at) VALUES (?,?,?,?) ON CONFLICT(email) DO UPDATE SET tema=excluded.tema, modo=excluded.modo, updated_at=excluded.updated_at')
+    .bind(email, tema, modo, Date.now()).run();
+  return true;
 }

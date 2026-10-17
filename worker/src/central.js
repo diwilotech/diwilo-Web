@@ -71,6 +71,14 @@ function target(a, b, c, d) {
   return null;
 }
 
+// Módulo del panel que exige una ruta del hub: 'finanzas', 'marketing', 'any' (lista de organizaciones) o 'owner'.
+export function hubModule(path) {
+  const [org, a, b, c, d] = path.split('/').filter(Boolean).slice(3).map(decodeURIComponent);
+  if (org === 'orgs') return 'any';
+  const t = target(a, b, c, d);
+  return t ? (t.startsWith('/api/finanzas') ? 'finanzas' : 'marketing') : 'owner';
+}
+
 export async function hubProxy(req, env, path, url, email, callAI) {
   try {
     const parts = path.split('/').filter(Boolean).slice(3).map(decodeURIComponent); // tras /admin/api/hub

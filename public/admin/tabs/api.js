@@ -6,8 +6,8 @@ Admin.tab('api', (A) => {
   const load = async () => {
     const [s, keys] = await Promise.all([api('settings'), api('keys')]);
     $('#hookForm').elements.webhook_url.value = s.webhook_url || '';
-    $('#keysBody').innerHTML = keys.length ? keys.map((k) => `<tr style="${k.revoked ? 'opacity:.45' : ''}"><td>${esc(k.name)}</td><td class="mono">${esc(k.prefix)}…</td><td class="muted">${k.last_used ? fmtDate(k.last_used) : 'nunca'}</td>
-      <td>${k.revoked ? '<span class="tag">revocada</span>' : `<button class="btn sm danger" data-revoke="${k.id}">Revocar</button>`}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">Sin claves todavía.</td></tr>';
+    $('#keysBody').innerHTML = keys.length ? keys.map((k) => `<tr style="${k.revoked ? 'opacity:.45' : ''}"><td>${esc(k.name)}</td><td class="font-monospace small">${esc(k.prefix)}…</td><td class="text-body-secondary">${k.last_used ? fmtDate(k.last_used) : 'nunca'}</td>
+      <td>${k.revoked ? '<span class="badge text-bg-secondary fw-normal">revocada</span>' : `<button class="btn btn-sm btn-outline-danger" data-revoke="${k.id}">Revocar</button>`}</td></tr>`).join('') : '<tr><td colspan="4" class="text-body-secondary">Sin claves todavía.</td></tr>';
     $('#apiDocs').textContent = `# Público (lo usa el sitio)
 POST ${ORIGIN}/api/track     { type, path, ref, sid, utm_source, utm_medium, utm_campaign, label }
 POST ${ORIGIN}/api/lead      { name, email, phone, topics, message, page, sid, utm_* }
@@ -30,7 +30,7 @@ curl -H "Authorization: Bearer dwl_xxx" ${ORIGIN}/v1/leads`;
   $('#keyForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const r = await api('keys', { method: 'POST', body: formData(e.target) }); e.target.reset();
     const el = $('#newKey'); el.hidden = false;
-    el.innerHTML = `<div class="newkey"><p style="margin:0 0 6px">Copia esta clave ahora, no se volverá a mostrar:</p><code class="mono" style="font-size:13px;color:#fff">${esc(r.key)}</code><div class="row" style="margin-top:8px"><button class="btn sm" data-copy="${esc(r.key)}">Copiar</button></div></div>`;
+    el.innerHTML = `<div class="newkey"><p style="margin:0 0 6px">Copia esta clave ahora, no se volverá a mostrar:</p><code class="font-monospace small" style="font-size:13px;color:var(--hi)">${esc(r.key)}</code><div class="dw-row" style="margin-top:8px"><button class="btn btn-sm btn-outline-secondary" data-copy="${esc(r.key)}">Copiar</button></div></div>`;
     $('[data-copy]', el).onclick = () => copy(r.key);
     load();
   });

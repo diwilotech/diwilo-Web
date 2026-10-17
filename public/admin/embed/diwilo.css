@@ -86,7 +86,7 @@ body.dw { background: var(--dw-fondo); font-family: Inter, system-ui, -apple-sys
 .dw-nav a:hover { background: var(--dw-activo-bg); }
 .dw-nav a.active { background: var(--dw-activo-bg); color: var(--dw-activo-texto); font-weight: 600; }
 .dw-nav__sep { margin: 8px 12px; border-top: 1px solid var(--dw-borde); }
-.dw-side__foot { padding: 10px; border-top: 1px solid var(--dw-borde); }
+.dw-side__foot { padding: 0 0 10px; border-top: 1px solid var(--dw-borde); display: grid; gap: 2px; }
 .dw-collapse { display: none; }
 
 .dw-bottom { position: fixed; inset: auto 0 0 0; z-index: 1030; height: calc(var(--dw-bottom-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -104,7 +104,7 @@ body.dw { background: var(--dw-fondo); font-family: Inter, system-ui, -apple-sys
 @media (min-width: 992px) {
   .dw-side { position: fixed; top: var(--dw-top-h); bottom: 0; left: 0; width: var(--dw-side-w); border-right: 1px solid var(--dw-borde); display: flex; flex-direction: column; z-index: 1020; transition: width .2s; }
   .dw-side .offcanvas-body { flex: 1; overflow-y: auto; padding: 0; display: block; }
-  .dw-collapse { display: grid; }
+  .dw-collapse { display: grid; margin: 0 10px; width: calc(100% - 20px) !important; }
   .dw-main { margin-left: var(--dw-side-w); padding: calc(var(--dw-top-h) + 28px) 32px 40px; max-width: none; }
   .dw-bottom, .dw-mobile-only { display: none !important; }
   /* barra lateral contraída: solo íconos */

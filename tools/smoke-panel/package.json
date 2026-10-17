@@ -1,0 +1,8 @@
+{
+  "name": "smoke-panel",
+  "private": true,
+  "type": "module",
+  "description": "Prueba de humo del panel /admin (sin Cloudflare Access): shell, pestañas, tema y avisos",
+  "scripts": { "test": "node smoke.mjs" },
+  "devDependencies": { "puppeteer-core": "^24.0.0" }
+}

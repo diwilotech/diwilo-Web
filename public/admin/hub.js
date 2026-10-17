@@ -25,10 +25,10 @@
     const groups = {};
     for (const o of d.orgs) (groups[o.kind === 'diwilo' ? '' : o.app_name || o.app] ||= []).push(o);
     if (!d.orgs.some((o) => o.id === current())) setCurrent('diwilo');
-    el.innerHTML = `<label class="orgpick"><i class="ph-light ph-buildings"></i><select aria-label="Organización">${Object.entries(groups).map(([g, list]) =>
+    el.innerHTML = `<label class="orgpick"><i class="bi bi-buildings"></i><select aria-label="Organización">${Object.entries(groups).map(([g, list]) =>
       g ? `<optgroup label="${esc(g)}">${list.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}</optgroup>`
         : list.map((o) => `<option value="${esc(o.id)}">${esc(o.name)} · operación propia</option>`).join('')).join('')}</select></label>`
-      + (d.errors?.length ? `<span class="muted" style="font-size:12px" title="${esc(d.errors.join(' · '))}"><i class="ph-light ph-warning"></i> Algunas apps no respondieron</span>` : '');
+      + (d.errors?.length ? `<span class="text-body-secondary" style="font-size:12px" title="${esc(d.errors.join(' · '))}"><i class="bi bi-exclamation-triangle"></i> Algunas apps no respondieron</span>` : '');
     const sel = $('select', el);
     sel.value = current();
     sel.onchange = () => { setCurrent(sel.value); onChange(sel.value); };
@@ -57,21 +57,21 @@
       const input = (f) => {
         const v = values[f.k] ?? f.default ?? '';
         const req = f.required ? 'required' : '';
-        if (f.type === 'long') return `<textarea class="in" name="${f.k}" rows="3" ${req}>${esc(v)}</textarea>`;
-        if (f.type === 'bool') return `<label class="row" style="gap:8px;font-size:13px"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> ${esc(f.check || 'Sí')}</label>`;
+        if (f.type === 'long') return `<textarea class="form-control" name="${f.k}" rows="3" ${req}>${esc(v)}</textarea>`;
+        if (f.type === 'bool') return `<label class="dw-row" style="gap:8px;font-size:13px"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> ${esc(f.check || 'Sí')}</label>`;
         if (f.type === 'select' || f.ref) {
           const opts = f.ref ? [['', f.empty || '—'], ...refLists[f.ref].map((r) => [r.id, r[LABEL[f.ref]] || `#${r.id}`])] : f.options;
-          return `<select class="in" name="${f.k}" ${req}>${opts.map(([ov, ol]) => `<option value="${esc(ov)}" ${String(ov) === String(v) ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>`;
+          return `<select class="form-select" name="${f.k}" ${req}>${opts.map(([ov, ol]) => `<option value="${esc(ov)}" ${String(ov) === String(v) ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>`;
         }
         const type = { date: 'date', month: 'month', money: 'number', usd: 'number', int: 'number', email: 'email', url: 'url' }[f.type] || 'text';
-        return `<input class="in" type="${type}" name="${f.k}" value="${esc(v)}" ${f.type === 'money' ? 'min="0" step="1"' : f.type === 'usd' ? 'min="0" step="0.01"' : ''} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''} ${req}>`;
+        return `<input class="form-control" type="${type}" name="${f.k}" value="${esc(v)}" ${f.type === 'money' ? 'min="0" step="1"' : f.type === 'usd' ? 'min="0" step="0.01"' : ''} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''} ${req}>`;
       };
       d.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2>
-        <div class="form hubform">${fields.map((f) => `<label class="f ${f.full || f.type === 'long' ? 'full' : ''}">${esc(f.label)}${f.hint ? ` <span class="muted" style="font-size:11px">${esc(f.hint)}</span>` : ''}${input(f)}</label>`).join('')}</div>
-        <p class="err" data-err></p>
-        <div class="row" style="justify-content:space-between;margin-top:12px">
-          <span>${onDelete ? '<button class="btn sm danger" type="button" data-del><i class="ph-light ph-trash"></i>Borrar</button>' : ''}</span>
-          <span class="row"><button class="btn" type="button" data-no>Cancelar</button><button class="btn ${danger ? 'danger' : 'pri'}" data-yes>${esc(okText)}</button></span></div></form>`;
+        <div class="dw-form hubform">${fields.map((f) => `<label class="dw-field ${f.full || f.type === 'long' ? 'full' : ''}">${esc(f.label)}${f.hint ? ` <span class="text-body-secondary" style="font-size:11px">${esc(f.hint)}</span>` : ''}${input(f)}</label>`).join('')}</div>
+        <p class="text-danger small" data-err></p>
+        <div class="dw-row" style="justify-content:space-between;margin-top:12px">
+          <span>${onDelete ? '<button class="btn btn-sm btn-outline-danger" type="button" data-del><i class="bi bi-trash"></i>Borrar</button>' : ''}</span>
+          <span class="dw-row"><button class="btn btn-outline-secondary" type="button" data-no>Cancelar</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-yes>${esc(okText)}</button></span></div></form>`;
       document.body.appendChild(d);
       const close = (v) => { d.close(); d.remove(); resolve(v); };
       $('[data-no]', d).onclick = () => close(null);
@@ -100,12 +100,12 @@
     cfg = { ...cfg, el: host };
     const st = { q: '', f: {}, rows: [] };
     const R = {}; // referencias cargadas para mostrar nombres
-    cfg.el.innerHTML = `<div class="row hubbar">
-        <input class="in" data-q placeholder="Buscar…" style="max-width:240px">
-        ${(cfg.filters || []).map((f) => `<select class="in" data-f="${f.k}" style="width:auto">${f.options.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`).join('')}
+    cfg.el.innerHTML = `<div class="dw-row hubbar">
+        <input class="form-control" data-q placeholder="Buscar…" style="max-width:240px">
+        ${(cfg.filters || []).map((f) => `<select class="form-select" data-f="${f.k}" style="width:auto">${f.options.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select>`).join('')}
         <span class="grow"></span>${cfg.extraButtons || ''}
-        ${cfg.readOnly ? '' : `<button class="btn pri" data-new><i class="ph-light ph-plus"></i>${esc(cfg.newText || 'Nuevo')}</button>`}</div>
-      <div class="card tbl-wrap"><table><thead><tr>${cfg.columns.map((c) => `<th class="${c.cls || ''}">${esc(c.label)}</th>`).join('')}${cfg.rowActions ? '<th></th>' : ''}</tr></thead><tbody data-body><tr><td class="empty" colspan="99">Cargando…</td></tr></tbody></table></div>`;
+        ${cfg.readOnly ? '' : `<button class="btn btn-primary" data-new><i class="bi bi-plus-lg"></i>${esc(cfg.newText || 'Nuevo')}</button>`}</div>
+      <div class="dw-card table-responsive"><table class="table table-sm align-middle"><thead><tr>${cfg.columns.map((c) => `<th class="${c.cls || ''}">${esc(c.label)}</th>`).join('')}${cfg.rowActions ? '<th></th>' : ''}</tr></thead><tbody data-body><tr><td class="dw-empty" colspan="99">Cargando…</td></tr></tbody></table></div>`;
     const base = () => `hub/${encodeURIComponent(cfg.org())}/${cfg.entity}`;
     async function load() {
       const qs = new URLSearchParams({ q: st.q });
@@ -114,8 +114,8 @@
         const [d] = await Promise.all([api(`${base()}?${qs}`), ...(cfg.refs || []).map(async (r) => { R[r] = await refs(cfg.org(), r); })]);
         st.rows = d.rows;
         $('[data-body]', cfg.el).innerHTML = st.rows.length ? st.rows.map((r) => `<tr data-id="${r.id}" style="cursor:pointer">${cfg.columns.map((c) => `<td class="${c.cls || ''}">${c.html(r, R)}</td>`).join('')}${cfg.rowActions ? `<td style="white-space:nowrap" data-stop>${cfg.rowActions(r)}</td>` : ''}</tr>`).join('')
-          : `<tr><td class="empty" colspan="99">${esc(cfg.empty || 'Aún no hay registros.')}</td></tr>`;
-      } catch (x) { $('[data-body]', cfg.el).innerHTML = `<tr><td class="empty" colspan="99">${esc(x.message)}</td></tr>`; }
+          : `<tr><td class="dw-empty" colspan="99">${esc(cfg.empty || 'Aún no hay registros.')}</td></tr>`;
+      } catch (x) { $('[data-body]', cfg.el).innerHTML = `<tr><td class="dw-empty" colspan="99">${esc(x.message)}</td></tr>`; }
     }
     async function edit(row) {
       if (cfg.onEdit) return cfg.onEdit(row, changed);
@@ -148,7 +148,7 @@
 
   /* ---------- gráfico de barras dobles (ingresos/gastos, gasto/leads) ---------- */
   function bars(el, rows, { a = 'a', b = 'b', la = 'A', lb = 'B', fmt = money }) {
-    if (!rows.length) { el.innerHTML = '<p class="empty">Sin datos todavía.</p>'; return; }
+    if (!rows.length) { el.innerHTML = '<p class="dw-empty">Sin datos todavía.</p>'; return; }
     const max = Math.max(1, ...rows.flatMap((r) => [r[a], r[b]]));
     el.innerHTML = `<div class="bars2">${rows.map((r) => `<div class="b2${r.projected ? ' proj' : ''}" title="${esc(r.label)} · ${la}: ${fmt(r[a])} · ${lb}: ${fmt(r[b])}${r.projected ? ' (proyectado)' : ''}">
         <div class="b2c"><i class="ba" style="height:${(r[a] / max * 100).toFixed(1)}%"></i><i class="bb" style="height:${(r[b] / max * 100).toFixed(1)}%"></i></div><span>${esc(r.label)}</span></div>`).join('')}</div>
@@ -156,14 +156,14 @@
   }
   // Barra de avance (presupuesto usado, etc.)
   const meter = (used, total) => {
-    if (!total) return '<span class="muted">—</span>';
+    if (!total) return '<span class="text-body-secondary">—</span>';
     const p = Math.round((used / total) * 100);
-    return `<div class="meter ${p > 100 ? 'over' : p >= 80 ? 'warn' : ''}"><i style="width:${Math.min(100, p)}%"></i></div><span class="muted" style="font-size:12px">${p}%</span>`;
+    return `<div class="meter ${p > 100 ? 'over' : p >= 80 ? 'warn' : ''}"><i style="width:${Math.min(100, p)}%"></i></div><span class="text-body-secondary" style="font-size:12px">${p}%</span>`;
   };
-  const kpis = (el, tiles) => { el.innerHTML = tiles.map(([l, v, sub]) => `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div>${sub ? `<div class="muted" style="font-size:12px;margin-top:4px">${sub}</div>` : ''}</div>`).join(''); };
+  const kpis = (el, tiles) => { el.innerHTML = tiles.map(([l, v, sub]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div>${sub ? `<div class="text-body-secondary" style="font-size:12px;margin-top:4px">${sub}</div>` : ''}</div>`).join(''); };
   const seg = (el, items, onPick, initial) => {
-    el.innerHTML = items.map(([k, l, ic]) => `<button class="btn sm ${k === initial ? 'on' : ''}" data-k="${k}">${ic ? `<i class="ph-light ${ic}"></i>` : ''}${esc(l)}</button>`).join('');
-    el.onclick = (e) => { const b = e.target.closest('[data-k]'); if (!b) return; $$('.btn', el).forEach((x) => x.classList.toggle('on', x === b)); onPick(b.dataset.k); };
+    el.innerHTML = items.map(([k, l, ic]) => `<button class="btn btn-sm ${k === initial ? 'active' : ''} btn-outline-secondary" data-k="${k}">${ic ? `<i class="bi ${ic}"></i>` : ''}${esc(l)}</button>`).join('');
+    el.onclick = (e) => { const b = e.target.closest('[data-k]'); if (!b) return; $$('.btn', el).forEach((x) => x.classList.toggle('active', x === b)); onPick(b.dataset.k); };
   };
 
   window.Hub = { money, num, pct, day, monthName, todayCo, loadOrgs, orgPicker, orgName, current, refs, dropRefs, form, table, bars, meter, kpis, seg };
