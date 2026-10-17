@@ -23,6 +23,7 @@
     const color = getComputedStyle(root).getPropertyValue('--dw-p').trim();
     let meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    document.querySelectorAll('iframe').forEach((f) => { try { f.contentWindow.postMessage({ dw: 'tema', tema, modo }, location.origin); } catch (_) {} });
     meta.content = modo === 'dark' ? '#171a23' : color || '#6d28d9';
   }
   const saved = () => { try { return JSON.parse(localStorage.getItem('dw_tema') || '{}'); } catch (_) { return {}; } };

@@ -205,6 +205,8 @@ tr.xrow:hover td{background:rgba(var(--dw-p-rgb),.04)}
 @media (max-width:860px){
   .menu-btn{display:inline-flex}
   .chatgrid{grid-template-columns:1fr}
+  /* La lista de negocios ya viene en tarjetas: sin tarjeta contenedora */
+  #bizTable{background:none;border:0;box-shadow:none;padding:0}
 }
 
 /* Negocios: lápiz para cambiar el correo y contador de archivados */
@@ -397,7 +399,6 @@ dialog.ask.signdlg{width:min(560px,94vw)}
 .signprev{margin-top:6px;min-height:90px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:10px}.signprev img{max-height:110px;max-width:100%}.signprev .text-body-secondary{color:#8a87a3}
 
 /* Páginas de los módulos centrales (Finanzas y Marketing) dentro del panel */
-.modframe{display:block;width:100%;height:calc(100dvh - 130px);min-height:480px;border:0;border-radius:var(--r,10px);background:var(--panel)}
 
 
 /* Selector de tema del menú de usuario */
@@ -432,3 +433,55 @@ dialog.ask.signdlg{width:min(560px,94vw)}
 dialog.ask.pricedlg{width:min(980px,96vw);max-width:96vw}.pricedlg form{max-height:86vh;overflow:auto}
 .pricedlg h3{font-size:.95rem;font-weight:600;margin:18px 0 8px}
 .estado-fecha{display:block;margin-top:3px;font-size:.78rem;color:var(--bs-secondary-color)}
+
+/* Finanzas y Marketing: la página del módulo ocupa todo el espacio, igual que en las apps (sin título repetido) */
+body[data-tab="finanzas"] .dw-main,body[data-tab="marketing"] .dw-main{padding:var(--dw-top-h) 0 0}
+.modbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:8px 16px;border-bottom:1px solid var(--dw-borde);background:var(--dw-barra-bg)}
+.modframe{display:block;width:100%;border:0;background:transparent;height:calc(100vh - var(--dw-top-h) - var(--dw-bottom-h) - 53px);height:calc(100dvh - var(--dw-top-h) - var(--dw-bottom-h) - 53px - env(safe-area-inset-bottom,0px))}
+@media (min-width:992px){.modframe{height:calc(100vh - var(--dw-top-h) - 53px);height:calc(100dvh - var(--dw-top-h) - 53px)}}
+
+/* ---------- Celular y tableta (< 992 px): botones cómodos al tacto, filas de pestañas que se deslizan, ventanas tipo hoja ---------- */
+@media (max-width:991.98px){
+  .dw-main{padding-left:14px;padding-right:14px}
+  .dw-main .btn{min-height:42px}
+  .dw-main .btn-sm{min-height:38px;padding:.35rem .8rem;font-size:.85rem}
+  .dw-main .form-control,.dw-main .form-select{min-height:44px;font-size:16px}  /* 16 px: iOS no hace zoom al enfocar */
+  .dw-main .form-control-sm{min-height:40px}
+  .dw-main textarea.form-control{min-height:96px}
+  .dw-main input[type=checkbox],.dw-main input[type=radio]{width:1.15rem;height:1.15rem}
+  .dw-main .more{min-height:36px;padding:6px 4px}
+  .dw-main .icon-btn{width:36px;height:36px}
+  /* Grupos de botones (apps, vistas, filtros): una sola fila que se desliza */
+  .dw-main .btn-group{display:flex;flex-wrap:nowrap;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .dw-main .btn-group::-webkit-scrollbar{display:none}
+  .dw-main .btn-group>.btn{flex:0 0 auto;white-space:nowrap}
+  #negSeg{display:flex!important}
+  /* Encabezados: título arriba y acciones en una fila que se ajusta */
+  .dw-page-head{gap:10px;margin-bottom:14px}
+  .dw-page-head>.dw-row{width:100%}
+  .dw-page-head>.dw-row>.btn{flex:1 1 auto;justify-content:center}
+  .dw-page-head>.dw-row>.btn-group{flex:1 1 100%}
+  /* Ventanas: hoja casi a pantalla completa, con el botón principal siempre a mano */
+  dialog.ask,dialog.ask.hubdlg,dialog.ask.pricedlg,dialog.ask.invdlg,dialog.ask.signdlg{width:calc(100vw - 16px);max-width:none;max-height:calc(100dvh - 16px);padding:1rem;margin:auto auto 8px}
+  dialog.ask form{max-height:calc(100dvh - 48px);overflow:auto}
+  dialog.ask .dw-row[style*="justify-content:flex-end"]>.btn,dialog.ask .dw-row>.dw-row>.btn{flex:1}
+  /* Campana y menú de usuario dentro de la pantalla */
+  .dw-top .dropdown-menu{max-width:calc(100vw - 16px)}
+  .dw-top .dropdown-menu[style*="width:300px"]{width:min(300px,calc(100vw - 16px))!important}
+  /* Selector de organización (Finanzas y Marketing) a todo el ancho */
+  .modbar{padding:8px 12px;justify-content:space-between}
+  .modbar .dw-row{flex:1;min-width:0}.orgpick{width:100%;min-height:44px}.orgpick select{flex:1;min-width:0;max-width:none;font-size:16px}
+  /* Tarjetas KPI y rejillas más compactas */
+  .dw-grid{gap:10px}
+  .kpi .v{font-size:24px}
+  .dw-main .dw-card{padding:14px}
+  .estado-fecha{font-size:.8rem}
+  /* Tablas con muchas columnas: se deslizan de lado con una sombra que avisa */
+  .table-responsive{-webkit-overflow-scrolling:touch}
+  .chatgrid{grid-template-columns:1fr}
+}
+@media (max-width:575.98px){
+  .dw-main h1{font-size:1.25rem}
+  .dw-main .dw-form{grid-template-columns:1fr}
+  .pricedlg .dw-grid{--min:130px!important}
+}

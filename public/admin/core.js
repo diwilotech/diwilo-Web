@@ -161,6 +161,7 @@
     if (current && current !== id) tabs[current]?.hide?.();
     current = id;
     window.AdminShell?.mark(id);
+    document.body.dataset.tab = id;
     $$('[data-section]').forEach((s) => { s.hidden = s.dataset.section !== id; });
     try { sessionStorage.setItem('dwl_admin_tab', id); } catch {}
     try {

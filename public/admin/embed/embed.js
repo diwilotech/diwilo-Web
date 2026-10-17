@@ -8,7 +8,10 @@
     root.setAttribute('data-bs-theme', s.modo);
   }
   const me = window.__DW_ME__;
-  applyTheme(me.settings);
+  // Sigue el tema y el modo que eligió la persona en el panel (mismo origen); si no hay, el del negocio.
+  let own = {}; try { own = JSON.parse(localStorage.getItem('dw_tema') || '{}'); } catch (_) {}
+  applyTheme({ tema: own.tema || me.settings.tema, modo: own.modo || me.settings.modo });
+  window.addEventListener('message', (ev) => { if (ev.origin === location.origin && ev.data?.dw === 'tema') applyTheme(ev.data); });
   me.canManage = RANK[me.role] >= RANK.admin;
   me.reaches = (min) => (RANK[me.role] || 0) >= (RANK[min] || 1);
   me.pageAllowed = true;

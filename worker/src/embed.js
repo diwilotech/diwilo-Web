@@ -33,15 +33,16 @@ export async function embedPage(req, env, url, email) {
   const me = {
     app: { id: ctx.app, nombre: 'Diwilo' }, user: ctx.user, role: 'owner',
     business: { id: ctx.business.id, name: ctx.business.name || 'Diwilo', readOnly: false },
-    settings: { tema: ctx.business.tema || 'violeta', modo: 'dark', logo: null },
+    settings: { tema: ctx.business.tema || 'violeta', modo: 'light', logo: null },
     modules: Object.entries(MODULOS).map(([k, nombre], orden) => ({ id: k, nombre, icono: ICONOS[k], orden, widgets: [], configurar: 'admin' })), businesses: [],
   };
   const html = `<!doctype html>
-<html lang="es" data-dw-tema="${esc(me.settings.tema)}" data-bs-theme="dark">
+<html lang="es" data-dw-tema="${esc(me.settings.tema)}" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<script>try{var t=JSON.parse(localStorage.getItem('dw_tema')||'{}');if(t.tema)document.documentElement.setAttribute('data-dw-tema',t.tema);document.documentElement.setAttribute('data-bs-theme',t.modo||'light')}catch(e){}</script>
 <title>${esc(MODULOS[id])} · Diwilo</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
