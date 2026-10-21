@@ -2,63 +2,22 @@
 // e IA Diwilo. Las tres primeras son las pestañas de antes, montadas aquí (mismos archivos de /admin/tabs/).
 Admin.tab('ia', (A) => {
   const { $, esc, toast } = A;
-  const VIEWS = [['agentes', 'Agentes', 'bi-people'], ['asistente', 'IA Diwilo', 'bi-robot'], ['consumo', 'Consumo de IA', 'bi-speedometer2'], ['chats', 'Conversaciones del chat', 'bi-chat-dots'],
-    ['ajustes', 'Ajustes del chat', 'bi-sliders'], ['api', 'API y webhooks', 'bi-plug'], ['modelo', 'Modelo de IA', 'bi-cpu']];
+  // «IA» es el módulo transversal de Diwilo Modulos: la MISMA página que ven todas las apps (chats, agentes, IA Diwilo, consumo, conexiones, modelo de IA…).
+  // Lo demás es lo propio del sitio diwilo.com que aún vive aquí (agentes con herramientas del blog, chat del sitio, su API).
+  const VIEWS = [['modulo', 'IA', 'bi-robot'], ['agentes', 'Agentes del sitio', 'bi-people'], ['consumo', 'Consumo del sitio', 'bi-speedometer2'], ['chats', 'Chat del sitio', 'bi-chat-dots'],
+    ['ajustes', 'Ajustes del chat del sitio', 'bi-sliders'], ['api', 'API del sitio', 'bi-plug']];
   const EMBED = ['chats', 'ajustes', 'api'];
-  let view = (() => { try { const v = sessionStorage.getItem('dwl_ia_view'); sessionStorage.removeItem('dwl_ia_view'); return v || 'agentes'; } catch { return 'agentes'; } })();
+  let view = (() => { try { const v = sessionStorage.getItem('dwl_ia_view'); sessionStorage.removeItem('dwl_ia_view'); return v || 'modulo'; } catch { return 'modulo'; } })();
 
   async function render() {
     const old = $('#iaView'), el = old.cloneNode(false);
     old.replaceWith(el);
     EMBED.forEach((id) => A.unmount(id));
     if (EMBED.includes(view)) { try { await A.mount(view, el); } catch (x) { if (x.message !== 'sesión') el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; } return; }
+    if (view === 'modulo') { el.innerHTML = '<iframe class="modframe" title="IA" style="height:calc(100dvh - var(--dw-top-h) - 120px);min-height:520px" src="/admin/m/ai?org=diwilo"></iframe>'; return; }
     if (view === 'agentes') return agents(el);
     if (view === 'consumo') return usage(el);
-    if (view === 'modelo') return modelo(el);
-    el.innerHTML = `<div class="dw-grid" style="--min:340px">
-      <div class="dw-card"><h2><i class="bi bi-robot"></i> IA Diwilo</h2>
-        <p class="text-body-secondary" style="font-size:13px;line-height:1.6">Asistente del panel (botón flotante abajo a la derecha). Responde con los datos reales del sitio, los negocios de las apps, Marketing y Finanzas.
-        Las acciones que cambian datos te piden confirmar antes de ejecutarse y quedan en «Actividad en tiempo real».</p>
-        <button class="btn btn-primary" data-open><i class="bi bi-chat-dots"></i>Abrir IA Diwilo</button></div>
-      <div class="dw-card"><h2>Qué puede hacer</h2>
-        <div class="ia-caps"><b>Consulta</b><span>Estado del sitio, leads, negocios y vencimientos, organizaciones, resumen de marketing y de finanzas, tareas, contactos, el blog, lo que preguntan los clientes y tus agentes.</span>
-        <b>Con tu confirmación</b><span>Crear tareas, contactos y campañas; registrar ingresos, gastos y gastos recurrentes (también en dólares); crear centros de costo y cuentas y asignarlos; crear cuentas de cobro en PDF; cambiar la etapa de un contacto; marcar tareas hechas; escribir borradores del blog; crear agentes y ponerlos a trabajar.</span>
-        <b>No hace</b><span>Borrar, archivar negocios, cambiar dueños ni registrar pagos de suscripciones.</span></div></div>
-      <div class="dw-card"><h2>Modelo de IA</h2><p class="text-body-secondary" style="font-size:13px;line-height:1.6" data-provider>…</p></div>
-      <div class="dw-card"><h2>Por MCP (próximo paso)</h2><p class="text-body-secondary" style="font-size:13px;line-height:1.6">Las mismas herramientas se pueden abrir por MCP para usar Diwilo desde Claude Desktop u otra IA, con una clave de API de «API y webhooks».</p></div></div>`;
-    $('[data-open]', el).onclick = () => document.getElementById('iaFab')?.click();
-    A.api('settings').then((s) => { $('[data-provider]', el).textContent = `Usa ${s.ai_provider}. El chat del sitio y IA Diwilo comparten este modelo. Para usar Gemini, configura el secreto GEMINI_API_KEY en Cloudflare.`; }).catch(() => {});
   }
-  /* ---------- Modelo de IA: qué IA responde en TODAS las apps (solo se ve aquí) ---------- */
-  async function modelo(el) {
-    el.innerHTML = '<p class="text-body-secondary">Cargando…</p>';
-    let m; try { m = await A.api('ia-model'); } catch (x) { el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; return; }
-    const OPC = [['auto', 'Automático', 'Gemini si tiene clave y, si no, Workers AI (como siempre).', 'bi-magic'], ['claude', 'Claude', 'Anthropic · el más capable para agentes y textos largos.', 'bi-stars'], ['gemini', 'Gemini', 'Google · rápido y económico.', 'bi-gem'], ['workers-ai', 'Workers AI', 'Cloudflare · cuota gratis diaria, sin clave.', 'bi-cloud']];
-    const estado = (k) => { if (k === 'auto') return ''; const a = m.proveedores[k]?.configurado, b = m.este_worker?.[k]; return a && b ? '<span class="st ok">Clave lista</span>' : `<span class="st bad">Falta clave${!a ? ' en Diwilo Modulos' : ''}${!b ? `${!a ? ' y' : ''} en este Worker` : ''}</span>`; };
-    el.innerHTML = `<div class="dw-card" style="max-width:860px"><h2><i class="bi bi-cpu"></i> Modelo de IA de la plataforma</h2>
-      <p class="text-body-secondary" style="font-size:13px;line-height:1.6">Elige qué IA responde en <b>todas las apps</b> (chats de clientes, asistente, agentes) y en este panel (chat del sitio, IA Diwilo). Este apartado solo existe aquí. Si el elegido falla, se usa Gemini o Workers AI como respaldo (Claude nunca es respaldo porque cuesta más).</p>
-      <div class="dw-grid" style="--min:230px;margin:12px 0" data-opc>${OPC.map(([k, n, d, ic]) => `<label class="dw-card" style="cursor:pointer;${m.proveedor === k ? 'border-color:var(--ac,#7c3aed);box-shadow:0 0 0 2px rgba(124,58,237,.25)' : ''}"><input type="radio" name="prov" value="${k}" ${m.proveedor === k ? 'checked' : ''} style="margin-right:6px"><b><i class="bi ${ic}"></i> ${n}</b> ${estado(k)}<div class="text-body-secondary" style="font-size:12.5px;margin-top:4px">${d}</div></label>`).join('')}</div>
-      <div class="dw-grid" style="--min:260px"><label class="dw-field"><span>Modelo de Claude</span><input class="form-control" list="mcl" name="modelo_claude" value="${esc(m.proveedores.claude.modelo)}" placeholder="claude-sonnet-5-5"><datalist id="mcl">${m.proveedores.claude.modelos.map((x) => `<option value="${x}">`).join('')}</datalist><small class="text-body-secondary">Por ahora usa el tipo chat (API de mensajes). Sonnet 5.5 es el predeterminado.</small></label>
-        <label class="dw-field"><span>Modelo de Gemini</span><input class="form-control" list="mgm" name="modelo_gemini" value="${esc(m.proveedores.gemini.modelo)}" placeholder="gemini-2.5-flash"><datalist id="mgm">${m.proveedores.gemini.modelos.map((x) => `<option value="${x}">`).join('')}</datalist></label></div>
-      <div class="dw-row" style="gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn btn-primary" data-save>Guardar</button><button class="btn btn-outline-secondary" data-test><i class="bi bi-lightning-charge"></i>Probar el elegido</button><span class="text-body-secondary" style="font-size:13px" data-res></span></div>
-      <p class="text-body-secondary" style="font-size:12.5px;margin:14px 0 0">Responde ahora: <b>${esc(m.activo)}</b>.</p></div>
-      <div class="dw-card" style="max-width:860px;margin-top:12px"><h2>Cómo poner la clave de Claude</h2>
-        <p class="text-body-secondary" style="font-size:13px;line-height:1.7;margin:0">La clave (se crea en console.anthropic.com → API keys) es un <b>secreto</b>, no se guarda en esta pantalla. Ponla en los dos Workers, con el mismo nombre:<br>
-        <code>npx wrangler secret put ANTHROPIC_API_KEY</code> (en la carpeta de <b>Diwilo Modulos</b>, para las apps) y otra vez en la de <b>Diwilo Web Admin</b>, para este panel y el chat del sitio.<br>
-        Para Gemini el secreto se llama <code>GEMINI_API_KEY</code>. Workers AI no necesita clave. Cuando estén listas, elige el proveedor y toca «Probar».</p></div>`;
-    const val = (n) => $(`[name=${n}]`, el).value.trim();
-    $('[data-save]', el).onclick = async () => {
-      const prov = $('[name=prov]:checked', el)?.value;
-      try { await A.api('ia-model', { method: 'PUT', body: { proveedor: prov, modelo_claude: val('modelo_claude'), modelo_gemini: val('modelo_gemini') } }); toast('Guardado: ya responde con el modelo elegido'); modelo(el); }
-      catch (x) { toast(x.message); }
-    };
-    $('[data-test]', el).onclick = async () => {
-      const res = $('[data-res]', el); res.textContent = 'Probando…';
-      try { const r = await A.api('ia-model/probar', { method: 'POST', body: { proveedor: $('[name=prov]:checked', el)?.value } }); res.innerHTML = r.ok ? `<span style="color:var(--ok,#16a34a)">✓ ${esc(r.proveedor)} · ${esc(r.modelo)} respondió en ${r.ms} ms</span>` : `<span style="color:var(--bad,#dc2626)">✕ ${esc(r.proveedor)}: ${esc(r.error || 'no respondió')}</span>`; }
-      catch (x) { res.innerHTML = `<span style="color:var(--bad,#dc2626)">✕ ${esc(x.message)}</span>`; }
-    };
-  }
-
   /* ---------- Consumo de IA ---------- */
   const tok = (n) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 2 })} M` : n >= 1000 ? `${(n / 1000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} k` : String(n || 0));
   const SRC = (k) => k === 'chat-sitio' ? 'Chat del sitio' : k === 'ia-diwilo' ? 'IA Diwilo (panel)' : k === 'informes' ? 'Informes de Marketing y Finanzas' : k === 'blog (editor)' ? 'Portadas desde el editor del blog' : k.startsWith('agente:') ? `Agente «${k.slice(7)}»` : 'Otros';

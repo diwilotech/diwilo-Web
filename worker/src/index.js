@@ -595,12 +595,12 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
-      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing)(\/|$)/.test(path)) {
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|ai)(\/|$)/.test(path)) {
         const access = await adminAccess(req, env);
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'ai' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email);
       }
       if (path.startsWith('/api/')) {
