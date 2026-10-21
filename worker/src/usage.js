@@ -6,6 +6,7 @@
  * Orígenes: 'chat-sitio' (chat público), 'ia-diwilo' (asistente del panel), 'agente:<nombre>', 'informes' y 'otros'.
  * Las tablas se crean solas la primera vez.
  */
+import { seleccionIA } from './claude.js';
 const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const day = (ts = Date.now()) => new Date(ts - 5 * 3600000).toISOString().slice(0, 10); // día en Colombia
 
@@ -16,7 +17,7 @@ const DEFAULTS = {
   usd_cop: 4000,
   images_daily: 20,     // portadas generadas con IA por día
   image_usd: 0.0007,    // costo estimado por imagen (FLUX.1 schnell 1024×1024, 6 pasos)
-  prices: { gemini: { in: 0.30, out: 2.50 }, 'workers-ai': { in: 0.29, out: 2.25 } },
+  prices: { claude: { in: 3, out: 15 }, gemini: { in: 0.30, out: 2.50 }, 'workers-ai': { in: 0.29, out: 2.25 } },
 };
 
 let ready = false;
@@ -36,6 +37,7 @@ export async function usageSettings(env) {
   const { results } = await env.DB.prepare('SELECT k, v FROM ai_usage_settings').all();
   const s = { ...DEFAULTS, prices: { ...DEFAULTS.prices } };
   for (const r of results) { try { s[r.k] = JSON.parse(r.v); } catch {} }
+  s.prices = { ...DEFAULTS.prices, ...s.prices };   // precios guardados antes de existir Claude
   return s;
 }
 
@@ -106,7 +108,7 @@ export async function usageApi(req, env) {
   return json({
     today: { ...sum(todayRows), neurons: neurons(todayRows) }, month: m, free_neurons: env.GEMINI_API_KEY ? null : 10000, projection_usd: m.usd / dayOfMonth * daysInMonth,
     days, by_source: group(monthRows, (r) => r.source).sort((a, b) => b.usd - a.usd), by_source_today: group(todayRows, (r) => r.source).sort((a, b) => (b.tokens_in + b.tokens_out) - (a.tokens_in + a.tokens_out)),
-    provider: env.GEMINI_API_KEY ? `Gemini (${env.GEMINI_MODEL || 'gemini-2.5-flash'})` : 'Workers AI (Cloudflare)',
+    provider: (await seleccionIA(env)).proveedor === 'claude' && env.ANTHROPIC_API_KEY ? `Claude (${(await seleccionIA(env)).modelo})` : env.GEMINI_API_KEY ? `Gemini (${env.GEMINI_MODEL || 'gemini-2.5-flash'})` : 'Workers AI (Cloudflare)',
     settings: s,
   });
 }

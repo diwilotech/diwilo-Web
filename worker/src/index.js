@@ -24,6 +24,7 @@ import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
 import { hubProxy, hubModule, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
+import { seleccionIA, viaClaude, iaModelApi } from './claude.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
 
@@ -267,8 +268,16 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   // Si el proveedor no informa tokens, se estiman (~4 caracteres por token)
   const est = (t) => Math.ceil(String(t || '').length / 4);
   const promptChars = system.length + history.reduce((n, m) => n + String(m.content || '').length, 0);
+  // El modelo lo elige el panel (Integraciones e IA → Modelo de IA): Claude, Gemini, Workers AI o automático (Gemini si hay clave; si no, Workers AI)
+  const sel = await seleccionIA(env);
+  if (sel.proveedor === 'claude' && env.ANTHROPIC_API_KEY) {
+    try {
+      const o = await viaClaude(env, { system, history, maxTokens, temperature, modelo: sel.modelo });
+      return await done('claude', o.text, o.tin || Math.ceil(promptChars / 4), o.tout || est(o.text));
+    } catch (e) { console.error('claude', e.message); }   // si falla, seguimos con Gemini o Workers AI
+  }
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
-  if (env.GEMINI_API_KEY) {
+  if (env.GEMINI_API_KEY && sel.proveedor !== 'workers-ai') {
     const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
     const generationConfig = { maxOutputTokens: maxTokens, temperature };
     // Los modelos «flash» piensan antes de responder y ese pensamiento se cobra como salida: se apaga
@@ -499,6 +508,7 @@ async function adminApi(req, env, path, url, ctx) {
   // Marketing y Finanzas: módulo central Diwilo Modulos (central.js)
   if (path.startsWith('/admin/api/hub/')) return hubProxy(req, env, path, url, email, callAI);
   if (path === '/admin/api/cards') return cardsApi(req, env, url, email);
+  if (path === '/admin/api/ia-model' || path === '/admin/api/ia-model/probar') return iaModelApi(req, env, path, email);
   if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/usage') return usageApi(req, env);
