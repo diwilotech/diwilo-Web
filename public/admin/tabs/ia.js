@@ -1,4 +1,4 @@
-// Panel Diwilo · pestaña «Integraciones e IA»: conversaciones del chat del sitio, ajustes del chat, API y webhooks,
+// Panel Diwilo · pestaña «IA»: conversaciones del chat del sitio, ajustes del chat, API y webhooks,
 // e IA Diwilo. Las tres primeras son las pestañas de antes, montadas aquí (mismos archivos de /admin/tabs/).
 Admin.tab('ia', (A) => {
   const { $, esc, toast } = A;

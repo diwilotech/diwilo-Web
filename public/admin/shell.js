@@ -12,9 +12,9 @@
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
     { id: 'finanzas', nombre: 'Finanzas', icono: 'bi-pie-chart', mod: 'finanzas' },
     { id: 'blog', nombre: 'Blog', icono: 'bi-journal-text', mod: 'blog' },
-    { id: 'ia', nombre: 'Integraciones e IA', icono: 'bi-robot', mod: 'ia' },
   ];
-  const FOOT = [{ id: 'equipo', nombre: 'Equipo', icono: 'bi-people', owner: true }];
+  // IA va abajo en el menú, junto a Equipo, igual que en todas las apps Diwilo
+  const FOOT = [{ id: 'ia', nombre: 'IA', icono: 'bi-robot', mod: 'ia' }, { id: 'equipo', nombre: 'Equipo', icono: 'bi-people', owner: true }];
 
   function applyTheme(tema, modo) {
     const root = document.documentElement;
@@ -34,7 +34,7 @@
   function render(me, go) {
     const allowed = new Set(me.modules);
     items = MENU.filter((m) => me.owner || [].concat(m.mod).some((x) => allowed.has(x)));
-    const foot = FOOT.filter((m) => !m.owner || me.owner);
+    const foot = FOOT.filter((m) => (m.owner ? me.owner : me.owner || [].concat(m.mod).some((x) => allowed.has(x))));
     const all = [...items, ...foot];
     const bottom = all.slice(0, 4);
     const inBottom = new Set(all.length > 4 ? bottom.map((m) => m.id) : []);

@@ -43,7 +43,7 @@ const base = `http://localhost:${server.address().port}`;
 const fails = []; let checks = 0;
 const ok = (cond, msg) => { checks++; if (!cond) fails.push(msg); };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const TABS = [['resumen', 'En vivo'], ['negocios', 'Negocios'], ['marketing', 'Marketing'], ['finanzas', 'Finanzas'], ['blog', 'Blog'], ['ia', 'Integraciones e IA']];
+const TABS = [['resumen', 'En vivo'], ['negocios', 'Negocios'], ['marketing', 'Marketing'], ['finanzas', 'Finanzas'], ['blog', 'Blog'], ['ia', 'IA']];
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new' });
 try {

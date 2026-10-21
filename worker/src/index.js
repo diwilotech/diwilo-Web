@@ -268,7 +268,7 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   // Si el proveedor no informa tokens, se estiman (~4 caracteres por token)
   const est = (t) => Math.ceil(String(t || '').length / 4);
   const promptChars = system.length + history.reduce((n, m) => n + String(m.content || '').length, 0);
-  // El modelo lo elige el panel (Integraciones e IA → Modelo de IA): Claude, Gemini, Workers AI o automático (Gemini si hay clave; si no, Workers AI)
+  // El modelo lo elige el panel (IA → Modelo de IA): Claude, Gemini, Workers AI o automático (Gemini si hay clave; si no, Workers AI)
   const sel = await seleccionIA(env);
   if (sel.proveedor === 'claude' && env.ANTHROPIC_API_KEY) {
     try {

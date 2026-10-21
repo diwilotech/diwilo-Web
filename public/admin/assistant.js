@@ -12,7 +12,7 @@
     return { tab, org };
   };
   const SUGG = ['¿Cómo va el sitio esta semana?', '¿Qué negocios vencen en los próximos 7 días?', 'Resumen de marketing de este mes', '¿Qué tareas tengo pendientes?', 'Gastos y flujo de caja del mes'];
-  const SECTION = { resumen: 'En vivo', negocios: 'Negocios', marketing: 'Marketing', finanzas: 'Finanzas', blog: 'Blog', ia: 'Integraciones e IA' };
+  const SECTION = { resumen: 'En vivo', negocios: 'Negocios', marketing: 'Marketing', finanzas: 'Finanzas', blog: 'Blog', ia: 'IA' };
 
   document.body.insertAdjacentHTML('beforeend', `
     <button class="ia-fab" id="iaFab" aria-label="Abrir IA Diwilo" title="IA Diwilo"><img src="/assets/img/brand/logo-mark.svg" alt=""><span>IA Diwilo</span></button>

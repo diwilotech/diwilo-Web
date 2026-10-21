@@ -190,7 +190,7 @@ administrador dentro de cada app (Personal / Equipo).
 
 ## IA Diwilo (asistente del panel)
 
-Botón flotante abajo a la derecha en `/admin`; también desde «Integraciones e IA» (que reúne las conversaciones del chat del sitio, sus ajustes, API y webhooks). Responde con los datos reales usando herramientas
+Botón flotante abajo a la derecha en `/admin`; también desde «IA» (que reúne las conversaciones del chat del sitio, sus ajustes, API y webhooks). Responde con los datos reales usando herramientas
 (`worker/src/assistant.js`, registro `TOOLS`): estado del sitio, leads, negocios de las apps (vencimientos, dueños),
 organizaciones, resumen de marketing y de finanzas, tareas y contactos. Las herramientas marcadas `write`
 (crear tarea, contacto, campaña, movimiento, gasto recurrente, cambiar etapa, marcar tarea hecha) **no se ejecutan**:
@@ -200,7 +200,7 @@ No puede borrar, archivar, cambiar dueños ni registrar pagos. El mismo registro
 
 ## Agentes de IA
 
-Integraciones e IA → Agentes (`worker/src/agents.js`). Cada agente tiene rol e instrucciones, las herramientas de IA Diwilo
+IA → Agentes (`worker/src/agents.js`). Cada agente tiene rol e instrucciones, las herramientas de IA Diwilo
 que puede usar, cuándo trabaja (a mano, cada día o cada lunes, desde el cron), para qué organización y su permiso:
 **propone** (sus acciones quedan «por aprobar» en su historial) o **actúa solo**. Plantillas: blog (busca temas en lo que
 preguntan leads y chat y deja un borrador escrito en Blog; nunca publica), seguimiento de leads, cobranza, renovaciones de

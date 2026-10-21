@@ -1,5 +1,5 @@
 /**
- * Agentes de IA (panel → Integraciones e IA → Agentes). Cada agente tiene un rol, instrucciones, las herramientas que
+ * Agentes de IA (panel → IA → Agentes). Cada agente tiene un rol, instrucciones, las herramientas que
  * puede usar (las de IA Diwilo, ver assistant.js), cuándo trabaja (a mano, cada día o cada semana), para qué
  * organización y su permiso: 'proponer' (sus acciones quedan pendientes de aprobación) o 'ejecutar' (las hace solo).
  *
@@ -262,7 +262,7 @@ Object.assign(TOOLS, {
       if (row.tools === '[]') throw new Error('El agente necesita al menos una herramienta válida');
       const t = now(), cols = Object.keys(row);
       const r = await env.DB.prepare(`INSERT INTO ai_agents (${cols.join(', ')}, created_at, updated_at) VALUES (${cols.map(() => '?').join(', ')}, ?, ?)`).bind(...Object.values(row), t, t).run();
-      return { id: r.meta.last_row_id, nombre: row.name, herramientas: JSON.parse(row.tools), donde: 'Integraciones e IA → Agentes' };
+      return { id: r.meta.last_row_id, nombre: row.name, herramientas: JSON.parse(row.tools), donde: 'IA → Agentes' };
     },
   },
   ejecutar_agente: {
@@ -298,7 +298,7 @@ Object.assign(TOOLS, {
         ...(a.horario ? { schedule: a.horario } : {}), ...(a.permiso ? { autonomy: a.permiso } : {}), ...(a.activo !== undefined ? { active: !!a.activo } : {}) }, true);
       const cols = Object.keys(row);
       await env.DB.prepare(`UPDATE ai_agents SET ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ?`).bind(...Object.values(row), now(), agent.id).run();
-      return { id: agent.id, agente: row.name || agent.name, herramientas_ahora: JSON.parse(row.tools), donde: 'Integraciones e IA → Agentes' };
+      return { id: agent.id, agente: row.name || agent.name, herramientas_ahora: JSON.parse(row.tools), donde: 'IA → Agentes' };
     },
   },
 });

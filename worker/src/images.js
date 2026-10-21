@@ -10,7 +10,7 @@ const day = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
 export async function generateCover(env, { title, idea = '', source = 'otros' }) {
   const s = await usageSettings(env);
   const used = await env.DB.prepare("SELECT COALESCE(SUM(calls), 0) n FROM ai_usage WHERE day = ? AND provider = 'workers-ai-imagen'").bind(day()).first();
-  if (s.images_daily && used.n >= s.images_daily) throw new Error(`Se llegó al tope de ${s.images_daily} imágenes por día (Integraciones e IA → Consumo).`);
+  if (s.images_daily && used.n >= s.images_daily) throw new Error(`Se llegó al tope de ${s.images_daily} imágenes por día (IA → Consumo).`);
   // El modelo entiende mejor en inglés y tiende a escribir letras deformes: se le pide que no ponga texto
   const prompt = `Editorial cover image for a business blog article. Topic: "${String(title).slice(0, 160)}". ${String(idea).slice(0, 400)}
 Style: modern, clean, professional 3D illustration, soft cinematic lighting, deep navy background with purple and violet accents, Latin American small business context, horizontal composition with empty space.

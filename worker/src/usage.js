@@ -57,7 +57,7 @@ export async function checkBudget(env) {
     const r = await env.DB.prepare('SELECT COALESCE(SUM(tokens_in + tokens_out), 0) t FROM ai_usage WHERE day = ?').bind(d).first();
     cache = { at: Date.now(), day: d, total: r.t, limit: Number(s.daily_limit) || 0 };
   }
-  if (cache.limit && cache.total >= cache.limit) throw new BudgetError(`Se llegó al tope diario de IA (${cache.limit.toLocaleString('es-CO')} tokens). Se reanuda mañana o súbelo en Integraciones e IA → Consumo.`);
+  if (cache.limit && cache.total >= cache.limit) throw new BudgetError(`Se llegó al tope diario de IA (${cache.limit.toLocaleString('es-CO')} tokens). Se reanuda mañana o súbelo en IA → Consumo.`);
 }
 
 export async function recordUsage(env, { source = 'otros', provider, tin = 0, tout = 0 }) {

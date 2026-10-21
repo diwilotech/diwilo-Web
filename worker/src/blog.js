@@ -400,7 +400,7 @@ export async function blogAdmin(req, env, path, url, email) {
   }
 }
 
-// Borrador escrito por un agente (Integraciones e IA → Agentes). Nunca se publica solo: queda en Blog → Borradores.
+// Borrador escrito por un agente (IA → Agentes). Nunca se publica solo: queda en Blog → Borradores.
 // Cambia solo la portada de una entrada (la usan IA Diwilo y los agentes)
 export async function setPostCover(env, id, dataUrl) {
   if (!DATA_IMG.test(dataUrl) || dataUrl.length > 2_800_000) throw new Error('La portada no es válida o pesa más de 2 MB');

@@ -1,6 +1,6 @@
 /**
  * Claude (Anthropic) para la IA de Diwilo Admin: chat del sitio, IA Diwilo del panel y agentes.
- * Qué modelo se usa lo elige el propio panel (Integraciones e IA → Modelo de IA) y se guarda en Diwilo Modulos, igual para todas las apps;
+ * Qué modelo se usa lo elige el propio panel (IA → Modelo de IA) y se guarda en Diwilo Modulos, igual para todas las apps;
  * aquí solo se consulta (con caché corta). La clave es el secreto ANTHROPIC_API_KEY de ESTE Worker (y otra igual en el de Diwilo Modulos).
  */
 import { ccall } from './central.js';
