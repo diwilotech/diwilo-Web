@@ -16,6 +16,7 @@
 
   document.body.insertAdjacentHTML('beforeend', `
     <button class="ia-fab" id="iaFab" aria-label="Abrir IA Diwilo" title="IA Diwilo"><img src="/assets/img/brand/logo-mark.svg" alt=""><span>IA Diwilo</span></button>
+    <div class="ia-back" id="iaBack" hidden></div>
     <aside class="ia-panel" id="iaPanel" hidden aria-label="IA Diwilo">
       <header><img src="/assets/img/brand/logo-mark.svg" alt=""><div><b>IA Diwilo</b><small>Consulta y gestiona el panel. Las acciones te piden confirmar.</small></div>
         <button class="btn btn-sm btn-outline-secondary" id="iaNew" title="Nueva conversación"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-secondary" id="iaClose" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></header>
@@ -75,9 +76,10 @@
     save(); draw();
   }
 
-  const open = (on) => { panel.hidden = !on; $('#iaFab').classList.toggle('on', on); if (on) { draw(); setTimeout(() => ta.focus(), 50); } };
+  const open = (on) => { panel.hidden = !on; $('#iaBack').hidden = !on; $('#iaFab').classList.toggle('on', on); if (on) { draw(); setTimeout(() => ta.focus(), 50); } };
   $('#iaFab').onclick = () => open(panel.hidden);
   $('#iaClose').onclick = () => open(false);
+  $('#iaBack').onclick = () => open(false);
   $('#iaNew').onclick = () => { hist = []; save(); draw(); };
   $('#iaSugg').onclick = (e) => { const b = e.target.closest('.pill'); if (b) ask(b.textContent); };
   log.addEventListener('click', (e) => { const b = e.target.closest('[data-open]'); if (b) Admin.go(b.dataset.open); });
