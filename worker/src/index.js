@@ -25,6 +25,7 @@ import { blogAdmin } from './blog.js';
 import { hubProxy, hubModule, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
 import { seleccionIA, viaClaude, iaModelApi } from './claude.js';
+import { tokensApi, mcpNegocio } from './mcp-negocio.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
 
@@ -595,12 +596,13 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
-      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|ai)(\/|$)/.test(path)) {
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|ai|ia)(\/|$)/.test(path)) {
         const access = await adminAccess(req, env);
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'ai' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (path.startsWith('/api/ia/tokens')) return req.method !== 'GET' && req.headers.get('x-app') !== '1' ? json({ error: 'Falta la cabecera x-app' }, 403) : tokensApi(req, env, path, email, url.origin);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email);
       }
       if (path.startsWith('/api/')) {
@@ -621,7 +623,7 @@ export default {
       if (path === '/mcp') {
         const h = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type, mcp-protocol-version, mcp-session-id' };
         if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
-        const r = await mcpServer(req, env, ctx);
+        const r = /^Bearer\s+dwm_/i.test(req.headers.get('authorization') || '') ? await mcpNegocio(req, env) : await mcpServer(req, env, ctx);
         const res = new Response(r.body, r);
         Object.entries(h).forEach(([k, v]) => res.headers.set(k, v));
         return res;
