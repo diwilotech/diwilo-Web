@@ -11,6 +11,7 @@
     { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: ['negocios', 'modulos'], badge: 'bizBadge' },
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
     { id: 'finanzas', nombre: 'Finanzas', icono: 'bi-pie-chart', mod: 'finanzas' },
+    { id: 'nomina', nombre: 'Nómina', icono: 'bi-people-fill', mod: 'nomina' },
     { id: 'blog', nombre: 'Blog', icono: 'bi-journal-text', mod: 'blog' },
   ];
   // IA va abajo en el menú, junto a Equipo, igual que en todas las apps Diwilo

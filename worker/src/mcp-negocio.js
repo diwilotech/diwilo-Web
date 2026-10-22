@@ -42,7 +42,7 @@ export async function tokensApi(req, env, path, email, origin) {
 
 // Herramientas de los módulos para el negocio de Diwilo: lo que lee, y lo que escribe (marcado para confirmar). La IA de la plataforma (ai) solo en lectura.
 async function herramientas(env) {
-  return (await need(env).tools()).filter((t) => ['finanzas', 'marketing', 'marca'].includes(t.modulo) || (t.modulo === 'ai' && t.tipo !== 'escritura'));
+  return (await need(env).tools()).filter((t) => ['finanzas', 'marketing', 'nomina', 'marca'].includes(t.modulo) || (t.modulo === 'ai' && t.tipo !== 'escritura'));
 }
 const describe = (t) => ({ name: wire(t.name), description: t.description, inputSchema: t.inputSchema, annotations: { readOnlyHint: t.tipo !== 'escritura', destructiveHint: t.tipo === 'escritura', title: t.description } });
 

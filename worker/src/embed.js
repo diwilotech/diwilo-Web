@@ -11,14 +11,14 @@
 import { ccall, ctxFor, syncLeads } from './central.js';
 
 const ORG_RE = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/;
-const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', ai: 'IA' };
-const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', ai: 'bi-robot' };
+const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA' };
+const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => new Response(body, { status, headers: { 'content-type': type, 'cache-control': 'no-store', ...extra } });
 const cookieOrg = (req) => /(?:^|;\s*)dwl_org=([^;]+)/.exec(req.headers.get('cookie') || '')?.[1];
 
 export async function embedPage(req, env, url, email) {
-  const m = /^\/admin\/m\/(finanzas|marketing|ai)(\.js)?$/.exec(url.pathname);
+  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai)(\.js)?$/.exec(url.pathname);
   if (!m) return text('No encontrado', 404);
   if (!env.MODULOS) return text('Falta la conexión con Diwilo Modulos (service binding MODULOS)', 503);
   const [, id, js] = m;

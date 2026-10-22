@@ -24,13 +24,13 @@ const need = (env) => { if (!env.MODULOS) throw new CentralError(503, 'Falta la 
 export async function ctxFor(env, org, email) {
   if (!ORG_RE.test(org || '')) throw new CentralError(400, 'Organización no válida');
   if (org === 'diwilo') return { app: 'diwilo', business: { id: 'diwilo', name: 'Diwilo', tema: 'violeta' }, role: 'owner', readOnly: false,
-    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing'] };
+    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina'] };
   const [app, id] = org.split(':');
   if (!APPS[app]) throw new CentralError(404, 'App no encontrada');
   const name = (await env.DB.prepare('SELECT name FROM orgs WHERE id = ?').bind(org).first().catch(() => null))?.name || null;
   // En Diwilo Modulos cada app se identifica por su Worker (cdacademia, cdcitas…), igual que en su modulos.app.json
   return { app: `cd${app}`, business: { id, name }, role: 'owner', readOnly: false, user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null },
-    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing'] };
+    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina'] };
 }
 
 export async function ccall(env, org, email, method, path, { query = '', body } = {}) {
