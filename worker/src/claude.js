@@ -9,23 +9,27 @@ let cache = { at: 0, v: null };
 // { proveedor: 'auto'|'claude'|'gemini'|'workers-ai', modelo: <modelo de Claude> }
 export async function seleccionIA(env) {
   if (cache.v && Date.now() - cache.at < 30000) return cache.v;
-  let v = { proveedor: 'auto', modelo: 'claude-sonnet-5-5' };
+  let v = { proveedor: 'auto', modelo: 'claude-sonnet-5-5', claves: { claude: [], gemini: [] } };
   try {
     const r = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor');
     const d = JSON.parse(r.body);
-    if (r.status < 300 && d.proveedor) v = { proveedor: d.proveedor, modelo: d.proveedores?.claude?.modelo || v.modelo };
+    if (r.status < 300 && d.proveedor) v = { ...v, proveedor: d.proveedor, modelo: d.proveedores?.claude?.modelo || v.modelo };
+    // Claves puestas desde la pantalla (cifradas en el módulo central); si el Worker tiene sus propios secretos, van de última opción
+    const k = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor/claves-uso'), kd = JSON.parse(k.body);
+    if (k.status < 300) v.claves = { claude: kd.claude || [], gemini: kd.gemini || [] };
   } catch (_) {}
   cache = { at: Date.now(), v };
   return v;
 }
+export const clavesSel = (env, sel, p) => [...(sel?.claves?.[p] || []), ...(p === 'claude' ? [env.ANTHROPIC_API_KEY] : [env.GEMINI_API_KEY]).filter(Boolean)].filter((x, i, a) => a.indexOf(x) === i);
 export const olvidarSeleccion = () => { cache = { at: 0, v: null }; };
 
 // Claude por la API de mensajes. Los turnos seguidos del mismo rol se juntan y siempre empieza un turno del usuario.
-export async function viaClaude(env, { system, history, maxTokens, temperature, modelo }) {
+export async function viaClaude(env, { system, history, maxTokens, temperature, modelo, clave = env.ANTHROPIC_API_KEY }) {
   const msgs = [];
   for (const m of history) { const role = m.role === 'assistant' ? 'assistant' : 'user', c = String(m.content ?? ''); if (msgs.length && msgs[msgs.length - 1].role === role) msgs[msgs.length - 1].content += `\n\n${c}`; else msgs.push({ role, content: c }); }
   if (!msgs.length || msgs[0].role !== 'user') msgs.unshift({ role: 'user', content: '.' });
-  const pedir = (conTemp) => fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+  const pedir = (conTemp) => fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': clave, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model: modelo, max_tokens: maxTokens, system, messages: msgs, ...(conTemp ? { temperature } : {}) }) });
   let r = await pedir(true);
   if (r.status === 400 && /temperature/i.test(await r.clone().text())) r = await pedir(false);

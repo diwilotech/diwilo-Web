@@ -24,7 +24,7 @@ import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
 import { hubProxy, hubModule, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
-import { seleccionIA, viaClaude, iaModelApi } from './claude.js';
+import { seleccionIA, clavesSel, viaClaude, iaModelApi } from './claude.js';
 import { tokensApi, mcpNegocio } from './mcp-negocio.js';
 import { assistantApi } from './assistant.js';
 import { agentsApi } from './agents.js';
@@ -271,21 +271,21 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   const promptChars = system.length + history.reduce((n, m) => n + String(m.content || '').length, 0);
   // El modelo lo elige el panel (IA → Modelo de IA): Claude, Gemini, Workers AI o automático (Gemini si hay clave; si no, Workers AI)
   const sel = await seleccionIA(env);
-  if (sel.proveedor === 'claude' && env.ANTHROPIC_API_KEY) {
+  if (sel.proveedor === 'claude') for (const clave of clavesSel(env, sel, 'claude')) {   // varias claves: si una falla, la siguiente
     try {
-      const o = await viaClaude(env, { system, history, maxTokens, temperature, modelo: sel.modelo });
+      const o = await viaClaude(env, { system, history, maxTokens, temperature, modelo: sel.modelo, clave });
       return await done('claude', o.text, o.tin || Math.ceil(promptChars / 4), o.tout || est(o.text));
     } catch (e) { console.error('claude', e.message); }   // si falla, seguimos con Gemini o Workers AI
   }
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
-  if (env.GEMINI_API_KEY && sel.proveedor !== 'workers-ai') {
+  if (sel.proveedor !== 'workers-ai') for (const claveG of clavesSel(env, sel, 'gemini')) {
     const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
     const generationConfig = { maxOutputTokens: maxTokens, temperature };
     // Los modelos «flash» piensan antes de responder y ese pensamiento se cobra como salida: se apaga
     if (/flash/.test(model) && !env.GEMINI_THINKING) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': claveG },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
@@ -301,7 +301,7 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
         if (out) return out;
       }
     }
-    // si Gemini falla, seguimos con Workers AI
+    // si esta clave de Gemini falla, probamos la siguiente y, al final, Workers AI
   }
   let out;
   try {
@@ -559,7 +559,7 @@ async function adminApi(req, env, path, url, ctx) {
   }
 
   if (path === '/admin/api/settings') {
-    if (M === 'GET') return json({ ...(await getSettings(env)), default_prompt: DEFAULT_PROMPT, ai_provider: env.GEMINI_API_KEY ? 'Gemini' : 'Workers AI (Cloudflare)' });
+    if (M === 'GET') return json({ ...(await getSettings(env)), default_prompt: DEFAULT_PROMPT, ai_provider: clavesSel(env, await seleccionIA(env), 'gemini').length ? 'Gemini' : 'Workers AI (Cloudflare)' });
     if (M === 'POST') {
       const b = await readJson(req, 20000);
       const stmts = [];

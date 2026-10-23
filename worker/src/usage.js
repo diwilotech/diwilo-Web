@@ -6,7 +6,7 @@
  * Orígenes: 'chat-sitio' (chat público), 'ia-diwilo' (asistente del panel), 'agente:<nombre>', 'informes' y 'otros'.
  * Las tablas se crean solas la primera vez.
  */
-import { seleccionIA } from './claude.js';
+import { seleccionIA, clavesSel } from './claude.js';
 const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const day = (ts = Date.now()) => new Date(ts - 5 * 3600000).toISOString().slice(0, 10); // día en Colombia
 
@@ -106,9 +106,9 @@ export async function usageApi(req, env) {
   const dayOfMonth = Number(today.slice(8, 10)), daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
   const m = sum(monthRows);
   return json({
-    today: { ...sum(todayRows), neurons: neurons(todayRows) }, month: m, free_neurons: env.GEMINI_API_KEY ? null : 10000, projection_usd: m.usd / dayOfMonth * daysInMonth,
+    today: { ...sum(todayRows), neurons: neurons(todayRows) }, month: m, free_neurons: clavesSel(env, await seleccionIA(env), 'gemini').length ? null : 10000, projection_usd: m.usd / dayOfMonth * daysInMonth,
     days, by_source: group(monthRows, (r) => r.source).sort((a, b) => b.usd - a.usd), by_source_today: group(todayRows, (r) => r.source).sort((a, b) => (b.tokens_in + b.tokens_out) - (a.tokens_in + a.tokens_out)),
-    provider: (await seleccionIA(env)).proveedor === 'claude' && env.ANTHROPIC_API_KEY ? `Claude (${(await seleccionIA(env)).modelo})` : env.GEMINI_API_KEY ? `Gemini (${env.GEMINI_MODEL || 'gemini-2.5-flash'})` : 'Workers AI (Cloudflare)',
+    provider: (await seleccionIA(env)).proveedor === 'claude' && clavesSel(env, await seleccionIA(env), 'claude').length ? `Claude (${(await seleccionIA(env)).modelo})` : clavesSel(env, await seleccionIA(env), 'gemini').length ? `Gemini (${env.GEMINI_MODEL || 'gemini-2.5-flash'})` : 'Workers AI (Cloudflare)',
     settings: s,
   });
 }
