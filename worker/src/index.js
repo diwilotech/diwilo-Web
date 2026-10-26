@@ -22,7 +22,7 @@ import { teamApi } from './team.js';
 import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
-import { centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
+import { brandApi, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
 import { videosApi } from './videos.js';
 import { seleccionIA, clavesSel, viaClaude, iaModelApi } from './claude.js';
@@ -502,6 +502,7 @@ async function adminApi(req, env, path, url, ctx) {
   if (path === '/admin/api/me') return json({ email, owner: access.owner, modules: access.modules, prefs: await getPrefs(env, email) });
   if (path === '/admin/api/prefs' && req.method === 'POST') return (await setPrefs(env, email, await req.json().catch(() => ({})))) ? json({ ok: true }) : json({ error: 'Tema no válido' }, 400);
   if (path === '/admin/api/team') return teamApi(req, env, access);
+  if (path === '/admin/api/brand') return brandApi(env, email);   // logo, nombre y lema de la marca (Marca): lo ve todo el equipo
   const need = adminModule(path);
   if (need === 'owner' ? !access.owner : need === 'any' ? !access.modules.some((m) => m === 'marketing' || m === 'finanzas') : !access.modules.includes(need)) return json({ error: 'No tienes acceso a esta sección' }, 403);
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
@@ -595,12 +596,12 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
-      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia|marca)(\/|$)/.test(path)) {
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia|marca|dashboard|settings)(\/|$)/.test(path)) {
         const access = await adminAccess(req, env);
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' ? 'marca' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' || mod === 'settings' ? 'marca' : mod === 'dashboard' ? 'dashboard' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         if (path.startsWith('/api/ia/tokens')) return req.method !== 'GET' && req.headers.get('x-app') !== '1' ? json({ error: 'Falta la cabecera x-app' }, 403) : tokensApi(req, env, path, email, url.origin);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email, callAI);
       }

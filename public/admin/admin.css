@@ -445,7 +445,7 @@ dialog.ask.pricedlg{width:min(980px,96vw);max-width:96vw}.pricedlg form{max-heig
 .estado-fecha{display:block;margin-top:3px;font-size:.78rem;color:var(--bs-secondary-color)}
 
 /* Finanzas, Nómina, Marketing, Marca e IA: la página del módulo ocupa todo el espacio, igual que en las apps (sin título repetido) */
-body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-tab="marketing"] .dw-main,body[data-tab="marca"] .dw-main,body[data-tab="ia"] .dw-main{padding:var(--dw-top-h) 0 0}
+body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-tab="marketing"] .dw-main,body[data-tab="marca"] .dw-main,body[data-tab="ia"] .dw-main,body[data-tab="dashboard"] .dw-main{padding:var(--dw-top-h) 0 0}
 .modframe{display:block;width:100%;border:0;background:transparent;height:calc(100vh - var(--dw-top-h) - var(--dw-bottom-h));height:calc(100dvh - var(--dw-top-h) - var(--dw-bottom-h) - env(safe-area-inset-bottom,0px))}
 @media (min-width:992px){.modframe{height:calc(100vh - var(--dw-top-h));height:calc(100dvh - var(--dw-top-h))}}
 
@@ -491,3 +491,13 @@ body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-ta
   .dw-main .dw-form{grid-template-columns:1fr}
   .pricedlg .dw-grid{--min:130px!important}
 }
+
+/* Bienvenida con la marca (una vez por sesión) */
+#dw-splash{position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--bs-body-bg);color:var(--bs-body-color);opacity:1;transition:opacity .4s ease;cursor:pointer;padding:24px;text-align:center}
+#dw-splash.out{opacity:0;pointer-events:none}
+.dw-splash__logo{width:96px;height:96px;border-radius:26px;display:grid;place-items:center;background:#fff;box-shadow:var(--bs-box-shadow-lg);overflow:hidden;animation:dwsplash .7s cubic-bezier(.2,.8,.2,1) both}
+.dw-splash__logo img{width:72%;height:72%;object-fit:contain}
+.dw-splash__name{font-size:1.5rem;font-weight:700;animation:dwsplash .7s .1s cubic-bezier(.2,.8,.2,1) both}
+.dw-splash__lema{color:var(--bs-secondary-color);max-width:320px;animation:dwsplash .7s .2s cubic-bezier(.2,.8,.2,1) both}
+@keyframes dwsplash{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#dw-splash{transition:none}.dw-splash__logo,.dw-splash__name,.dw-splash__lema{animation:none}}

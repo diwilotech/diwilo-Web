@@ -179,13 +179,23 @@
 
   /* ---------- avisos del menú (sin abrir las pestañas) ---------- */
   // La campana de la barra superior junta los mismos avisos que los números del menú.
-  const avisos = { leads: 0, negocios: 0 };
+  const avisos = { leads: 0, negocios: 0, dash: [] };
   function pintarAvisos() {
     const l = [];
     if (avisos.leads) l.push({ id: 'marketing', icono: 'bi-person-plus', texto: `${avisos.leads} lead${avisos.leads === 1 ? '' : 's'} nuevo${avisos.leads === 1 ? '' : 's'} del formulario` });
     if (avisos.negocios) l.push({ id: 'negocios', icono: 'bi-exclamation-triangle', texto: `${avisos.negocios} negocio${avisos.negocios === 1 ? '' : 's'} con suscripción vencida o por vencer (7 días)` });
+    for (const a of avisos.dash) l.push({ id: ({ ai: 'ia' })[a.mod] || a.mod || 'dashboard', icono: a.icono || 'bi-bell', texto: a.texto });
     window.AdminShell?.setNotifs(l);
   }
+  // Mensajes de las pantallas incrustadas (Dashboard, Marca…): ir a una pestaña, alertas para la campana, tema guardado y marca cambiada
+  window.addEventListener('message', (ev) => {
+    if (ev.origin !== location.origin) return;
+    const d = ev.data || {};
+    if (d.dw === 'go' && typeof d.mod === 'string' && /^[a-z]+$/.test(d.mod)) go(d.mod);
+    else if (d.dw === 'avisos' && d.origen === 'dashboard' && Array.isArray(d.alertas)) { avisos.dash = d.alertas.slice(0, 6).map((a) => ({ mod: a.mod || null, icono: String(a.icono || ''), texto: String(a.texto || '').slice(0, 200) })); pintarAvisos(); }
+    else if (d.dw === 'tema-guardado' && d.tema && d.modo) window.AdminShell?.setTheme(d.tema, d.modo);
+    else if (d.dw === 'marca') window.AdminShell?.refreshBrand?.();
+  });
   const refreshLeadBadge = () => api('leads').then((l) => { avisos.leads = l.filter((x) => x.status === 'nuevo').length; setBadge('leadBadge', avisos.leads); pintarAvisos(); }).catch(() => {});
   async function refreshBizBadge() {
     try {

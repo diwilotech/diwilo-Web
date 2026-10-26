@@ -7,6 +7,7 @@
   const NOMBRE_TEMA = { violeta: 'Violeta', azul: 'Azul', indigo: 'Índigo', rosa: 'Rosa', rojo: 'Rojo', naranja: 'Naranja', verde: 'Verde', turquesa: 'Turquesa', grafito: 'Grafito' };
   // Módulos del panel en el orden del menú. `mod` = permiso que lo habilita (ver adminModule en worker/src/index.js).
   const MENU = [
+    { id: 'dashboard', nombre: 'Dashboard', icono: 'bi-speedometer2', mod: 'dashboard' },
     { id: 'resumen', nombre: 'En vivo', icono: 'bi-activity', mod: 'resumen' },
     { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: ['negocios', 'modulos'], badge: 'bizBadge' },
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
@@ -45,11 +46,10 @@
     // La apariencia guardada en el servidor (por persona) manda sobre la del navegador.
     const cur = { tema: me.prefs?.tema || saved().tema || 'violeta', modo: me.prefs?.modo || saved().modo || 'light' };
     if (me.prefs) applyTheme(cur.tema, cur.modo);
-    const guardar = () => fetch('/admin/api/prefs', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(cur) }).catch(() => {});
     document.getElementById('dw-shell').innerHTML = `
       <a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-primary" style="z-index:2000" href="#dw-content">Saltar al contenido</a>
       <header class="dw-top">
-        <a class="dw-brand" data-mod="${esc(items[0]?.id || 'resumen')}" href="#"><span class="dw-brand__logo"><img src="/assets/img/brand/logo-mark.svg" alt=""></span><span class="dw-brand__name d-none d-lg-inline">Diwilo</span></a>
+        <a class="dw-brand" data-mod="${esc(items[0]?.id || 'resumen')}" href="#"><span class="dw-brand__logo"><img src="/assets/img/brand/logo-mark.svg" alt="" data-brand-logo></span><span class="dw-brand__name d-none d-lg-inline" data-brand-name>Diwilo</span></a>
         <span class="dw-top__sep d-none d-lg-inline">/</span>
         <span class="dw-top__title" data-top-title></span>
         <span class="dw-top__spacer"></span>
@@ -63,9 +63,7 @@
           <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:250px">
             <li class="px-3 py-2"><div class="fw-semibold text-truncate">${esc(me.email)}</div><div class="small text-body-secondary">${me.owner ? 'Titular' : 'Equipo Diwilo'}</div></li>
             <li><hr class="dropdown-divider"></li>
-            <li><h6 class="dropdown-header">Apariencia</h6></li>
-            <li class="px-3 pb-2"><div class="d-flex flex-wrap gap-2" data-temas>${TEMAS.map((t) => `<button type="button" class="dw-swatch" data-tema="${t}" data-dw-tema="${t}" title="${NOMBRE_TEMA[t]}" aria-label="${NOMBRE_TEMA[t]}"></button>`).join('')}</div>
-              <div class="btn-group btn-group-sm w-100 mt-2" role="group"><button type="button" class="btn btn-outline-primary" data-modo="light"><i class="bi bi-sun me-1"></i>Claro</button><button type="button" class="btn btn-outline-primary" data-modo="dark"><i class="bi bi-moon me-1"></i>Oscuro</button></div></li>
+            <li><a class="dropdown-item" href="#marca" data-mod="marca"><i class="bi bi-palette me-2"></i>Color y marca</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item text-danger" href="/cdn-cgi/access/logout"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</a></li>
           </ul>
@@ -86,13 +84,9 @@
       document.body.classList.toggle('dw-mini');
       try { localStorage.setItem('dw_mini', document.body.classList.contains('dw-mini') ? '1' : '0'); } catch (_) {}
     };
-    const marcarTema = () => {
-      document.querySelectorAll('[data-tema]').forEach((b) => b.classList.toggle('on', b.dataset.tema === cur.tema));
-      document.querySelectorAll('[data-modo]').forEach((b) => b.classList.toggle('active', b.dataset.modo === cur.modo));
-    };
-    document.querySelectorAll('[data-tema]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); cur.tema = b.dataset.tema; applyTheme(cur.tema, cur.modo); marcarTema(); guardar(); }));
-    document.querySelectorAll('[data-modo]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); cur.modo = b.dataset.modo; applyTheme(cur.tema, cur.modo); marcarTema(); guardar(); }));
-    marcarTema();
+    // El color y el modo ya no se eligen aquí: los maneja Marca (Color y letra) y llegan por /admin/api/prefs
+    window.AdminShell.setTheme = (tema, modo) => { cur.tema = tema; cur.modo = modo; applyTheme(tema, modo); };
+    bienvenida();
     // Los enlaces del menú cambian de pestaña sin recargar; Ctrl/Cmd+clic los deja abrir normal.
     document.addEventListener('click', (e) => {
       const a = e.target.closest('a[data-mod]');
@@ -101,6 +95,38 @@
       go(a.dataset.mod);
       const oc = document.getElementById('dwSide'); if (oc) window.bootstrap?.Offcanvas.getInstance(oc)?.hide();
     });
+  }
+
+  // Logo, nombre y lema de la marca de Diwilo (los maneja el módulo Marca)
+  let marca = null;
+  async function cargarMarca() {
+    try { const r = await fetch('/admin/api/brand', { credentials: 'same-origin' }); marca = r.ok ? await r.json() : null; } catch (_) { marca = null; }
+    if (marca) {
+      if (marca.logo) document.querySelectorAll('[data-brand-logo]').forEach((i) => { i.src = marca.logo; });
+      if (marca.nombre) document.querySelectorAll('[data-brand-name]').forEach((n) => { n.textContent = marca.nombre; });
+    }
+    return marca;
+  }
+  // Bienvenida con la marca: una vez por sesión, breve, sin bloquear (se va sola o al tocar)
+  async function bienvenida() {
+    const yaVista = (() => { try { return sessionStorage.getItem('dw_splash') === '1'; } catch (_) { return false; } })();
+    const m = cargarMarca();
+    if (yaVista) return;
+    try { sessionStorage.setItem('dw_splash', '1'); } catch (_) {}
+    const el = document.createElement('div');
+    el.id = 'dw-splash'; el.setAttribute('role', 'status'); el.setAttribute('aria-label', 'Bienvenida');
+    el.innerHTML = '<div class="dw-splash__logo"><img src="/assets/img/brand/logo-mark.svg" alt="" data-splash-logo></div><div class="dw-splash__name" data-splash-name>Diwilo</div><div class="dw-splash__lema" data-splash-lema></div>';
+    document.body.appendChild(el);
+    const cerrar = () => { el.classList.add('out'); setTimeout(() => el.remove(), 450); };
+    el.addEventListener('click', cerrar);
+    const t0 = Date.now();
+    await Promise.race([m, new Promise((r) => setTimeout(r, 1200))]);
+    if (marca) {
+      if (marca.logo) el.querySelector('[data-splash-logo]').src = marca.logo;
+      el.querySelector('[data-splash-name]').textContent = marca.nombre || 'Diwilo';
+      el.querySelector('[data-splash-lema]').textContent = marca.lema || '';
+    }
+    setTimeout(cerrar, Math.max(500, 1100 - (Date.now() - t0)));
   }
 
   // Marca el módulo activo en el menú y pone el título en la barra superior.
@@ -124,5 +150,5 @@
     const dot = document.querySelector('[data-bell-dot]'); if (dot) dot.hidden = !list.length;
   }
 
-  window.AdminShell = { render, mark, setNotifs, applyTheme, first: () => items[0]?.id };
+  window.AdminShell = { render, mark, setNotifs, applyTheme, refreshBrand: cargarMarca, first: () => items[0]?.id };
 })();

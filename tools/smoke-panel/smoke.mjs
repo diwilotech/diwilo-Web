@@ -85,11 +85,16 @@ try {
       // aviso de la campana (lead nuevo + negocio por vencer) y toast de Bootstrap
       ok(await p.evaluate(() => document.querySelectorAll('[data-notifs] a').length) >= 1, `${tag}: la campana no muestra avisos`);
       ok(await p.evaluate(() => { document.querySelector('[data-bs-toggle=dropdown][aria-label="Menú de usuario"]'); return true; }), `${tag}: menú de usuario`);
-      // cambio de tema: se aplica y se guarda en el servidor
-      await p.evaluate(() => { document.querySelector('[data-tema="rosa"]').click(); });
+      // la apariencia ya no está en el menú de usuario (la maneja Marca); el panel sigue el tema que Marca guarda (mensaje del marco)
+      ok(await p.evaluate(() => !document.querySelector('[data-tema]') && !/Apariencia/.test(document.querySelector('.dw-top').innerText + document.querySelector('.dw-top .dropdown-menu.dropdown-menu-end.shadow-sm')?.innerHTML)), `${tag}: el menú de usuario aún trae Apariencia`);
+      await p.evaluate(() => window.postMessage({ dw: 'tema-guardado', tema: 'rosa', modo: 'light' }, location.origin));
       await wait(300);
-      ok(await p.evaluate(() => document.documentElement.dataset.dwTema) === 'rosa', `${tag}: no cambió el tema`);
-      ok(prefs.saved?.tema === 'rosa', `${tag}: no guardó el tema por persona`);
+      ok(await p.evaluate(() => document.documentElement.dataset.dwTema) === 'rosa', `${tag}: no siguió el tema guardado por Marca`);
+      // el Dashboard es la primera pestaña y sus alertas llegan a la campana
+      ok(await p.evaluate(() => document.querySelector('.dw-nav a[data-mod]')?.dataset.mod) === 'dashboard', `${tag}: el Dashboard no es la primera pestaña`);
+      await p.evaluate(() => window.postMessage({ dw: 'avisos', origen: 'dashboard', alertas: [{ icono: 'bi-alarm', texto: 'Alerta de prueba', mod: 'marketing' }] }, location.origin));
+      await wait(200);
+      ok(await p.evaluate(() => /Alerta de prueba/.test(document.querySelector('[data-notifs]').innerText)), `${tag}: la alerta del Dashboard no llegó a la campana`);
       ok(!pedidos.some((u) => /phosphor/i.test(u)), `${tag}: sigue cargando Phosphor`);
       ok(await p.evaluate(() => !document.querySelector('[class*="ph-"]')), `${tag}: quedan íconos ph-*`);
       ok(uncaught.length === 0, `${tag}: errores sin capturar: ${[...new Set(uncaught)].join(' | ')}`);

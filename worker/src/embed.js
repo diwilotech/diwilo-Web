@@ -10,16 +10,17 @@
  */
 import { ccall, ctxFor, syncLeads } from './central.js';
 import { propiasDiwilo } from './propias.js';
+import { setPrefs } from './access.js';
 
 const ORG_RE = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/;
-const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA', marca: 'Marca' };
-const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot', marca: 'bi-palette' };
+const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA', marca: 'Marca', dashboard: 'Dashboard' };
+const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot', marca: 'bi-palette', dashboard: 'bi-speedometer2' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => new Response(body, { status, headers: { 'content-type': type, 'cache-control': 'no-store', ...extra } });
 const cookieOrg = (req) => /(?:^|;\s*)dwl_org=([^;]+)/.exec(req.headers.get('cookie') || '')?.[1];
 
 export async function embedPage(req, env, url, email) {
-  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca)(\.js)?$/.exec(url.pathname);
+  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca|dashboard)(\.js)?$/.exec(url.pathname);
   if (!m) return text('No encontrado', 404);
   if (!env.MODULOS) return text('Falta la conexión con Diwilo Modulos (service binding MODULOS)', 503);
   const [, id, js] = m;
@@ -80,6 +81,13 @@ export async function embedApi(req, env, url, email, callAI) {
   if (org === 'diwilo' && M === 'GET' && /^\/api\/marketing\/(summary|contacts)$/.test(url.pathname)) await syncLeads(env, email).catch((e) => console.error('sync leads', e.message));
   const raw = M === 'GET' || M === 'HEAD' ? '' : await req.text();
   let body; try { body = raw ? JSON.parse(raw) : undefined; } catch { return text(JSON.stringify({ error: 'JSON no válido' }), 400, 'application/json; charset=utf-8'); }
+  // La apariencia y el logo los maneja Marca: en el panel, el color y el modo son de cada persona del equipo y el logo es el de la marca de Diwilo
+  const JSONH = 'application/json; charset=utf-8';
+  if (url.pathname === '/api/settings/apariencia' && M === 'PUT') return (await setPrefs(env, email, body)) ? text(JSON.stringify({ tema: body.tema, modo: body.modo }), 200, JSONH) : text(JSON.stringify({ error: 'Color o modo no válido' }), 400, JSONH);
+  if (url.pathname === '/api/settings/logo' && (M === 'PUT' || M === 'DELETE')) {
+    const r = await ccall(env, org, email, M, '/api/marca/logo', { body });
+    return r.status < 300 ? text(JSON.stringify({ logo: M === 'PUT' ? body.dataUrl : null }), 200, JSONH) : new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
+  }
   const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body, propias: org === 'diwilo' && callAI && url.pathname.startsWith('/api/ai/') ? propiasDiwilo(env, email, callAI) : undefined });
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
 }

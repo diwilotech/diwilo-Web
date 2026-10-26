@@ -53,6 +53,13 @@ export async function ctool(env, org, email, name, args = {}) {
 export const centralSummary = (env, org, email, kind, params = {}) =>
   cjson(env, org, email, 'GET', kind === 'finanzas' ? '/api/finanzas/summary' : '/api/marketing/summary', { query: new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString() });
 
+// La marca de Diwilo (módulo Marca) para el panel: logo, nombre y lema. Cualquier persona del equipo la ve (pantalla de bienvenida y barra superior).
+export async function brandApi(env, email) {
+  const leer = async (p) => { try { const r = await ccall(env, 'diwilo', email, 'GET', p); return r.status < 300 ? parse(r) : {}; } catch { return {}; } };
+  const [g, l] = await Promise.all([leer('/api/marca'), leer('/api/marca/logo')]);
+  return json({ nombre: g.negocio?.nombre || 'Diwilo', lema: g.marca?.lema || '', logo: l.data_url || null });
+}
+
 /* ---------------- leads del sitio y pagos de suscripciones ---------------- */
 const LEAD_STAGE = (s) => (s === 'ganado' ? 'cliente' : s === 'perdido' ? 'perdido' : 'lead');
 const leadBody = (l) => ({ ref: `lead:${l.id}`, name: l.name || l.email || 'Lead', email: l.email || null, phone: l.phone || null, stage: LEAD_STAGE(l.status),
