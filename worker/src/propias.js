@@ -7,7 +7,7 @@
 import { TOOLS } from './assistant.js';
 import { ccall } from './central.js';
 
-const NOMBRES = ['temas_de_clientes', 'blog_resumen', 'noticias_web', 'buscar_web', 'investigar_tema', 'leer_pagina', 'blog_crear_borrador', 'crear_video'];
+const NOMBRES = ['leads_recientes', 'temas_de_clientes', 'blog_resumen', 'noticias_web', 'buscar_web', 'investigar_tema', 'leer_pagina', 'blog_crear_borrador', 'crear_video'];
 const SCHEMA = { type: 'object', properties: {}, additionalProperties: true };
 
 export function propiasDiwilo(env, email, callAI) {
