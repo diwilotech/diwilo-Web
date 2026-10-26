@@ -29,7 +29,9 @@ export async function embedPage(req, env, url, email) {
   }
   const org = decodeURIComponent(url.searchParams.get('org') || cookieOrg(req) || 'diwilo');
   if (!ORG_RE.test(org)) return text('Organización no válida', 400);
-  const [ctx, main] = await Promise.all([ctxFor(env, org, email), env.MODULOS.asset(`/m/${id}.html`)]);
+  const [ctx, main, code] = await Promise.all([ctxFor(env, org, email), env.MODULOS.asset(`/m/${id}.html`), env.MODULOS.asset(`/m/${id}.js`)]);
+  // La versión del código va en la dirección del script: así ningún caché (navegador o borde) sirve una página vieja tras publicar el módulo
+  const ver = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(code.body || '')))).slice(0, 5).map((b) => b.toString(16).padStart(2, '0')).join('');
   if (main.status !== 200) return text('Página no encontrada', 404);
   const me = {
     app: { id: ctx.app, nombre: 'Diwilo' }, user: ctx.user, role: 'owner',
@@ -58,7 +60,7 @@ ${main.body.trim()}
 <script src="/admin/embed/app.js"></script>
 <script src="/admin/embed/crud.js"></script>
 <script src="/admin/embed/embed.js"></script>
-<script src="/admin/m/${id}.js"></script>
+<script src="/admin/m/${id}.js?v=${ver}"></script>
 </body>
 </html>`;
   return text(html, 200, 'text/html; charset=utf-8', {
