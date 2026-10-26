@@ -50,7 +50,7 @@ export async function embedPage(req, env, url, email) {
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="/admin/embed/diwilo.css" rel="stylesheet">
-<link href="/admin/embed/embed.css" rel="stylesheet">
+<link href="/admin/embed/embed.css?v=2026-11-07" rel="stylesheet">
 </head>
 <body class="dw dw-embed">
 <!-- Módulo «${id}» de Diwilo Modulos (Worker central) -->

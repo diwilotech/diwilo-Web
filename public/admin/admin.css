@@ -220,6 +220,10 @@ tr.xrow:hover td{background:rgba(var(--dw-p-rgb),.04)}
 /* Ventana del panel para confirmar o pedir un dato (A.ask) */
 dialog.ask{border:var(--bs-border-width) solid var(--bs-border-color-translucent);border-radius:var(--bs-border-radius-lg);padding:1.25rem;width:min(440px,calc(100% - 32px));background:var(--bs-body-bg);color:var(--bs-body-color);box-shadow:var(--bs-box-shadow-lg)}
 dialog.ask::backdrop{background:rgba(0,0,0,.5)}
+/* Las ventanas más altas que la pantalla se desplazan (en escritorio y celular) */
+dialog.ask{max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
+/* Avisos abajo y centrados: el diwilo.css de las apps los pone arriba */
+#toasts.dw-toasts{top:auto;bottom:0}
 @media (max-width:991.98px){.dw-toasts{margin-bottom:calc(var(--dw-bottom-h) + 8px)}}
 dialog.ask h2{margin:0 0 8px}
 dialog.ask p{margin:0 0 12px;font-size:13px;line-height:1.55}
