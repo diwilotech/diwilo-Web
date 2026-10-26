@@ -7,7 +7,7 @@
   const NOMBRE_TEMA = { violeta: 'Violeta', azul: 'Azul', indigo: 'Índigo', rosa: 'Rosa', rojo: 'Rojo', naranja: 'Naranja', verde: 'Verde', turquesa: 'Turquesa', grafito: 'Grafito' };
   // Módulos del panel en el orden del menú. `mod` = permiso que lo habilita (ver adminModule en worker/src/index.js).
   const MENU = [
-    { id: 'dashboard', nombre: 'Dashboard', icono: 'bi-speedometer2', mod: 'dashboard' },
+    { id: 'dashboard', nombre: 'Inicio', icono: 'bi-speedometer2', mod: 'dashboard' },
     { id: 'resumen', nombre: 'En vivo', icono: 'bi-activity', mod: 'resumen' },
     { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: ['negocios', 'modulos'], badge: 'bizBadge' },
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },

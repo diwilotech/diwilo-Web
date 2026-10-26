@@ -13,7 +13,7 @@ import { propiasDiwilo } from './propias.js';
 import { setPrefs } from './access.js';
 
 const ORG_RE = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/;
-const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA', marca: 'Marca', dashboard: 'Dashboard' };
+const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA', marca: 'Marca', dashboard: 'Inicio' };
 const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot', marca: 'bi-palette', dashboard: 'bi-speedometer2' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => new Response(body, { status, headers: { 'content-type': type, 'cache-control': 'no-store', ...extra } });

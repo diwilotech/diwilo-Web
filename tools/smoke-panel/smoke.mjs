@@ -90,7 +90,7 @@ try {
       await p.evaluate(() => window.postMessage({ dw: 'tema-guardado', tema: 'rosa', modo: 'light' }, location.origin));
       await wait(300);
       ok(await p.evaluate(() => document.documentElement.dataset.dwTema) === 'rosa', `${tag}: no siguió el tema guardado por Marca`);
-      // el Dashboard es la primera pestaña y sus alertas llegan a la campana
+      // Inicio es la primera pestaña y sus alertas llegan a la campana
       ok(await p.evaluate(() => document.querySelector('.dw-nav a[data-mod]')?.dataset.mod) === 'dashboard', `${tag}: el Dashboard no es la primera pestaña`);
       await p.evaluate(() => window.postMessage({ dw: 'avisos', origen: 'dashboard', alertas: [{ icono: 'bi-alarm', texto: 'Alerta de prueba', mod: 'marketing' }] }, location.origin));
       await wait(200);
