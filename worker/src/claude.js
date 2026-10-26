@@ -9,14 +9,14 @@ let cache = { at: 0, v: null };
 // { proveedor: 'auto'|'claude'|'gemini'|'workers-ai', modelo: <modelo de Claude> }
 export async function seleccionIA(env) {
   if (cache.v && Date.now() - cache.at < 30000) return cache.v;
-  let v = { proveedor: 'auto', modelo: 'claude-sonnet-5-5', claves: { claude: [], gemini: [] } };
+  let v = { proveedor: 'auto', modelo: 'claude-sonnet-5-5', claves: { claude: [], gemini: [], higgsfield: [] } };
   try {
     const r = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor');
     const d = JSON.parse(r.body);
     if (r.status < 300 && d.proveedor) v = { ...v, proveedor: d.proveedor, modelo: d.proveedores?.claude?.modelo || v.modelo };
     // Claves puestas desde la pantalla (cifradas en el módulo central); si el Worker tiene sus propios secretos, van de última opción
     const k = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor/claves-uso'), kd = JSON.parse(k.body);
-    if (k.status < 300) v.claves = { claude: kd.claude || [], gemini: kd.gemini || [] };
+    if (k.status < 300) v.claves = { claude: kd.claude || [], gemini: kd.gemini || [], higgsfield: kd.higgsfield || [] };
   } catch (_) {}
   cache = { at: Date.now(), v };
   return v;

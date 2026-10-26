@@ -9,16 +9,17 @@
  * Todo exige Cloudflare Access (adminEmail). Las escrituras llevan x-app: 1 (CSRF), igual que en las apps.
  */
 import { ccall, ctxFor, syncLeads } from './central.js';
+import { propiasDiwilo } from './propias.js';
 
 const ORG_RE = /^(diwilo|[a-z]+:[A-Za-z0-9_-]{1,64})$/;
-const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA' };
-const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot' };
+const MODULOS = { finanzas: 'Finanzas', marketing: 'Marketing', nomina: 'Nómina', ai: 'IA', marca: 'Marca' };
+const ICONOS = { finanzas: 'bi-pie-chart', marketing: 'bi-megaphone', nomina: 'bi-people-fill', ai: 'bi-robot', marca: 'bi-palette' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => new Response(body, { status, headers: { 'content-type': type, 'cache-control': 'no-store', ...extra } });
 const cookieOrg = (req) => /(?:^|;\s*)dwl_org=([^;]+)/.exec(req.headers.get('cookie') || '')?.[1];
 
 export async function embedPage(req, env, url, email) {
-  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai)(\.js)?$/.exec(url.pathname);
+  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca)(\.js)?$/.exec(url.pathname);
   if (!m) return text('No encontrado', 404);
   if (!env.MODULOS) return text('Falta la conexión con Diwilo Modulos (service binding MODULOS)', 503);
   const [, id, js] = m;
@@ -67,7 +68,7 @@ ${main.body.trim()}
 }
 
 // API que llaman las páginas: la misma ruta que en las apps (/api/finanzas/…), hacia la organización de la cookie.
-export async function embedApi(req, env, url, email) {
+export async function embedApi(req, env, url, email, callAI) {
   const M = req.method;
   if (M !== 'GET' && M !== 'HEAD' && req.headers.get('x-app') !== '1') return text(JSON.stringify({ error: 'Falta la cabecera x-app' }), 403, 'application/json; charset=utf-8');
   const org = decodeURIComponent(cookieOrg(req) || 'diwilo');
@@ -77,6 +78,6 @@ export async function embedApi(req, env, url, email) {
   if (org === 'diwilo' && M === 'GET' && /^\/api\/marketing\/(summary|contacts)$/.test(url.pathname)) await syncLeads(env, email).catch((e) => console.error('sync leads', e.message));
   const raw = M === 'GET' || M === 'HEAD' ? '' : await req.text();
   let body; try { body = raw ? JSON.parse(raw) : undefined; } catch { return text(JSON.stringify({ error: 'JSON no válido' }), 400, 'application/json; charset=utf-8'); }
-  const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body });
+  const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body, propias: org === 'diwilo' && callAI && url.pathname.startsWith('/api/ai/') ? propiasDiwilo(env, email, callAI) : undefined });
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
 }

@@ -4,7 +4,7 @@
  *   - Páginas del sitio: HTML o Markdown según la cabecera Accept (markdown.js)
  *   - /api, /admin/api, /v1, /l, /c y /mcp: lógica dinámica (index.js)
  *   - /blog: índice, artículos, RSS y sitemap del blog (blog.js)
- *   - /validar/:código: validación pública de cuentas de cobro (billing.js)
+ *   - /validar/:código: validación pública de cuentas de cobro (central.js)
  *   - Todo lo demás: archivo estático de public/ (con sus cabeceras de public/_headers)
  */
 import app from './index.js';
@@ -13,7 +13,7 @@ import { blogPublic } from './blog.js';
 import { publicValidate } from './central.js';
 import { purgeArchived } from './platform.js';
 import { runModulosDaily } from './modulos.js';
-import { runAgentsDaily } from './agents.js';
+import { runAgentesDiwilo } from './propias.js';
 import { callAI } from './index.js';
 
 const PAGES = {
@@ -44,7 +44,7 @@ export default {
     // Módulos: reenvía a los negocios cuya lista cambió (fechas que empiezan o terminan, envíos que fallaron, módulos nuevos)
     ctx.waitUntil(runModulosDaily(env));
     // Gastos recurrentes y automatizaciones de Marketing y Finanzas: los corre Diwilo Modulos (su propio cron).
-    // Agentes de IA programados (diarios; los semanales los lunes)
-    ctx.waitUntil(runAgentsDaily(env, callAI));
+    // Agentes de Diwilo del módulo IA (blog, videos…): diarios todos los días, semanales los lunes. Sus herramientas propias viven aquí.
+    ctx.waitUntil(runAgentesDiwilo(env, callAI));
   },
 };

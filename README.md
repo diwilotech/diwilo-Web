@@ -18,7 +18,6 @@ Cada push a `main` se publica solo en diwilo.com (Workers Builds, comando `npx w
 | `worker/src/access.js` | Verifica el JWT de Cloudflare Access en `/admin/api/*` |
 | `worker/src/platform.js` | Negocios, usuarios y suscripciones de Pedidos, Nutrición y Citas |
 | `worker/src/markdown.js` | `Accept: text/markdown` → versión `.md` de la página, y cabeceras `Link` |
-| `worker/src/card.js` | Tarjeta de presentación y vCard |
 | `worker/schema.sql` | Esquema de la base D1 `diwilo-admin-db` |
 | `wrangler.jsonc` | Configuración del Worker: dominios, archivos estáticos, D1, Workers AI, service bindings, variables |
 
@@ -200,8 +199,7 @@ No puede borrar, archivar, cambiar dueños ni registrar pagos. El mismo registro
 
 ## Agentes de IA
 
-IA → Agentes (`worker/src/agents.js`). Cada agente tiene rol e instrucciones, las herramientas de IA Diwilo
-que puede usar, cuándo trabaja (a mano, cada día o cada lunes, desde el cron), para qué organización y su permiso:
-**propone** (sus acciones quedan «por aprobar» en su historial) o **actúa solo**. Plantillas: blog (busca temas en lo que
-preguntan leads y chat y deja un borrador escrito en Blog; nunca publica), seguimiento de leads, cobranza, renovaciones de
-negocios y analista semanal. Tablas `ai_agents` y `ai_agent_runs` (se crean solas; también en `worker/hubs.sql`).
+IA → Agentes es del módulo IA de Diwilo Modulos (la misma pantalla de todas las apps). Las plantillas **Agente de blog**
+(busca temas en lo que preguntan leads y chat, investiga y deja un borrador en Blog; nunca publica) y **Agente de videos para redes**
+(lee la marca y crea videos con Higgsfield) solo salen en Diwilo Admin, que entrega sus herramientas propias (`worker/src/propias.js`).
+El cron de este Worker corre los programados. El sistema anterior (`agents.js`) se eliminó; sus tablas `ai_agents` y `ai_agent_runs` ya no se usan.

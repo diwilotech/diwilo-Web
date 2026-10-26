@@ -22,12 +22,12 @@ import { teamApi } from './team.js';
 import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
-import { hubProxy, hubModule, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
+import { centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
 import { embedPage, embedApi } from './embed.js';
+import { videosApi } from './videos.js';
 import { seleccionIA, clavesSel, viaClaude, iaModelApi } from './claude.js';
 import { tokensApi, mcpNegocio } from './mcp-negocio.js';
 import { assistantApi } from './assistant.js';
-import { agentsApi } from './agents.js';
 
 const DAY = 86400000;
 const DEFAULT_PROMPT = `Eres el asistente virtual de Diwilo, una empresa de Medellín (Colombia) que diseña, construye y opera software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto.
@@ -487,9 +487,9 @@ function adminModule(path) {
   if (/^(stats|live)$/.test(p)) return 'resumen';
   if (/^platform(\/|$)/.test(p)) return 'negocios';
   if (/^modulos(\/|$)/.test(p)) return 'modulos';
-  if (p.startsWith('hub/')) return hubModule(path);
   if (/^(cards|leads|links|link-clicks)$/.test(p)) return 'marketing';
   if (/^blog(\/|$)/.test(p)) return 'blog';
+  if (/^videos(\/|$)/.test(p)) return 'contenido';
   if (/^(chats|settings|webhook-test|keys)$/.test(p)) return 'ia';
   return 'owner'; // asistente, agentes, uso y lo demás ven todo: solo titulares
 }
@@ -507,12 +507,11 @@ async function adminApi(req, env, path, url, ctx) {
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
   if (path === '/admin/api/modulos' || path.startsWith('/admin/api/modulos/')) return modulosApi(req, env, path, url, email);
   // Marketing y Finanzas: módulo central Diwilo Modulos (central.js)
-  if (path.startsWith('/admin/api/hub/')) return hubProxy(req, env, path, url, email, callAI);
   if (path === '/admin/api/cards') return cardsApi(req, env, url, email);
   if (path === '/admin/api/ia-model' || path === '/admin/api/ia-model/probar') return iaModelApi(req, env, path, email);
   if ((path === '/admin/api/assistant' || path === '/admin/api/assistant/run') && req.method === 'POST') return assistantApi(req, env, path, email, callAI, ctx);
-  if (path === '/admin/api/agents' || path.startsWith('/admin/api/agents/')) return agentsApi(req, env, path, email, callAI, ctx);
   if (path === '/admin/api/usage') return usageApi(req, env);
+  if (path === '/admin/api/videos' || path.startsWith('/admin/api/videos/')) return videosApi(req, env, path, email);
   if (path === '/admin/api/blog' || path.startsWith('/admin/api/blog/')) return blogAdmin(req, env, path, url, email);
 
   const M = req.method;
@@ -596,14 +595,14 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
-      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia)(\/|$)/.test(path)) {
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia|marca)(\/|$)/.test(path)) {
         const access = await adminAccess(req, env);
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' ? 'marca' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         if (path.startsWith('/api/ia/tokens')) return req.method !== 'GET' && req.headers.get('x-app') !== '1' ? json({ error: 'Falta la cabecera x-app' }, 403) : tokensApi(req, env, path, email, url.origin);
-        return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email);
+        return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email, callAI);
       }
       if (path.startsWith('/api/')) {
         if (req.method === 'OPTIONS') return cors(env, req, new Response(null, { status: 204 }));

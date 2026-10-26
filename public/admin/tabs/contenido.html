@@ -1,0 +1,12 @@
+<div class="dw-page-head"><div class="dw-row"><h1>Videos</h1></div></div>
+<p class="text-body-secondary small">Los videos para redes que crea el <b>Agente de videos</b> (IA → Agentes → Nuevo agente) aparecen aquí, y también puedes generar uno a mano. Gastan créditos de Higgsfield.</p>
+<form class="dw-card" id="vdForm">
+  <label class="dw-field">Describe el video<textarea class="form-control" name="prompt" rows="3" maxlength="2500" placeholder="Escribe aquí tu escena (mejor en inglés) o deja que el agente la cree leyendo tu marca." required></textarea></label>
+  <div class="dw-row" style="gap:12px;margin-top:12px;flex-wrap:wrap">
+    <label>Duración <select class="form-select" name="duration"><option value="5">5 s</option><option value="10">10 s</option></select></label>
+    <label>Formato <select class="form-select" name="aspect_ratio"><option value="9:16">Vertical 9:16</option><option value="1:1">Cuadrado 1:1</option><option value="16:9">Horizontal 16:9</option></select></label>
+    <label>Sonido <select class="form-select" name="sound"><option value="on">Con sonido</option><option value="off">Sin sonido</option></select></label>
+    <button class="btn btn-primary ms-auto align-self-end" type="submit" id="vdGo"><i class="bi bi-camera-video"></i> Generar</button>
+  </div>
+</form>
+<div id="vdList" style="margin-top:16px"></div>
