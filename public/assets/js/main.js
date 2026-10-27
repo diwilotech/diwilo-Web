@@ -28,6 +28,7 @@
     const sel = document.createElement('select'); sel.className = 'input'; sel.setAttribute('aria-label', 'Indicativo del país');
     sel.innerHTML = PAISES.map(([cc, iso, n]) => `<option value="${cc}|${iso}" ${cc === ini.cc && iso === ini.iso ? 'selected' : ''}>${bandera(iso)} +${cc} ${n}</option>`).join('');
     const num = document.createElement('input'); num.className = 'input'; num.type = 'tel'; num.inputMode = 'tel'; num.autocomplete = 'tel-national'; num.placeholder = '300 000 0000'; num.value = ini.num; num.id = `${id}-num`;
+    num.dataset.cc = '1'; // evita que el observador lo vuelva a envolver (bucle infinito)
     num.setAttribute('aria-label', 'Número de teléfono');
     inp.parentNode.insertBefore(wrap, inp); wrap.append(sel, num); wrap.appendChild(inp);
     inp.type = 'hidden';
