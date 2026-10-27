@@ -51,7 +51,7 @@ function cookie(req, name) {
 // Pestañas del panel que se pueden dar o quitar a cada persona del equipo.
 export const MODULES = {
   dashboard: 'Inicio', resumen: 'En vivo', negocios: 'Negocios (matrículas)', modulos: 'Módulos (planes y catálogo, dentro de Negocios)', marketing: 'Marketing',
-  finanzas: 'Finanzas', nomina: 'Nómina', blog: 'Blog', ia: 'IA', marca: 'Marca', contenido: 'Videos', whatsapp: 'WhatsApp',
+  finanzas: 'Finanzas', nomina: 'Nómina', blog: 'Blog', ia: 'IA', marca: 'Marca', contenido: 'Videos', whatsapp: 'Mensajes (WhatsApp, Instagram y Messenger)',
 };
 // Lo que ve una persona nueva del equipo: sin Negocios, Finanzas ni Marketing (se le pueden dar luego).
 export const DEFAULT_MODULES = ['dashboard', 'resumen', 'modulos', 'blog'];

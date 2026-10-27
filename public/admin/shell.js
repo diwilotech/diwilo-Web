@@ -13,7 +13,7 @@
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
     { id: 'finanzas', nombre: 'Finanzas', icono: 'bi-pie-chart', mod: 'finanzas' },
     { id: 'nomina', nombre: 'Nómina', icono: 'bi-people-fill', mod: 'nomina' },
-    { id: 'whatsapp', nombre: 'WhatsApp', icono: 'bi-whatsapp', mod: 'whatsapp' },
+    { id: 'whatsapp', nombre: 'Mensajes', icono: 'bi-chat-dots', mod: 'whatsapp' },
     { id: 'marca', nombre: 'Marca', icono: 'bi-palette', mod: 'marca' },
     { id: 'contenido', nombre: 'Videos', icono: 'bi-camera-reels', mod: 'contenido' },
     { id: 'blog', nombre: 'Blog', icono: 'bi-journal-text', mod: 'blog' },
