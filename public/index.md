@@ -216,7 +216,7 @@ n8n para orquestar automatizaciones, Python para datos y modelos, Supabase para 
 
 ¿Por dónde empiezo?
 
-Cuéntanos qué tarea repite tu equipo cada semana: [agenda el diagnóstico](https://diwilo.com/contacto), escríbenos por [WhatsApp](https://wa.me/573053840193) o pregúntale al asistente de arriba.
+Cuéntanos qué tarea repite tu equipo cada semana: [agenda el diagnóstico](https://diwilo.com/contacto), escríbenos por [WhatsApp](https://wa.me/573207445260) o pregúntale al asistente de arriba.
 
 ¿Listo?
 

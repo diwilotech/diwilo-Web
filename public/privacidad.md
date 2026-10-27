@@ -12,7 +12,7 @@ Conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013 de la República de Col
 
 ## 1. Responsable del tratamiento
 
-Diwilo, con domicilio en Medellín, Colombia. Correo: [hola@diwilo.com](mailto:hola@diwilo.com). WhatsApp: +57 305 384 0193.
+Diwilo, con domicilio en Medellín, Colombia. Correo: [hola@diwilo.com](mailto:hola@diwilo.com). WhatsApp: +57 320 744 5260.
 
 ## 2. Datos que recopilamos
 

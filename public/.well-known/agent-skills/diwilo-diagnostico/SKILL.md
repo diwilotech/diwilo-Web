@@ -24,4 +24,4 @@ Diwilo responde en menos de 24 horas hábiles. La primera sesión (45 minutos) n
 
 ## Contacto directo
 
-hola@diwilo.com · WhatsApp +57 305 384 0193 (https://wa.me/573053840193)
+hola@diwilo.com · WhatsApp +57 320 744 5260 (https://wa.me/573207445260)

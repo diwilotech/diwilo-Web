@@ -3,11 +3,42 @@
   'use strict';
 
   const CONTACT_EMAIL = 'hola@diwilo.com';
-  const WHATSAPP = '573053840193';
+  const WHATSAPP = '573207445260';
   // La API vive en el mismo dominio (Cloudflare Pages Functions; panel en /admin)
   const API_BASE = '';
   // El formulario se guarda en el panel; si falla, se abre el correo (mailto).
   const FORM_ENDPOINT = API_BASE + '/api/lead';
+
+  /* Teléfono con indicativo de país: en cada campo de teléfono (type="tel") se muestra una lista con bandera y +indicativo (+57 Colombia, +1 Estados Unidos…)
+     y el número; lo que se envía es «+57 3001112233». El campo original queda oculto con ese valor, así que los formularios siguen igual. */
+  const PAISES = [['57', 'CO', 'Colombia'], ['1', 'US', 'Estados Unidos / Canadá'], ['52', 'MX', 'México'], ['34', 'ES', 'España'], ['51', 'PE', 'Perú'], ['54', 'AR', 'Argentina'], ['56', 'CL', 'Chile'], ['593', 'EC', 'Ecuador'], ['58', 'VE', 'Venezuela'], ['507', 'PA', 'Panamá'], ['506', 'CR', 'Costa Rica'], ['502', 'GT', 'Guatemala'], ['503', 'SV', 'El Salvador'], ['504', 'HN', 'Honduras'], ['505', 'NI', 'Nicaragua'], ['591', 'BO', 'Bolivia'], ['595', 'PY', 'Paraguay'], ['598', 'UY', 'Uruguay'], ['55', 'BR', 'Brasil'], ['53', 'CU', 'Cuba'], ['1809', 'DO', 'Rep. Dominicana'], ['1787', 'PR', 'Puerto Rico'], ['44', 'GB', 'Reino Unido'], ['33', 'FR', 'Francia'], ['49', 'DE', 'Alemania'], ['39', 'IT', 'Italia'], ['351', 'PT', 'Portugal'], ['31', 'NL', 'Países Bajos'], ['41', 'CH', 'Suiza'], ['971', 'AE', 'Emiratos Árabes'], ['972', 'IL', 'Israel'], ['86', 'CN', 'China'], ['81', 'JP', 'Japón'], ['91', 'IN', 'India'], ['61', 'AU', 'Australia'], ['27', 'ZA', 'Sudáfrica']];
+  const bandera = (iso) => String.fromCodePoint(...[...iso].map((c) => 127397 + c.charCodeAt(0)));
+  const partirTel = (v) => {
+    const d = String(v || '').replace(/\D/g, '').replace(/^00/, '');
+    if (!d) return { cc: '57', iso: 'CO', num: '' };
+    if (d.length === 10 && d[0] === '3') return { cc: '57', iso: 'CO', num: d };
+    const p = [...PAISES].sort((a, b) => b[0].length - a[0].length).find(([cc]) => d.startsWith(cc));
+    return p ? { cc: p[0], iso: p[1], num: d.slice(p[0].length) } : { cc: '57', iso: 'CO', num: d };
+  };
+  function mejorarTelefono(inp) {
+    if (inp.dataset.cc || inp.type !== 'tel') return;
+    inp.dataset.cc = '1';
+    const ini = partirTel(inp.value), id = (inp.id || `tel${Math.random().toString(36).slice(2, 7)}`);
+    const wrap = document.createElement('div'); wrap.className = 'phone-cc';
+    const sel = document.createElement('select'); sel.className = 'input'; sel.setAttribute('aria-label', 'Indicativo del país');
+    sel.innerHTML = PAISES.map(([cc, iso, n]) => `<option value="${cc}|${iso}" ${cc === ini.cc && iso === ini.iso ? 'selected' : ''}>${bandera(iso)} +${cc} ${n}</option>`).join('');
+    const num = document.createElement('input'); num.className = 'input'; num.type = 'tel'; num.inputMode = 'tel'; num.autocomplete = 'tel-national'; num.placeholder = '300 000 0000'; num.value = ini.num; num.id = `${id}-num`;
+    num.setAttribute('aria-label', 'Número de teléfono');
+    inp.parentNode.insertBefore(wrap, inp); wrap.append(sel, num); wrap.appendChild(inp);
+    inp.type = 'hidden';
+    const label = inp.id && document.querySelector(`label[for="${inp.id}"]`); if (label) label.htmlFor = num.id;
+    const sync = () => { const d = num.value.replace(/\D/g, '').replace(/^0+/, ''); inp.value = d ? `+${sel.value.split('|')[0]} ${d}` : ''; inp.dispatchEvent(new Event('input', { bubbles: true })); };
+    sel.addEventListener('change', sync); num.addEventListener('input', sync); sync();
+    const f = inp.form; if (f) f.addEventListener('reset', () => setTimeout(() => { num.value = ''; sync(); }));
+  }
+  const buscarTelefonos = (raiz = document) => raiz.querySelectorAll?.('input[type="tel"]:not([data-cc])').forEach(mejorarTelefono);
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) { if (n.matches?.('input[type="tel"]')) mejorarTelefono(n); else buscarTelefonos(n); } }))).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', () => buscarTelefonos());
 
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
@@ -683,7 +714,7 @@
     .replace(/(https?:\/\/[^\s<\u0001\u0002]+[^\s<.,;:!?)\u0001\u0002])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
     .replace(/([\w.+-]+@[\w-]+\.[\w.]+)/g, '<a href="mailto:$1">$1</a>')
     .replace(/\u0001/g, `<a href="https://wa.me/${WHATSAPP}" data-wa-handoff>abrir WhatsApp</a>`)
-    .replace(/\u0002/g, `<a href="https://wa.me/${WHATSAPP}" data-wa-handoff>+57 305 384 0193</a>`);
+    .replace(/\u0002/g, `<a href="https://wa.me/${WHATSAPP}" data-wa-handoff>+57 320 744 5260</a>`);
   const HANDOFF_BTN = `<button type="button" class="wa-handoff" data-wa-handoff><i class="ph-light ph-whatsapp-logo"></i><span><b>Seguir por WhatsApp</b><small>Enviamos el resumen de esta conversación</small></span></button>`;
 
   async function openHandoff(el) {

@@ -335,6 +335,10 @@ button { font: inherit; }
 .input:focus { box-shadow: inset 0 0 0 1px var(--violet-line); }
 .input::placeholder { color: rgba(199, 211, 234, 0.6); }
 textarea.input { resize: vertical; line-height: 1.5; }
+.phone-cc { display: flex; gap: 8px; }
+.phone-cc select.input { flex: 0 0 auto; max-width: 46%; }
+.phone-cc input.input { flex: 1; min-width: 0; }
+.phone-cc select.input option { color: #111; background: #fff; }
 .field { display: grid; gap: 7px; }
 .field label, .field .label { font-size: 13px; color: var(--ink2); }
 .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; line-height: 1.5; color: var(--ink3); }
