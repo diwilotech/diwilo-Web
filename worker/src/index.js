@@ -358,18 +358,28 @@ async function apiChat(req, env, ctx) {
   const { results } = await env.DB.prepare('SELECT role, content FROM messages WHERE chat_id = ? ORDER BY ts DESC, id DESC LIMIT 16').bind(sid).all();
   const history = results.reverse();
 
-  let reply;
-  try {
-    reply = await callAI(env, settings.chat_prompt + (await appsKnowledge(env)), history, { source: 'chat-sitio' });
-  } catch (e) {
-    console.error('chat error', e);
+  // Primero responde el agente del chat del sitio en Mensajes (sus instrucciones, los datos que pide y el aviso al equipo se manejan allí); la conversación queda guardada allí.
+  // Si Mensajes no está activo, no hay agente o falla, responde el asistente de siempre.
+  let reply = null, viaMensajes = false;
+  if (env.MODULOS?.mensajesResponder && /^[A-Za-z0-9_.:@+-]{1,120}$/.test(sid)) {
+    try {
+      const r = await env.MODULOS.mensajesResponder('diwilo', 'diwilo', { ref: 'sitio', nombre: 'Chat del sitio', contacto: sid, mensaje: text, id: `${t0}:u`, pais: g.country, dispositivo: g.device === 'bot' ? null : g.device, pagina: b.page || null, contexto: await appsKnowledge(env) });
+      if (r?.ok && r.respuesta) { reply = r.respuesta; viaMensajes = true; }
+    } catch (e) { console.error('mensajesResponder', e.message); }
+  }
+  if (!reply) {
+    try {
+      reply = await callAI(env, settings.chat_prompt + (await appsKnowledge(env)), history, { source: 'chat-sitio' });
+    } catch (e) {
+      console.error('chat error', e);
+    }
   }
   if (!reply) reply = 'Ahora mismo no puedo responder. Toca «Seguir por WhatsApp» o escríbenos a hola@diwilo.com.';
   await env.DB.batch([
     env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'assistant',?)").bind(sid, now() + 1, reply),
     env.DB.prepare('UPDATE chats SET msg_count = msg_count + 2, last_at = ? WHERE id = ?').bind(now(), sid)
   ]);
-  espejoMensajes(env, ctx, sid, g, b.page, t0, text, reply);
+  if (!viaMensajes) espejoMensajes(env, ctx, sid, g, b.page, t0, text, reply);
   if (history.length <= 1) ctx.waitUntil(fireWebhook(env, 'chat_started', { chat_id: sid, first_message: text, page: b.page, country: g.country }));
   return json({ reply, handoff: HANDOFF_HINT.test(reply) });
 }
