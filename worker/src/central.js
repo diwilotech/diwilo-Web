@@ -26,7 +26,7 @@ export async function ctxFor(env, org, email) {
   const name = (await env.DB.prepare('SELECT name FROM orgs WHERE id = ?').bind(org).first().catch(() => null))?.name || null;
   // En Diwilo Modulos cada app se identifica por su Worker (cdacademia, cdcitas…), igual que en su modulos.app.json
   return { app: `cd${app}`, business: { id, name }, role: 'owner', readOnly: false, user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null },
-    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina'] };
+    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp'] };
 }
 
 export async function ccall(env, org, email, method, path, { query = '', body, propias } = {}) {

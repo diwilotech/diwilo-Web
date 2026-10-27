@@ -445,7 +445,7 @@ dialog.ask.pricedlg{width:min(980px,96vw);max-width:96vw}.pricedlg form{max-heig
 .estado-fecha{display:block;margin-top:3px;font-size:.78rem;color:var(--bs-secondary-color)}
 
 /* Finanzas, Nómina, Marketing, Marca e IA: la página del módulo ocupa todo el espacio, igual que en las apps (sin título repetido) */
-body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-tab="marketing"] .dw-main,body[data-tab="marca"] .dw-main,body[data-tab="ia"] .dw-main,body[data-tab="dashboard"] .dw-main{padding:var(--dw-top-h) 0 0}
+body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-tab="marketing"] .dw-main,body[data-tab="marca"] .dw-main,body[data-tab="whatsapp"] .dw-main,body[data-tab="ia"] .dw-main,body[data-tab="dashboard"] .dw-main{padding:var(--dw-top-h) 0 0}
 .modframe{display:block;width:100%;border:0;background:transparent;height:calc(100vh - var(--dw-top-h) - var(--dw-bottom-h));height:calc(100dvh - var(--dw-top-h) - var(--dw-bottom-h) - env(safe-area-inset-bottom,0px))}
 @media (min-width:992px){.modframe{height:calc(100vh - var(--dw-top-h));height:calc(100dvh - var(--dw-top-h))}}
 
