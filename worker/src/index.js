@@ -320,6 +320,14 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   return done('workers-ai', text, out?.usage?.prompt_tokens ?? Math.ceil(promptChars / 4), out?.usage?.completion_tokens ?? est(text));
 }
 
+// Copia cada intercambio del chat del sitio a Mensajes (bandeja «Chat del sitio»): ahí se ve con país y dispositivo y se puede atender.
+// El chat sigue respondiendo como siempre; esto solo registra. Si Mensajes no está activo para Diwilo, no hace nada.
+function espejoMensajes(env, ctx, sid, g, page, t, user, reply) {
+  if (!env.MODULOS?.mensajesRegistrar || !/^[A-Za-z0-9_.:@+-]{1,120}$/.test(sid)) return;
+  ctx.waitUntil(env.MODULOS.mensajesRegistrar('diwilo', 'diwilo', { ref: 'sitio', nombre: 'Chat del sitio', contacto: sid, pais: g.country, dispositivo: g.device === 'bot' ? null : g.device, pagina: page || null,
+    mensajes: [{ id: `${t}:u`, rol: 'user', contenido: user, ts: t }, { id: `${t}:a`, rol: 'assistant', contenido: reply, ts: t + 1 }] }).catch((e) => console.error('espejo mensajes', e.message)));
+}
+
 async function apiChat(req, env, ctx) {
   const b = await readJson(req, 30000);
   const settings = await getSettings(env);
@@ -332,7 +340,7 @@ async function apiChat(req, env, ctx) {
   const recent = await env.DB.prepare("SELECT COUNT(*) n FROM messages WHERE chat_id = ? AND role = 'user' AND ts > ?").bind(sid, now() - 10 * 60000).first();
   if (recent.n >= 20) return json({ reply: 'Has enviado muchos mensajes seguidos. Para seguir, toca «Seguir por WhatsApp»: le enviamos a Diwilo el resumen de esta conversación.', handoff: true });
 
-  const g = geo(req);
+  const g = geo(req), t0 = now();
   await env.DB.prepare(`INSERT INTO chats (id, started_at, last_at, page, country, city, device, msg_count) VALUES (?,?,?,?,?,?,?,0)
     ON CONFLICT(id) DO UPDATE SET last_at = excluded.last_at`).bind(sid, now(), now(), clip(b.page, 300), g.country, g.city, g.device).run();
   await env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'user',?)").bind(sid, now(), text).run();
@@ -343,6 +351,7 @@ async function apiChat(req, env, ctx) {
       env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'assistant',?)").bind(sid, now() + 1, clip(b.canned.trim(), 1500)),
       env.DB.prepare('UPDATE chats SET msg_count = msg_count + 2, last_at = ? WHERE id = ?').bind(now(), sid)
     ]);
+    espejoMensajes(env, ctx, sid, g, b.page, t0, text, clip(b.canned.trim(), 1500));
     return json({ ok: true, canned: true });
   }
 
@@ -360,6 +369,7 @@ async function apiChat(req, env, ctx) {
     env.DB.prepare("INSERT INTO messages (chat_id, ts, role, content) VALUES (?,?,'assistant',?)").bind(sid, now() + 1, reply),
     env.DB.prepare('UPDATE chats SET msg_count = msg_count + 2, last_at = ? WHERE id = ?').bind(now(), sid)
   ]);
+  espejoMensajes(env, ctx, sid, g, b.page, t0, text, reply);
   if (history.length <= 1) ctx.waitUntil(fireWebhook(env, 'chat_started', { chat_id: sid, first_message: text, page: b.page, country: g.country }));
   return json({ reply, handoff: HANDOFF_HINT.test(reply) });
 }
