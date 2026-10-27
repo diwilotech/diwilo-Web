@@ -22,7 +22,7 @@ import { teamApi } from './team.js';
 import { platformApi } from './platform.js';
 import { modulosApi } from './modulos.js';
 import { blogAdmin } from './blog.js';
-import { brandApi, centralLeadCreated, centralLeadStatus, cardsApi, publicCard } from './central.js';
+import { brandApi, centralLeadCreated, centralLeadStatus, cardsApi, publicCard, publicWhatsapp } from './central.js';
 import { embedPage, embedApi } from './embed.js';
 import { videosApi } from './videos.js';
 import { seleccionIA, clavesSel, viaClaude, iaModelApi } from './claude.js';
@@ -596,12 +596,12 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
       // Páginas de Finanzas y Marketing del panel (módulos centrales) y la API que llaman: solo con Cloudflare Access
-      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia|marca|dashboard|settings)(\/|$)/.test(path)) {
+      if (path.startsWith('/admin/m/') || /^\/api\/(finanzas|marketing|nomina|ai|ia|marca|dashboard|settings|whatsapp)(\/|$)/.test(path)) {
         const access = await adminAccess(req, env);
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' || mod === 'settings' ? 'marca' : mod === 'dashboard' ? 'dashboard' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' || mod === 'settings' ? 'marca' : mod === 'dashboard' ? 'dashboard' : mod === 'whatsapp' ? 'whatsapp' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         if (path.startsWith('/api/ia/tokens')) return req.method !== 'GET' && req.headers.get('x-app') !== '1' ? json({ error: 'Falta la cabecera x-app' }, 403) : tokensApi(req, env, path, email, url.origin);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email, callAI);
       }
@@ -629,6 +629,7 @@ export default {
         return res;
       }
       if (path.startsWith('/l/')) return trackLink(req, env, ctx, decodeURIComponent(path.slice(3)));
+      if (path.startsWith('/wa/')) return publicWhatsapp(req, env, ctx, decodeURIComponent(path.slice(4)));
       if (path.startsWith('/c/')) return publicCard(req, env, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/v1/')) return externalApi(req, env, path, url);
       if (path.startsWith('/admin/api/')) return adminApi(req, env, path, url, ctx);

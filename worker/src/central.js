@@ -20,7 +20,7 @@ const need = (env) => { if (!env.MODULOS) throw new CentralError(503, 'Falta la 
 export async function ctxFor(env, org, email) {
   if (!ORG_RE.test(org || '')) throw new CentralError(400, 'Organización no válida');
   if (org === 'diwilo') return { app: 'diwilo', business: { id: 'diwilo', name: 'Diwilo', tema: 'violeta' }, role: 'owner', readOnly: false,
-    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina'] };
+    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp'] };
   const [app, id] = org.split(':');
   if (!APPS[app]) throw new CentralError(404, 'App no encontrada');
   const name = (await env.DB.prepare('SELECT name FROM orgs WHERE id = ?').bind(org).first().catch(() => null))?.name || null;
@@ -129,6 +129,15 @@ export async function publicCard(req, env, rest) {
   const headers = { ...r.headers };
   if (r.status === 302 && headers.location?.includes('/icons/icon-')) headers.location = headers.location.replace(/\/icons\/icon-(\d+)\.png$/, '/assets/img/icon-$1.png');
   return new Response(r.status === 302 ? null : body, { status: r.status, headers });
+}
+// Webhook de WhatsApp de Diwilo (/wa/<código>): verificación de Meta (GET) y mensajes entrantes (POST). Solo bandejas del negocio «diwilo».
+export async function publicWhatsapp(req, env, ctx, slug) {
+  if (req.method !== 'GET' && req.method !== 'POST') return new Response('Método no permitido', { status: 405 });
+  const m = need(env);
+  if ((await m.whatsappNegocio('diwilo', slug)) !== 'diwilo') return new Response('No encontrado', { status: 404 });
+  const url = new URL(req.url);
+  const r = await m.whatsapp('diwilo', slug, { method: req.method, query: url.search, body: req.method === 'POST' ? (await req.text()).slice(0, 1000000) : null, sig: req.headers.get('x-hub-signature-256') });
+  return new Response(r.body, { status: r.status, headers: r.headers });
 }
 export async function publicValidate(req, env) {
   const u = new URL(req.url);
