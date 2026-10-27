@@ -523,6 +523,13 @@ async function adminApi(req, env, path, url, ctx) {
   if (path === '/admin/api/prefs' && req.method === 'POST') return (await setPrefs(env, email, await req.json().catch(() => ({})))) ? json({ ok: true }) : json({ error: 'Tema no válido' }, 400);
   if (path === '/admin/api/team') return teamApi(req, env, access);
   if (path === '/admin/api/brand') return brandApi(env, email);   // logo, nombre y lema de la marca (Marca): lo ve todo el equipo
+  // Vuelta de Google (Mensajes → Google → Conectar): el módulo cambia el código por el token y devuelve una página
+  if (path === '/admin/api/google/callback') {
+    if (!(access.owner || access.modules.includes('whatsapp'))) return json({ error: 'No tienes acceso a esta sección' }, 403);
+    if (!env.MODULOS?.googleCallback) return json({ error: 'Falta la conexión con Diwilo Modulos' }, 503);
+    const r = await env.MODULOS.googleCallback(url.search, `${env.SITE_URL || url.origin}/admin/api/google/callback`);
+    return new Response(r.html, { status: r.status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+  }
   const need = adminModule(path);
   if (need === 'owner' ? !access.owner : need === 'any' ? !access.modules.some((m) => m === 'marketing' || m === 'finanzas') : !access.modules.includes(need)) return json({ error: 'No tienes acceso a esta sección' }, 403);
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
