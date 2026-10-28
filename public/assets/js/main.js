@@ -891,7 +891,8 @@
     { key: 'Pedidos', icon: 'ph-storefront', text: 'Restaurantes, bares y mostrador: mesas, comandas, inventario y cuentas por cobrar.' },
     { key: 'Nutrición', icon: 'ph-heartbeat', text: 'Consultorios de nutrición: pacientes, consultas, medidas, agenda y archivos.' },
     { key: 'Citas', icon: 'ph-calendar-check', text: 'Reservas en línea para tu negocio: agenda, servicios, personal y recordatorios.' },
-    { key: 'Residentes', icon: 'ph-buildings', text: 'Propiedad horizontal: cartera, PQRS, reservas, portal de propietarios y asistente IA.' }
+    { key: 'Residentes', icon: 'ph-buildings', text: 'Propiedad horizontal: cartera, PQRS, reservas, portal de propietarios y asistente IA.' },
+    { key: 'Academia', icon: 'ph-graduation-cap', text: 'Academias y centros de formación: cursos, matrículas, cuotas, docentes y notas.' }
   ];
   function initAppsModal() {
     const modal = document.createElement('div');
@@ -1002,7 +1003,7 @@
     nudge.className = 'apps-nudge';
     nudge.setAttribute('role', 'status');
     nudge.innerHTML = `<span class="icon-circle icon-circle--sm" style="width:40px;height:40px"><i class="ph-light ph-squares-four"></i></span>
-      <p><b>¿Te interesan nuestras apps?</b>Pedidos, Nutrición, Citas y Residentes.</p>
+      <p><b>¿Quieres tu app en semanas?</b>Mira ejemplos de lo que ya funciona.</p>
       <button type="button" class="btn btn--primary btn--sm" data-open-apps>Ver</button>
       <button type="button" class="x" aria-label="No mostrar más"><i class="ph-light ph-x"></i></button>`;
     document.body.appendChild(nudge);
@@ -1044,7 +1045,7 @@
     if (!root) return;
     const log = $('.hero-chat__log', root), sugg = $('.hero-chat__sugg', root), form = $('.hero-chat__form', root), input = form.q;
     const INTRO_Q = '¿Qué hace Diwilo?';
-    const INTRO_A = 'Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas en Colombia. También tenemos apps listas para usar: Pedidos, Nutrición, Citas y Residentes. ¿Qué proceso te gustaría automatizar?';
+    const INTRO_A = 'Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas en Colombia. Tu app queda lista en semanas, no en meses, porque partimos de una base probada. ¿Qué proceso te gustaría automatizar?';
     /* Respuestas predeterminadas: las sugerencias (y lo que se escriba parecido) se responden aquí sin gastar IA.
        k: palabras que reconocen la pregunta escrita · a: respuesta · next: siguientes sugerencias · wa: ofrecer WhatsApp */
     const CANNED = [
@@ -1067,7 +1068,7 @@
         a: 'CD Residentes es para administrar uno o varios conjuntos: cartera y cuenta de cobro en PDF, PQRS con respuesta asistida por IA, portería, reservas de zonas comunes, comunicados por WhatsApp y correo, y un portal donde cada propietario consulta lo suyo. Míralo en https://diwilo.com/apps',
         next: ['¿Cuánto cuesta una app?', '¿Cómo empiezo con una app?', '¿Qué hace CD Pedidos?'] },
       { q: '¿Qué apps tienen?', k: /\bapps?\b|aplicacion|software listo|programa/,
-        a: 'Tenemos cuatro apps en la nube, listas para usar: CD Pedidos (restaurantes y bares), CD Nutrición (consultorios de nutrición), CD Citas (negocios con reservas) y CD Residentes (propiedad horizontal). Las ves todas en https://diwilo.com/apps',
+        a: 'Tu app a la medida queda lista en semanas, no en meses, porque partimos de una base probada. Ya operan con ella CD Pedidos (restaurantes y bares), CD Nutrición (consultorios), CD Citas (negocios con reservas), CD Residentes (propiedad horizontal) y CD Academia (centros de formación). Las ves todas en https://diwilo.com/apps',
         next: ['¿Qué hace CD Pedidos?', '¿Qué hace CD Nutrición?', '¿Qué hace CD Citas?', '¿Qué hace CD Residentes?', '¿Cuánto cuesta una app?'] },
       { q: '¿Cuánto cuesta un proyecto?', k: /cuest|cuanto vale|valor|precio|cobran|tarifa|presupuesto|cotiza|costo/,
         a: 'Depende del alcance: no es lo mismo conectar dos sistemas que montar un agente de IA con varios canales. Por eso empezamos con un diagnóstico de 1 a 2 semanas, con una primera sesión de 45 minutos sin costo, y ahí te damos un valor cerrado.',

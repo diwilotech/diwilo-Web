@@ -1,18 +1,18 @@
 ---
-title: Diwilo · Datos y automatización con IA
-description: Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto en Colombia.
+title: Diwilo · Tu app a la medida, lista en semanas
+description: Convertimos los datos de tu negocio en software que trabaja por ti: apps a la medida con automatización y agentes de IA, listas en semanas, no en meses. Medellín, Colombia.
 url: https://diwilo.com/
 ---
 
-Datos, automatización e IA · Medellín
+Software a la medida · Medellín, Colombia
 
-# Datos que deciden. Procesos que se ejecutan solos.
+# Convertimos los datos de tu negocio en software que trabaja por ti.
 
-Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Menos trabajo manual, decisiones con evidencia.
+Diseñamos, construimos y operamos apps a la medida, con automatización y agentes de IA, para empresas, fundaciones y equipos de producto. Tu app lista en semanas, no en meses, porque partimos de una base probada que ya usan nuestras propias apps.
 
 [Agendar diagnóstico ](https://diwilo.com/contacto) [Ver servicios](https://diwilo.com/servicios)
 
-Primera sesión sin costo · Respuesta en menos de 24 h hábiles
+Diagnóstico sin costo · Te respondemos en segundos, no en días
 
 Pregúntale a Diwilo
 
@@ -24,15 +24,15 @@ Escribe tu pregunta
 
 **Medellín, Colombia**Hora de Colombia (GMT-5)
 
-**4 apps propias**Pedidos, Nutrición, Citas y Residentes
+**Apps en semanas, no en meses**Partimos de una base probada
 
-**Diagnóstico en 1 a 2 semanas**Primera sesión sin costo
+**Diagnóstico sin costo**Respuesta en segundos, no en días
 
 **Ley 1581 de 2012**Tus datos protegidos · NDA si lo necesitas
 
 Lo que hacemos
 
-## Seis frentes que casi siempre terminan conectados
+## Todo lo que tu app necesita, en una sola base
 
 Empezamos por el proceso que más duele y lo conectamos con el resto de tu operación.
 
@@ -74,7 +74,7 @@ Información estructurada desde documentos, sitios web y bases de datos, lista p
 
 OCR · scraping · ETL  ](https://diwilo.com/servicios)
 
-[  **Apps de Diwilo listas para usar**Pedidos, Nutrición, Citas y Residentes, más los sitios que hemos construido. Ver todas las apps  ](https://diwilo.com/apps)
+[  **La base ya existe: por eso tu app llega en semanas**Mira lo que ya funciona con la misma base que usaremos para la tuya. Ver ejemplos  ](https://diwilo.com/apps)
 
 Nuestra ruta
 
@@ -192,15 +192,15 @@ Preguntas
 
 ¿Qué hace Diwilo?
 
-Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Además tenemos cuatro apps propias listas para usar: Pedidos, Nutrición, Citas y Residentes.
+Diseñamos, construimos y operamos software de datos, automatización y agentes de IA para empresas, fundaciones y equipos de producto. Tu app queda lista en semanas, no en meses, porque partimos de una base probada que ya usan nuestras propias apps (Pedidos, Nutrición, Citas, Residentes y Academia).
 
 ¿Cuánto cuesta un proyecto?
 
-Depende del alcance. Por eso empezamos con un diagnóstico de 1 a 2 semanas, cuya primera sesión de 45 minutos no tiene costo. Después te entregamos una propuesta por escrito con alcance, metodología, tiempos e inversión. Las apps se pagan con una suscripción mensual.
+Depende del alcance. Por eso empezamos con un diagnóstico sin costo, que te respondemos en segundos, no en días. Después te entregamos una propuesta por escrito con alcance, metodología, tiempos e inversión. Las apps se pagan con una suscripción mensual.
 
 ¿Cuánto tarda?
 
-Un proyecto cerrado toma entre 4 y 12 semanas según el alcance. Trabajamos en sprints de dos semanas y al cierre de cada uno te mostramos lo construido funcionando.
+Tu app queda lista en semanas, no en meses: la mayoría de los proyectos toma entre 4 y 12 semanas porque partimos de una base probada. Trabajamos en sprints de dos semanas y al cierre de cada uno te mostramos lo construido funcionando.
 
 ¿Qué pasa después de entregar?
 
@@ -216,13 +216,13 @@ n8n para orquestar automatizaciones, Python para datos y modelos, Supabase para 
 
 ¿Por dónde empiezo?
 
-Cuéntanos qué tarea repite tu equipo cada semana: [agenda el diagnóstico](https://diwilo.com/contacto), escríbenos por [WhatsApp](https://wa.me/573207445260) o pregúntale al asistente de arriba.
+Cuéntanos qué tarea repite tu equipo cada semana: [agenda el diagnóstico](https://diwilo.com/contacto), escríbenos por [WhatsApp](https://wa.me/573053840193) o pregúntale al asistente de arriba.
 
 ¿Listo?
 
 ## Habla con alguien que entiende tu negocio y puede construir la solución
 
-Escríbenos y te decimos qué se puede automatizar, con qué esfuerzo y en qué orden. Sin costo.
+Escríbenos y te decimos qué app necesitas, en cuántas semanas la tendrías y en qué orden construirla. Sin costo.
 
 [Agendar diagnóstico](https://diwilo.com/contacto)
 

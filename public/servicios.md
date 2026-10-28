@@ -6,9 +6,9 @@ url: https://diwilo.com/servicios
 
 Servicios
 
-# Del dato suelto al proceso que se ejecuta solo
+# Tu app a la medida, lista en semanas, no en meses
 
-Cuatro frentes: analítica, automatización, agentes de IA y desarrollo de producto. Casi siempre empiezan por uno y terminan conectados.
+Apps a la medida con automatización, agentes de IA y datos. Partimos de una base probada, así que tu app queda lista en semanas, no en meses.
 
 [Agendar diagnóstico](https://diwilo.com/contacto)
 
@@ -76,15 +76,15 @@ Punto de partida
 
 Revisamos tus procesos y entregamos un mapa de oportunidades priorizado por esfuerzo e impacto.
 
-1 a 2 semanas · primera sesión sin costo
+Sin costo · respuesta en segundos, no en días
 
 Construcción
 
-### Proyecto cerrado
+### Tu app en semanas
 
 Alcance, entregables y fecha definidos. Sprints de dos semanas con demo al cierre de cada uno.
 
-4 a 12 semanas según alcance
+Semanas, no meses · 4 a 12 según alcance
 
 Continuidad
 

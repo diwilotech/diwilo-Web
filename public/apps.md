@@ -1,18 +1,18 @@
 ---
-title: Apps de Diwilo · Pedidos, Nutrición, Citas y Residentes
-description: Apps de Diwilo listas para usar: Pedidos, Nutrición, Citas y Residentes, y los sitios y plataformas que construimos para nuestros clientes.
+title: Ejemplos de apps · Diwilo
+description: Apps que ya operan con la base de Diwilo (Pedidos, Nutrición, Citas, Residentes y Academia) y sitios que construimos. Tu app, lista en semanas, no en meses.
 url: https://diwilo.com/apps
 ---
 
-Apps de Diwilo
+Ejemplos de lo que construimos
 
-# Todo lo que hemos creado, listo para usar
+# Una base probada: tu app lista en semanas, no en meses
 
-Apps propias en la nube que administramos por ti, y sitios y plataformas que construimos para nuestros clientes. Entra a cada una desde aquí.
+Estas apps ya funcionan en producción y comparten la misma base que usaremos para la tuya. Por eso construir la tuya toma semanas, no meses. Entra a cada una y mira qué tan lejos puede llegar la tuya.
 
-Ver apps Ver proyectos
+Ver ejemplos Ver proyectos
 
-Apps propias
+Apps que ya operan con esta base
 
 Restaurantes, bares y mostrador
 
@@ -82,6 +82,23 @@ La administración de uno o varios conjuntos en un solo lugar, con un asistente 
 
 cdresidentes.diwilo.com
 
+Academias, institutos y centros de formación
+
+## CD Academia
+
+Cursos, estudiantes, cuotas y equipo docente en un solo lugar, con cobros al día y la información de cada estudiante a mano para el equipo.
+
+- Cursos, clases y calendario
+- Matrículas y asistencia
+- Cuotas, pagos y cartera
+- Evaluaciones y notas
+- Equipo docente y nómina
+- WhatsApp y marketing integrados
+
+[Ir a la app ](https://cdacademia.diwilo.com)
+
+cdacademia.diwilo.com
+
 Proyectos
 
 ## Sitios y plataformas que construimos
@@ -132,8 +149,8 @@ Plataforma de postulación y seguimiento del programa de becas, con reportes par
 
 ¿Lo tuyo no está aquí?
 
-## Construimos la app que tu operación necesita
+## Tu app, lista en semanas, no en meses
 
-Cuéntanos el proceso y te decimos si se resuelve con una de nuestras apps o con algo a la medida.
+Cuéntanos el proceso y te decimos qué app necesitas y cuántas semanas tomaría. Puede salir de una de estas bases o ser totalmente a la medida.
 
 [Agendar diagnóstico](https://diwilo.com/contacto)
