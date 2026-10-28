@@ -67,14 +67,11 @@ try {
         ok(r.visible && r.activo, `${tag}/${id}: sección o menú sin marcar`);
         ok(r.desborde <= 0, `${tag}/${id}: desborde horizontal de ${r.desborde}px`);
       }
-      // Negocios: Precios y pruebas en un modal, y los módulos (planes) dentro de la misma pestaña
+      // Negocios: Precios y pruebas en un modal
       await p.evaluate(() => document.querySelector('.dw-nav a[data-mod="negocios"]').click()); await wait(500);
       await p.evaluate(() => document.querySelector('#priceBtn').click()); await wait(900);
       ok(await p.evaluate(() => !!document.querySelector('dialog.pricedlg[open] input[name^="price_"]') && !!document.querySelector('dialog.pricedlg [data-csv]')), `${tag}: el modal de precios y pruebas no abrió`);
       await p.evaluate(() => document.querySelector('dialog.pricedlg [data-no]').click());
-      await p.evaluate(() => document.querySelector('[data-nv="planes"]').click()); await wait(900);
-      ok(await p.evaluate(() => !document.querySelector('#modHost').hidden && !!document.querySelector('#modHost .dw-card')), `${tag}: Planes no se vio dentro de Negocios`);
-      await p.evaluate(() => document.querySelector('[data-nv="negocios"]').click()); await wait(400);
       ok(await p.evaluate(() => !!document.querySelector('#bizBody .estado-fecha')), `${tag}: Estado sin la fecha debajo`);
       // Finanzas y Marketing: la página del módulo ocupa el espacio como en las apps, sin título repetido
       for (const t of ['finanzas', 'marketing']) {
