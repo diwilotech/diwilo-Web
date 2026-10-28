@@ -187,8 +187,8 @@ Admin.tab('negocios', (A) => {
     const items = allBiz.map((b) => ({ b, s: subState(b) }));
     const inArea = items.filter((x) => areaFilter === 'todas' || x.b._app === areaFilter);
     const c = (k) => inArea.filter((x) => x.s.k === k).length;
-    const areas = [['todas', 'Todas', allBiz.length], ...plat.apps.filter((a) => a.connected).map((a) => [a.key, a.name, allBiz.filter((b) => b._app === a.key).length])];
-    $('#bizFilters').innerHTML = areas.map(([k, l, n]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === areaFilter ? 'active' : ''}" data-afilter="${k}" aria-pressed="${k === areaFilter}">${esc(l)} (${n})</button>`).join('');
+    const areas = [...plat.apps.filter((a) => a.connected).map((a) => [a.key, a.name, allBiz.filter((b) => b._app === a.key).length])];
+    $('#bizFilters').innerHTML = areas.map(([k, l, n]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === areaFilter ? 'active' : ''}" data-afilter="${k}" aria-pressed="${k === areaFilter}" title="${k === areaFilter ? 'Quitar filtro' : 'Ver solo ' + esc(l)}"><i class="bi ${APP_ICON[k] || 'bi-app'}"></i>${esc(l)} (${n})</button>`).join('');
     $('#bizSum').textContent = `${fmtN(inArea.length)} ${inArea.length === 1 ? 'negocio' : 'negocios'} · ${fmtN(c('ok') + c('free'))} al día · ${fmtN(c('soon'))} por vencer · ${fmtN(c('bad'))} solo lectura · Cobrado este mes ${fmtCOP(lastMonthIncome)}`;
     const q = norm(bizQ.trim());
     const rows = inArea.filter((x) => (bizFilter === 'todos' || x.s.k === bizFilter)
@@ -207,7 +207,7 @@ Admin.tab('negocios', (A) => {
     if (bizSel && biz.some((b) => b.id === bizSel)) { if (!keepDetail) renderDetail(); } else { bizSel = null; $('#bizDetail').hidden = true; }
   }
   const redraw = () => renderBiz(true);
-  $('#bizFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-afilter]'); if (b) { areaFilter = b.dataset.afilter; redraw(); } });
+  $('#bizFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-afilter]'); if (b) { areaFilter = areaFilter === b.dataset.afilter ? 'todas' : b.dataset.afilter; redraw(); } });
   $('#bizStatus').addEventListener('change', (e) => { bizFilter = e.target.value; redraw(); });
   $('#bizSearch').addEventListener('input', (e) => { bizQ = e.target.value; redraw(); });
 
@@ -556,32 +556,6 @@ Admin.tab('negocios', (A) => {
     catch (x) { toast(x.message); btn.disabled = false; }
   });
 
-  /* ---------- vistas: Negocios | Planes | Catálogo | Bitácora (los módulos viven aquí) ---------- */
-  const NEG_VIEWS = [['negocios', 'Negocios', 'bi-buildings'], ['planes', 'Planes', 'bi-layers'], ['catalogo', 'Módulos', 'bi-grid-1x2'], ['bitacora', 'Bitácora', 'bi-clock-history']];
-  let negView = 'negocios';
-  const canNeg = () => A.me?.owner || A.me?.modules.includes('negocios');
-  const canMods = () => A.me?.owner || A.me?.modules.includes('modulos');
-  // Dentro del menú «Más»: Planes, Módulos, Bitácora y el regreso a Negocios.
-  function drawSeg() {
-    const items = NEG_VIEWS.filter(([k]) => k !== negView && (k === 'negocios' ? canNeg() : canMods()));
-    $('#negSeg').innerHTML = (items.length ? '<div class="dropdown-divider"></div>' : '') + items
-      .map(([k, l, i]) => `<button class="dropdown-item" data-nv="${k}"><i class="bi ${i} me-2"></i>${k === 'negocios' ? 'Volver a Negocios' : l}</button>`).join('');
-  }
-  async function modsView() {
-    const m = await A.mount('modulos', $('#modHost'));
-    await m.tab.setView(bizApp, negView);
-  }
-  async function setNegView(v) {
-    negView = v;
-    drawSeg();
-    const isNeg = v === 'negocios';
-    $('#bizView').hidden = !isNeg; $('#modHost').hidden = isNeg;
-    ['bizNewBtn', 'priceBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg && id !== 'priceBtn'; });
-    if (isNeg) { A.unmount('modulos'); return loadBiz(); }
-    $('#bizArchived').hidden = true;
-    try { await modsView(); } catch (e) { if (e.message !== 'sesión') toast(e.message); }
-  }
-  $('#negSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-nv]'); if (b) setNegView(b.dataset.nv); });
 
   /* ---------- Precios y pruebas: resumen general (por app, por plan y por negocio) en un modal ---------- */
   const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -646,11 +620,7 @@ Admin.tab('negocios', (A) => {
 
   const show = async () => {
     try { if (!plat) await loadPlatform(); } catch (e) { $('#bizErr').textContent = e.message; return; }
-    let want = null; try { want = sessionStorage.getItem('dwl_neg_view'); sessionStorage.removeItem('dwl_neg_view'); } catch {}
-    if (want && NEG_VIEWS.some(([k]) => k === want)) negView = want;
-    if (!canNeg()) negView = negView === 'negocios' ? 'planes' : negView;
-    if (!canMods() && negView !== 'negocios') negView = 'negocios';
-    await setNegView(negView);
+    loadBiz();
   };
-  return { show, hide: () => A.unmount('modulos') };
+  return { show, hide: () => {} };
 });
