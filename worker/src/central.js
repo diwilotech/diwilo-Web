@@ -29,8 +29,16 @@ export async function ctxFor(env, org, email) {
     origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp'] };
 }
 
+// Personas del equipo de Diwilo con acceso al panel: titulares (ADMIN_EMAILS) y las activas de «team». Mensajes → Administrador las usa para activar el modo administrador por WhatsApp.
+export async function equipoDiwilo(env) {
+  const out = new Map();
+  for (const e of (env.ADMIN_EMAILS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)) out.set(e, { email: e, nombre: null, rol: 'owner' });
+  try { for (const r of (await env.DB.prepare('SELECT email, name FROM team WHERE active = 1').all()).results || []) { const e = String(r.email || '').toLowerCase(); if (e && !out.has(e)) out.set(e, { email: e, nombre: r.name || null, rol: 'equipo' }); else if (out.has(e) && r.name) out.get(e).nombre = r.name; } } catch { /* sin tabla de equipo */ }
+  return [...out.values()];
+}
 export async function ccall(env, org, email, method, path, { query = '', body, propias } = {}) {
   const ctx = await ctxFor(env, org, email);
+  if (org === 'diwilo' && path.startsWith('/api/whatsapp/admins')) ctx.equipo = await equipoDiwilo(env);
   if (propias) ctx.propias = propias;   // herramientas propias de Diwilo para el módulo IA (ver propias.js)
   const r = await need(env).call(ctx, { method, path, query, body: body === undefined ? null : JSON.stringify(body) });
   return r;

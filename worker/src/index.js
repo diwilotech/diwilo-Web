@@ -656,6 +656,12 @@ export default {
         return res;
       }
       if (path.startsWith('/l/')) return trackLink(req, env, ctx, decodeURIComponent(path.slice(3)));
+      // Vuelta de Google al vincular una cuenta (Mensajes → Google): pública, protegida por el «state» que solo conoce quien pulsó «Conectar»
+      if (path === '/google/callback') {
+        if (!env.MODULOS?.googleCallback) return new Response('Falta la conexión con Diwilo Modulos', { status: 503 });
+        const r = await env.MODULOS.googleCallback(url.search);
+        return new Response(r.html, { status: r.status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' } });
+      }
       if (path.startsWith('/wa/')) return publicWhatsapp(req, env, ctx, decodeURIComponent(path.slice(4)));
       if (path.startsWith('/c/')) return publicCard(req, env, decodeURIComponent(path.slice(3)));
       if (path.startsWith('/v1/')) return externalApi(req, env, path, url);

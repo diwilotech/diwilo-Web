@@ -25,7 +25,7 @@ const PAGES = {
   '/privacidad': '/privacidad.md',
   '/docs/api': '/docs/api.md',
 };
-const DYNAMIC = ['/api/', '/admin/api/', '/admin/m/', '/v1/', '/l/', '/c/', '/wa/'];
+const DYNAMIC = ['/api/', '/admin/api/', '/admin/m/', '/v1/', '/l/', '/c/', '/wa/', '/google/'];
 
 export default {
   async fetch(req, env, ctx) {
