@@ -33,7 +33,6 @@ Admin.tab('negocios', (A) => {
   function lockHtml(b) {
     const free = !b.paid_until;
     return `<form class="lock" data-lock="${esc(b.id)}">
-      <h3 style="margin:0">Bloqueo de la app</h3>
       <label class="nolock"><input type="checkbox" name="nolock" ${free ? 'checked' : ''}> No bloquear (sin fecha límite, no se cobra)</label>
       <label class="dw-field">Activa hasta (incluido)<input class="form-control" type="date" name="paid_until" value="${esc(b.paid_until || '')}" ${free ? 'disabled' : ''}></label>
       <div class="chips">
@@ -94,20 +93,22 @@ Admin.tab('negocios', (A) => {
     });
   }
 
-  // Tabla de usuarios con sus permisos. Desde Diwilo solo se maneja al dueño; el equipo se crea en la app.
+  // Lista compacta de usuarios (los permisos van en el tooltip del rol). Desde Diwilo solo se maneja al dueño.
   function usersHtml(b) {
     if (!b.users.length) return '<p class="text-body-secondary" style="margin:0">Sin usuarios.</p>';
-    return `<div class="table-responsive"><table class="utbl"><thead><tr><th>Usuario</th><th>Permisos</th><th>Estado</th><th></th></tr></thead><tbody>
-      ${b.users.map((u) => `<tr>
-        <td><b style="font-weight:500;color:var(--hi)">${esc(u.name || u.email.split('@')[0])}</b><br><span class="text-body-secondary" style="font-size:12px">${esc(u.email)}</span>
-          ${u.role === 'owner' ? `<button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo del dueño" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="bi bi-pencil"></i></button>` : ''}</td>
-        <td><span class="rolechip"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${ROLE[u.role] || esc(u.role)}</span>
-          <span class="perm">${esc(permText(u.role))}</span></td>
-        <td><span class="st ${u.status === 'active' ? 'ok' : u.status === 'invited' ? 'soon' : 'free'}">${USTATUS[u.status] || esc(u.status)}</span></td>
-        <td style="white-space:nowrap">${u.role === 'owner' ? linkBtn(u, 'data-xlink') : `<button class="btn btn-sm btn-outline-secondary" data-mkowner="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Le pasa la propiedad del negocio"><i class="bi bi-award"></i>Hacer dueño</button>`}</td></tr>`).join('')}
-      </tbody></table></div>
-      <p class="text-body-secondary" style="margin:8px 0 0;font-size:12px"><i class="bi bi-info-circle"></i> El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
+    return `<div>${b.users.map((u) => {
+      const nm = u.name || u.email.split('@')[0];
+      return `<div class="urow2"><span class="avatar" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span>
+        <div class="ubody"><b style="font-weight:500;color:var(--hi)">${esc(nm)}</b>${u.role === 'owner' ? `<button class="icon-btn" type="button" data-uemail="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Cambiar correo del dueño" aria-label="Cambiar el correo de ${esc(u.email)}"><i class="bi bi-pencil"></i></button>` : ''}
+          <div class="text-body-secondary" style="font-size:12px;overflow:hidden;text-overflow:ellipsis">${esc(u.email)}</div>
+          <div class="dw-row" style="gap:6px;margin-top:4px"><span class="rolechip" title="${esc(permText(u.role))}"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${ROLE[u.role] || esc(u.role)}</span><span class="st ${u.status === 'active' ? 'ok' : u.status === 'invited' ? 'soon' : 'free'}">${USTATUS[u.status] || esc(u.status)}</span></div></div>
+        ${u.role === 'owner' ? iconLink(u, 'data-xlink') : `<button class="btn btn-sm btn-outline-secondary" data-mkowner="${esc(u.id)}" data-biz-id="${esc(b.id)}" title="Hacer dueño: le pasa la propiedad del negocio" aria-label="Hacer dueño a ${esc(nm)}"><i class="bi bi-award"></i></button>`}</div>`;
+    }).join('')}</div>
+      <p class="text-body-secondary" style="margin:0;font-size:12px">El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
   }
+  const iconLink = (u, attr) => u.status === 'active'
+    ? `<button class="btn btn-sm btn-outline-secondary" ${attr}="${esc(u.id)}" title="Restablecer contraseña: genera un link para que elija una nueva" aria-label="Restablecer contraseña de ${esc(u.email)}"><i class="bi bi-key"></i></button>`
+    : `<button class="btn btn-sm btn-outline-secondary" ${attr}="${esc(u.id)}" title="Link de registro: para que cree su contraseña" aria-label="Link de registro de ${esc(u.email)}"><i class="bi bi-envelope"></i></button>`;
 
   function subState(b, today = bizToday) {
     if (!b.paid_until) return { k: 'free', t: 'Sin límite' };
@@ -156,12 +157,20 @@ Admin.tab('negocios', (A) => {
     plat = await api('platform');
     drawApps();
   }
+  // Conteos por app para la barra lateral y el inicio.
+  const appStats = {};
+  const statOf = (list, today) => { const st = list.map((b) => subState(b, today)); const c = (k) => st.filter((x) => x.k === k).length; return { n: list.length, ok: c('ok') + c('free'), soon: c('soon'), bad: c('bad') }; };
   function drawApps() {
-    $('#appSeg').innerHTML = `<button class="btn btn-sm btn-outline-secondary ${bizHome && negView === 'negocios' ? 'active' : ''}" data-home title="Resumen de todas las apps"><i class="bi bi-grid"></i>Todas</button>`
-      + plat.apps.map((a) => `<button class="btn btn-sm ${a.key === bizApp && !(bizHome && negView === 'negocios') ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+    const home = `<button class="btn btn-outline-secondary" type="button" data-home style="justify-content:flex-start;gap:8px"><i class="bi bi-grid"></i>Todas las apps</button>`;
+    $('#appSeg').innerHTML = home + plat.apps.map((a) => {
+      const t = appStats[a.key], al = t ? t.soon + t.bad : 0;
+      return `<button type="button" class="sideapp ${a.key === bizApp ? 'active' : ''}" data-app="${a.key}"><i class="bi ${APP_ICON[a.key] || 'bi-app'} ic"></i>
+        <span style="flex:1;min-width:0"><b style="font-weight:500;display:block">${esc(a.name)}</b><span class="text-body-secondary" style="font-size:12px">${t ? `${t.n} ${t.n === 1 ? 'negocio' : 'negocios'}` : '&nbsp;'}</span></span>${al ? `<span class="st soon" title="Requieren atención">${al}</span>` : ''}</button>`;
+    }).join('');
   }
   const APP_ICON = { pedidos: 'bi-bag', nutricion: 'bi-heart-pulse', citas: 'bi-calendar-check', residentes: 'bi-building', academia: 'bi-mortarboard' };
   // Inicio: todas las apps con sus negocios, activos y alertas.
+  async function fetchStats() { try { await Promise.all(plat.apps.filter((a) => a.connected).map(async (a) => { const d = await api(`platform/${a.key}/businesses`).catch(() => null); if (d) appStats[a.key] = statOf(d.businesses, d.today); })); drawApps(); } catch {} }
   async function loadHome() {
     const box = $('#homeApps'); $('#homeErr').textContent = '';
     box.innerHTML = '<div class="dw-empty" style="grid-column:1/-1">Cargando…</div>';
@@ -171,17 +180,17 @@ Admin.tab('negocios', (A) => {
       return { a, list: d?.businesses || [], today: d?.today || '', inc: d?.month_income || 0, err: !d };
     }));
     if (!bizHome) return;
-    const rows = data.map((x) => ({ ...x, st: x.list.map((b) => subState(b, x.today)) }));
-    const cnt = (x, k) => x.st.filter((s) => s.k === k).length;
-    const all = (k) => rows.reduce((n, x) => n + cnt(x, k), 0);
-    $('#homeKpis').innerHTML = [['Negocios', fmtN(rows.reduce((n, x) => n + x.list.length, 0))], ['Al día', fmtN(all('ok') + all('free'))], ['Vencen en 7 días', fmtN(all('soon'))],
+    const rows = data.map((x) => ({ ...x, t: statOf(x.list, x.today) }));
+    rows.forEach((x) => { appStats[x.a.key] = x.t; });
+    const all = (k) => rows.reduce((n, x) => n + x.t[k], 0);
+    $('#homeKpis').innerHTML = [['Negocios', fmtN(rows.reduce((n, x) => n + x.t.n, 0))], ['Al día', fmtN(all('ok'))], ['Vencen en 7 días', fmtN(all('soon'))],
       ['Solo lectura', fmtN(all('bad'))], ['Cobrado este mes', fmtCOP(rows.reduce((n, x) => n + x.inc, 0))]]
       .map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
     box.innerHTML = rows.map((x) => {
-      const alert = cnt(x, 'soon') + cnt(x, 'bad');
+      const alert = x.t.soon + x.t.bad;
       return `<button type="button" class="dw-card appcard" data-pick="${esc(x.a.key)}">
         <span class="dw-row" style="gap:12px;flex-wrap:nowrap"><i class="bi ${APP_ICON[x.a.key] || 'bi-app'}" style="font-size:26px;color:var(--lilac)"></i><b style="font-weight:500;color:var(--hi);font-size:16px">${esc(x.a.name)}</b></span>
-        <span class="dw-row"><span class="st free">${x.list.length} ${x.list.length === 1 ? 'negocio' : 'negocios'}</span><span class="st ok">${cnt(x, 'ok') + cnt(x, 'free')} al día</span>
+        <span class="dw-row"><span class="st free">${x.list.length} ${x.list.length === 1 ? 'negocio' : 'negocios'}</span><span class="st ok">${x.t.ok} al día</span>
           ${x.off ? '<span class="st bad">Sin conectar</span>' : x.err ? '<span class="st bad">Error al cargar</span>' : alert ? `<span class="st soon">${alert} requieren atención</span>` : ''}</span></button>`;
     }).join('');
   }
@@ -207,6 +216,7 @@ Admin.tab('negocios', (A) => {
     try {
       const d = await api(`platform/${bizApp}/businesses`);
       biz = d.businesses; bizToday = d.today; lastMonthIncome = d.month_income;
+      appStats[bizApp] = statOf(biz, bizToday); drawApps();
       renderBiz(d.month_income);
       loadArchived();
     } catch (e) {
@@ -226,7 +236,7 @@ Admin.tab('negocios', (A) => {
       ['Vencen en 7 días', fmtN(count('soon')), 'soon'], ['Solo lectura', fmtN(count('bad')), 'bad'],
       ['Cobrado este mes', fmtCOP(monthIncome)]];
     $('#bizKpis').innerHTML = tiles.map(([l, v, f]) => f
-      ? `<button type="button" class="dw-card kpi text-start" data-kfilter="${f}" style="cursor:pointer" title="Filtrar la lista"><div class="v">${v}</div><div class="l">${l}</div></button>`
+      ? `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`
       : `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
     $('#bizFilters').innerHTML = FILTERS.map(([k, l]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === bizFilter ? 'active' : ''}" data-bfilter="${k}" aria-pressed="${k === bizFilter}">${l} (${k === 'todos' ? biz.length : count(k)})</button>`).join('');
     const q = norm(bizQ.trim());
@@ -236,12 +246,12 @@ Admin.tab('negocios', (A) => {
       const owner = b.users.find((u) => u.role === 'owner');
       const s = st[i];
       return `<div class="dw-card bizcard ${b.id === bizSel ? 'sel' : ''}" data-biz="${esc(b.id)}" tabindex="0" role="button" aria-label="Ver ficha de ${esc(b.name)}">
-        <div><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}
-          <div class="text-body-secondary" style="font-size:13px;margin-top:2px">${owner ? esc(owner.email) : '—'}</div></div>
-        <div><span class="st ${s.k}">${s.t}</span><span class="estado-fecha">${b.paid_until ? `${s.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span>
-          ${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</div>
-        <div class="text-body-secondary" style="font-size:12px">${b.users.length} ${b.users.length === 1 ? 'usuario' : 'usuarios'} · Último pago ${b.last_payment ? fmtDate(b.last_payment) : '—'}</div>
-        ${owner ? `<div class="dw-row"><button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>${linkBtn(owner, 'data-olink')}</div>` : ''}</div>`;
+        <div style="min-width:0"><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b>
+          <div class="text-body-secondary" style="font-size:13px;overflow:hidden;text-overflow:ellipsis">${owner ? esc(owner.email) : '—'}</div>
+          ${b.slug ? `<div class="text-body-secondary font-monospace" style="font-size:12px">/${esc(b.slug)}</div>` : ''}</div>
+        <div class="dw-row" style="justify-content:space-between;flex-wrap:nowrap">
+          <div><span class="st ${s.k}">${s.t}</span><span class="estado-fecha">${b.paid_until ? `${s.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span></div>
+          ${owner ? `<div class="dw-row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Entrar como dueño" aria-label="Entrar como dueño de ${esc(b.name)}"><i class="bi bi-box-arrow-in-right"></i></button>${iconLink(owner, 'data-olink')}</div>` : ''}</div></div>`;
     }).join('') : `<div class="dw-empty" style="grid-column:1/-1">${biz.length ? 'Ningún negocio coincide con el filtro.' : `Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.`}</div>`;
     if (bizSel && biz.some((b) => b.id === bizSel)) { if (!keepDetail) renderDetail(); } else { bizSel = null; $('#bizDetail').hidden = true; }
   }
@@ -335,56 +345,53 @@ Admin.tab('negocios', (A) => {
   async function renderDetail() {
     const b = biz.find((x) => x.id === bizSel); if (!b) return;
     const app = appCfg(), s = subState(b), price = b.plan?.precio ?? plat.prices[bizApp] ?? 0;
+    const owner = b.users.find((u) => u.role === 'owner');
     const el = $('#bizDetail'); el.hidden = false;
+    const kv = (rows) => `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
+    const pane = (k, html) => `<div data-bpane="${k}" ${bizTab === k ? '' : 'hidden'}>${html}</div>`;
     el.innerHTML = `<div class="dw-row" style="justify-content:space-between">
-        <h2>${esc(b.name)} <span class="text-body-secondary" style="font-size:13px">· ${esc(app.name)}</span></h2>
-        <div class="dw-row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink><i class="bi bi-box-arrow-in-right"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="bi bi-box-arrow-up-right"></i>Ver reservas</a>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
+        <div class="dw-row"><h2 style="margin:0">${esc(b.name)}</h2><span class="text-body-secondary">· ${esc(app.name)}</span><span class="st ${s.k}">${s.t}</span></div>
+        <div class="dw-row">${owner ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink title="Link de ingreso a la app"><i class="bi bi-link-45deg"></i></button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}" title="Ver reservas"><i class="bi bi-box-arrow-up-right"></i></a>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
       <div class="btn-group" id="bizTabs" role="tablist" aria-label="Detalle del negocio" style="margin:14px 0 0">${BIZ_TABS.map(([k, l, ic]) => `<button type="button" role="tab" class="btn btn-sm btn-outline-secondary ${k === bizTab ? 'active' : ''}" aria-selected="${k === bizTab}" data-btab="${k}"><i class="bi ${ic}"></i>${l}</button>`).join('')}</div>
-      <div data-bpane="negocio" ${bizTab === 'negocio' ? '' : 'hidden'}><div class="bizgrid">
-        <div class="sub">
-          <h3>Usuarios</h3>
-          <div id="bizUsers">${usersHtml(b)}</div>
-          <div id="userInvite"></div>
-          <form class="dw-form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-            <p class="text-body-secondary dw-full" style="margin:0;font-size:12px">Cambiar el dueño: se le envía un link para crear su contraseña. El dueño actual queda como ${app.roles.includes('admin') ? 'administrador' : 'personal'}.</p>
-            <label class="dw-field">Correo del nuevo dueño<input class="form-control" type="email" name="email" required></label>
-            <label class="dw-field">Nombre<input class="form-control" name="name" maxlength="100"></label>
-            <div class="dw-row dw-full"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-award"></i>Asignar como dueño</button><span class="text-danger small" data-err></span></div>
-          </form>
+      ${pane('negocio', `<div class="bizgrid">
+        <div class="sub"><h3>Datos del negocio</h3>
+          ${kv([['Nombre', esc(b.name)], ...(b.slug ? [['Dirección', `<span class="font-monospace small">${esc((app.url || '').replace(/^https?:\/\//, ''))}/${esc(b.slug)}</span>`]] : []), ['Dueño', owner ? esc(owner.email) : '—'], ['App', esc(app.name)], ['Creado', fmtDay(b.created_at.slice(0, 10))]])}
+          <details><summary>Editar nombre y dirección</summary>
+            <form class="dw-row" id="renameForm" style="flex-wrap:nowrap;margin-top:8px"><input class="form-control" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn btn-sm btn-outline-secondary" type="submit">Renombrar</button></form>
+            ${b.slug ? `<form id="slugForm" style="display:grid;gap:6px;margin-top:10px"><label class="text-body-secondary" for="slugIn" style="font-size:12px">Dirección del negocio</label>
+              <div class="dw-row" style="flex-wrap:nowrap"><input class="form-control font-monospace small" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn btn-sm btn-outline-secondary" type="submit">Cambiar</button></div>
+              <span class="text-body-secondary" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
+            <span class="text-danger small" data-err></span></details>
+          <details><summary>Eliminar negocio</summary>
+            <p class="text-body-secondary" style="margin:8px 0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
+            <button class="btn btn-sm btn-outline-danger" type="button" data-archive="${esc(b.id)}"><i class="bi bi-trash"></i>Eliminar negocio</button></details>
         </div>
-        <div class="sub">
-          <h3>Datos</h3>
-          <form class="dw-row" id="renameForm" style="flex-wrap:nowrap"><input class="form-control" name="name" value="${esc(b.name)}" maxlength="120" required aria-label="Nombre"><button class="btn btn-sm btn-outline-secondary" type="submit">Renombrar</button></form>
-          ${b.slug ? `<form id="slugForm" style="display:grid;gap:6px">
-            <label class="text-body-secondary" for="slugIn" style="font-size:12px">Dirección del negocio · <span class="font-monospace small">${esc((app.url || '').replace(/^https?:\/\//, ''))}/…</span></label>
-            <div class="dw-row" style="flex-wrap:nowrap"><input class="form-control font-monospace small" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn btn-sm btn-outline-secondary" type="submit">Cambiar</button></div>
-            <span class="text-body-secondary" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
-          <p class="text-body-secondary" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
-          <h3 style="margin-top:6px">Eliminar</h3>
-          <p class="text-body-secondary" style="margin:0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
-          <button class="btn btn-sm btn-outline-danger" type="button" data-archive="${esc(b.id)}"><i class="bi bi-trash"></i>Eliminar negocio</button>
+        <div class="sub"><h3>Usuarios <span class="text-body-secondary" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>
+          ${usersHtml(b)}<div id="userInvite"></div>
+          <details><summary>Cambiar el dueño</summary>
+            <form class="dw-form" id="userForm" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:8px">
+              <p class="text-body-secondary dw-full" style="margin:0;font-size:12px">Se le envía un link para crear su contraseña. El dueño actual queda como ${app.roles.includes('admin') ? 'administrador' : 'personal'}.</p>
+              <label class="dw-field">Correo del nuevo dueño<input class="form-control" type="email" name="email" required></label>
+              <label class="dw-field">Nombre<input class="form-control" name="name" maxlength="100"></label>
+              <div class="dw-row dw-full"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-award"></i>Asignar como dueño</button><span class="text-danger small" data-err></span></div>
+            </form></details>
+        </div></div>`)}
+      ${pane('plan', `<div class="bizgrid">
+        <div class="sub"><h3>Suscripción</h3>
+          ${kv([['Plan', b.plan?.nombre ? `${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}` : 'Precio de la app'], ['Valor', `${fmtCOP(price)} / mes`], ['Estado', `<span class="st ${s.k}">${s.t}</span>`], ['Pagado hasta', fmtDay(b.paid_until)], ['Último pago', b.last_payment ? fmtDate(b.last_payment) : '—'], ['Total cobrado', fmtCOP(b.total_paid)]])}
+          <details><summary>Bloqueo de la app</summary>${lockHtml(b)}</details>
         </div>
-      </div></div>
-      <div data-bpane="plan" ${bizTab === 'plan' ? '' : 'hidden'}><div class="bizgrid">
-        <div class="sub">
-          <h3>Suscripción</h3>
-          <div class="dw-row"><span class="st ${s.k}">${s.t}</span><span class="text-body-secondary">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
-          ${b.plan?.nombre ? `<p class="text-body-secondary" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
+        <div class="sub"><h3>Registrar pago</h3>
           <form class="dw-form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
             <label class="dw-field">Meses<input class="form-control" type="number" name="months" min="1" max="24" value="1" required></label>
             <label class="dw-field">Monto (COP)<input class="form-control" type="number" name="amount" min="0" step="1000" value="${price}"></label>
             <label class="dw-field dw-full">Nota<input class="form-control" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
             <div class="dw-row dw-full"><button class="btn btn-primary" type="submit"><i class="bi bi-currency-dollar"></i>Registrar pago</button><span class="text-danger small" data-err></span></div>
           </form>
-          ${lockHtml(b)}
-        </div>
-        <div class="sub">
-          <h3>Historial de pagos</h3>
-          <div id="payHist" class="text-body-secondary">Cargando…</div>
-        </div>
-      </div></div>
-      <div data-bpane="modulos" ${bizTab === 'modulos' ? '' : 'hidden'}><div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div></div>
-      <div data-bpane="bitacora" ${bizTab === 'bitacora' ? '' : 'hidden'}><div class="sub" id="bizLog" style="margin-top:14px"><h3>Bitácora</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div></div>`;
+          <details><summary>Historial de pagos</summary><div id="payHist" class="text-body-secondary" style="margin-top:8px">Cargando…</div></details>
+        </div></div>`)}
+      ${pane('modulos', '<div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div>')}
+      ${pane('bitacora', '<div class="sub" id="bizLog" style="margin-top:14px"><h3>Bitácora</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div>')}`;
     wireLock(el);
     loadMods(b);
     if (bizTab === 'bitacora') loadLog(b);
@@ -395,8 +402,6 @@ Admin.tab('negocios', (A) => {
       $('#payHist', el).innerHTML = h.length ? h.map((p) => `<div class="urow"><span class="e">${fmtCOP(p.amount)} · ${p.months} ${p.months === 1 ? 'mes' : 'meses'}${p.note ? ' · ' + esc(p.note) : ''}<br><span style="font-size:12px">${fmtDate(p.ts)} → hasta ${fmtDay(p.paid_until_after)}</span></span></div>`).join('') : 'Sin pagos registrados.';
     } catch { $('#payHist', el).textContent = 'No se pudo cargar.'; }
   }
-
-
 
   const load = async () => {
     try { if (!plat) await loadPlatform(); } catch (e) { $('#bizErr').textContent = e.message; return; }
@@ -608,7 +613,9 @@ Admin.tab('negocios', (A) => {
     negView = v; if (v !== 'negocios') bizHome = false;
     drawSeg(); drawApps();
     const isNeg = v === 'negocios';
-    $('#appHome').hidden = !(isNeg && bizHome);
+    $('#appHome').hidden = !(isNeg && bizHome); $('#appLayout').hidden = isNeg && bizHome;
+    $('#negSub').textContent = isNeg && bizHome ? 'Elige una app para ver sus negocios' : `${appCfg().name}`;
+    if (!(isNeg && bizHome) && !Object.keys(appStats).length) fetchStats();
     $('#bizView').hidden = !isNeg || bizHome; $('#modHost').hidden = isNeg;
     ['bizNewBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg || bizHome; });
     if (isNeg) {

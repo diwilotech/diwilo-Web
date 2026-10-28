@@ -1,7 +1,6 @@
 <div class="dw-page-head">
-  <div class="dw-row"><h1>Negocios</h1></div>
+  <div><h1>Negocios</h1><p class="text-body-secondary" id="negSub" style="margin:2px 0 0"></p></div>
   <div class="dw-row">
-    <div class="btn-group" id="appSeg"></div>
     <button class="btn btn-outline-secondary" id="priceBtn" title="Precios, planes y días de prueba de todas las apps y negocios"><i class="bi bi-cash-coin"></i>Precios y pruebas</button>
     <button class="btn btn-outline-secondary" id="bizArchBtn" aria-pressed="false"><i class="bi bi-archive"></i>Archivados<span class="badge text-bg-primary" id="bizArchCount" hidden></span></button>
     <button class="btn btn-primary" id="bizNewBtn"><i class="bi bi-plus-lg"></i>Nuevo negocio</button>
@@ -14,6 +13,9 @@
   <p class="text-body-secondary" style="margin:0 0 10px">Elige una app para ver sus negocios.</p>
   <div class="dw-grid" style="--min:290px" id="homeApps"></div>
 </div>
+<div id="appLayout" class="negwrap" hidden>
+<aside class="negside" id="appSeg" aria-label="Apps"></aside>
+<div class="negmain">
 <div id="bizView">
 <p class="text-danger small" id="bizErr"></p>
 <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
@@ -45,3 +47,5 @@
 
 </div>
 <div id="modHost" hidden></div>
+</div>
+</div>
