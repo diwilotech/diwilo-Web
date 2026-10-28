@@ -8,8 +8,7 @@ Admin.tab('negocios', (A) => {
   const fmtCOP = (n) => '$' + fmtN(n);
   const fmtDay = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-  let plat = null, bizApp = 'pedidos', biz = [], bizToday = '', bizSel = null;
-  const bizOpen = new Set(); // negocios con "Ver más" abierto
+  let plat = null, bizHome = true, bizApp = 'pedidos', biz = [], bizToday = '', bizSel = null;
   let lastMonthIncome = 0;
   const ARCHIVE_DAYS = 20;
   let showArchived = false;
@@ -110,10 +109,10 @@ Admin.tab('negocios', (A) => {
       <p class="text-body-secondary" style="margin:8px 0 0;font-size:12px"><i class="bi bi-info-circle"></i> El equipo (administradores y personal) lo crea el dueño o un administrador dentro de la app.</p>`;
   }
 
-  function subState(b) {
+  function subState(b, today = bizToday) {
     if (!b.paid_until) return { k: 'free', t: 'Sin límite' };
-    if (b.read_only || b.paid_until < bizToday) return { k: 'bad', t: 'Solo lectura' };
-    const left = daysBetween(bizToday, b.paid_until);
+    if (b.read_only || b.paid_until < today) return { k: 'bad', t: 'Solo lectura' };
+    const left = daysBetween(today, b.paid_until);
     return left <= 7 ? { k: 'soon', t: left === 0 ? 'Vence hoy' : `Vence en ${left} d` } : { k: 'ok', t: 'Al día' };
   }
   const appCfg = () => plat.apps.find((a) => a.key === bizApp);
@@ -155,12 +154,47 @@ Admin.tab('negocios', (A) => {
 
   async function loadPlatform() {
     plat = await api('platform');
-    $('#appSeg').innerHTML = plat.apps.map((a) => `<button class="btn btn-sm ${a.key === bizApp ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+    drawApps();
   }
+  function drawApps() {
+    $('#appSeg').innerHTML = `<button class="btn btn-sm btn-outline-secondary ${bizHome && negView === 'negocios' ? 'active' : ''}" data-home title="Resumen de todas las apps"><i class="bi bi-grid"></i>Todas</button>`
+      + plat.apps.map((a) => `<button class="btn btn-sm ${a.key === bizApp && !(bizHome && negView === 'negocios') ? 'active' : ''} btn-outline-secondary" data-app="${a.key}">${esc(a.name)}</button>`).join('');
+  }
+  const APP_ICON = { pedidos: 'bi-bag', nutricion: 'bi-heart-pulse', citas: 'bi-calendar-check', residentes: 'bi-building', academia: 'bi-mortarboard' };
+  // Inicio: todas las apps con sus negocios, activos y alertas.
+  async function loadHome() {
+    const box = $('#homeApps'); $('#homeErr').textContent = '';
+    box.innerHTML = '<div class="dw-empty" style="grid-column:1/-1">Cargando…</div>';
+    const data = await Promise.all(plat.apps.map(async (a) => {
+      if (!a.connected) return { a, list: [], today: '', inc: 0, off: true };
+      const d = await api(`platform/${a.key}/businesses`).catch(() => null);
+      return { a, list: d?.businesses || [], today: d?.today || '', inc: d?.month_income || 0, err: !d };
+    }));
+    if (!bizHome) return;
+    const rows = data.map((x) => ({ ...x, st: x.list.map((b) => subState(b, x.today)) }));
+    const cnt = (x, k) => x.st.filter((s) => s.k === k).length;
+    const all = (k) => rows.reduce((n, x) => n + cnt(x, k), 0);
+    $('#homeKpis').innerHTML = [['Negocios', fmtN(rows.reduce((n, x) => n + x.list.length, 0))], ['Al día', fmtN(all('ok') + all('free'))], ['Vencen en 7 días', fmtN(all('soon'))],
+      ['Solo lectura', fmtN(all('bad'))], ['Cobrado este mes', fmtCOP(rows.reduce((n, x) => n + x.inc, 0))]]
+      .map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    box.innerHTML = rows.map((x) => {
+      const alert = cnt(x, 'soon') + cnt(x, 'bad');
+      return `<button type="button" class="dw-card appcard" data-pick="${esc(x.a.key)}">
+        <span class="dw-row" style="gap:12px;flex-wrap:nowrap"><i class="bi ${APP_ICON[x.a.key] || 'bi-app'}" style="font-size:26px;color:var(--lilac)"></i><b style="font-weight:500;color:var(--hi);font-size:16px">${esc(x.a.name)}</b></span>
+        <span class="dw-row"><span class="st free">${x.list.length} ${x.list.length === 1 ? 'negocio' : 'negocios'}</span><span class="st ok">${cnt(x, 'ok') + cnt(x, 'free')} al día</span>
+          ${x.off ? '<span class="st bad">Sin conectar</span>' : x.err ? '<span class="st bad">Error al cargar</span>' : alert ? `<span class="st soon">${alert} requieren atención</span>` : ''}</span></button>`;
+    }).join('');
+  }
+  $('#homeApps').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-pick]'); if (!c) return;
+    bizApp = c.dataset.pick; bizHome = false; bizSel = null; bizFilter = 'todos'; bizQ = ''; $('#bizSearch').value = '';
+    $('#bizNew').hidden = true; showInvite(null);
+    setNegView('negocios');
+  });
 
   async function loadBiz() {
     $('#bizErr').textContent = '';
-    $('#bizBody').innerHTML = '<tr><td data-label="" colspan="6" class="dw-empty">Cargando…</td></tr>';
+    $('#bizBody').innerHTML = '<div class="dw-empty" style="grid-column:1/-1">Cargando…</div>';
     const app = appCfg();
     $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
     $('#bizSlug').hidden = !app.slug;
@@ -181,32 +215,40 @@ Admin.tab('negocios', (A) => {
     }
   }
 
-  function renderBiz(monthIncome = 0) {
-    const st = biz.map(subState);
-    const tiles = [['Negocios', fmtN(biz.length)], ['Al día', fmtN(st.filter((s) => s.k === 'ok' || s.k === 'free').length)],
-      ['Vencen en 7 días', fmtN(st.filter((s) => s.k === 'soon').length)], ['Solo lectura', fmtN(st.filter((s) => s.k === 'bad').length)],
+  // Filtro por estado y búsqueda de la lista (los KPIs y los chips usan el mismo filtro).
+  let bizFilter = 'todos', bizQ = '';
+  const FILTERS = [['todos', 'Todos'], ['ok', 'Al día'], ['free', 'Sin límite'], ['soon', 'Por vencer'], ['bad', 'Solo lectura']];
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  function renderBiz(monthIncome = 0, keepDetail = false) {
+    const st = biz.map((b) => subState(b));
+    const count = (k) => st.filter((s) => s.k === k).length;
+    const tiles = [['Negocios', fmtN(biz.length), 'todos'], ['Al día', fmtN(count('ok') + count('free')), 'ok'],
+      ['Vencen en 7 días', fmtN(count('soon')), 'soon'], ['Solo lectura', fmtN(count('bad')), 'bad'],
       ['Cobrado este mes', fmtCOP(monthIncome)]];
-    $('#bizKpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
-    $('#bizBody').innerHTML = biz.length ? biz.map((b, i) => {
+    $('#bizKpis').innerHTML = tiles.map(([l, v, f]) => f
+      ? `<button type="button" class="dw-card kpi text-start" data-kfilter="${f}" style="cursor:pointer" title="Filtrar la lista"><div class="v">${v}</div><div class="l">${l}</div></button>`
+      : `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+    $('#bizFilters').innerHTML = FILTERS.map(([k, l]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === bizFilter ? 'active' : ''}" data-bfilter="${k}" aria-pressed="${k === bizFilter}">${l} (${k === 'todos' ? biz.length : count(k)})</button>`).join('');
+    const q = norm(bizQ.trim());
+    const rows = biz.map((b, i) => [b, i]).filter(([b, i]) => (bizFilter === 'todos' || st[i].k === bizFilter)
+      && (!q || norm([b.name, b.slug, ...b.users.map((u) => u.email + ' ' + (u.name || ''))].join(' ')).includes(q)));
+    $('#bizBody').innerHTML = rows.length ? rows.map(([b, i]) => {
       const owner = b.users.find((u) => u.role === 'owner');
-      const open = bizOpen.has(b.id);
-      const shown = b.users.slice(0, 2);
-      return `<tr data-biz="${esc(b.id)}" class="${b.id === bizSel ? 'sel' : ''}" style="cursor:pointer">
-        <td data-label="Negocio" class="dw-td-main"><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}</td>
-        <td data-label="Dueño">${owner ? esc(owner.email) : '<span class="text-body-secondary">—</span>'}</td>
-        <td data-label="Usuarios y permisos"><div class="uchips">${shown.map((u) => `<span class="uchip" title="${esc(u.email)} · ${ROLE[u.role] || u.role}"><i class="bi ${ICON[u.role] || 'bi-person'}"></i>${esc(u.name || u.email.split('@')[0])}</span>`).join('')}
-          ${b.users.length > 2 ? `<span class="text-body-secondary" style="font-size:12px">+${b.users.length - 2}</span>` : ''}
-          <button class="more" type="button" data-more="${esc(b.id)}" aria-expanded="${open}">${open ? 'Ver menos' : 'Ver más'} <i class="bi bi-chevron-down"></i></button></div></td>
-        <td data-label="Estado"><span class="st ${st[i].k}">${st[i].t}</span><span class="estado-fecha">${b.paid_until ? `${st[i].k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span>${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</td>
-        <td data-label="Último pago" class="text-body-secondary">${b.last_payment ? fmtDate(b.last_payment) : '—'}</td>
-        <td data-label="" style="white-space:nowrap">${owner ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button> ${linkBtn(owner, 'data-olink')}` : '<span class="text-body-secondary">—</span>'}</td></tr>
-        ${open ? `<tr class="xrow" data-xbiz="${esc(b.id)}"><td data-label="" colspan="6"><div class="xbox">
-          <div><h3 style="margin:8px 0 8px">Usuarios y permisos <span class="text-body-secondary" style="font-size:12px;font-weight:400">· ${b.users.length}</span></h3>${usersHtml(b)}<div data-xinvite style="margin-top:10px"></div></div>
-          <div class="sub" style="margin-top:8px">${lockHtml(b)}</div></div></td></tr>` : ''}`;
-    }).join('') : `<tr><td data-label="" colspan="6" class="dw-empty">Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.</td></tr>`;
-    wireLock($('#bizBody'));
-    if (bizSel && biz.some((b) => b.id === bizSel)) renderDetail(); else { bizSel = null; $('#bizDetail').hidden = true; }
+      const s = st[i];
+      return `<div class="dw-card bizcard ${b.id === bizSel ? 'sel' : ''}" data-biz="${esc(b.id)}" tabindex="0" role="button" aria-label="Ver ficha de ${esc(b.name)}">
+        <div><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b>${b.slug ? `<br><span class="text-body-secondary font-monospace small">/${esc(b.slug)}</span>` : ''}
+          <div class="text-body-secondary" style="font-size:13px;margin-top:2px">${owner ? esc(owner.email) : '—'}</div></div>
+        <div><span class="st ${s.k}">${s.t}</span><span class="estado-fecha">${b.paid_until ? `${s.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span>
+          ${b.plan?.nombre ? `<div class="text-body-secondary" style="font-size:12px;margin-top:3px">Plan ${esc(b.plan.nombre)}${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">módulos con error</span>' : ''}</div>` : ''}</div>
+        <div class="text-body-secondary" style="font-size:12px">${b.users.length} ${b.users.length === 1 ? 'usuario' : 'usuarios'} · Último pago ${b.last_payment ? fmtDate(b.last_payment) : '—'}</div>
+        ${owner ? `<div class="dw-row"><button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Abre la app con la sesión del dueño, sin contraseña (también si aún no la ha creado)"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>${linkBtn(owner, 'data-olink')}</div>` : ''}</div>`;
+    }).join('') : `<div class="dw-empty" style="grid-column:1/-1">${biz.length ? 'Ningún negocio coincide con el filtro.' : `Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.`}</div>`;
+    if (bizSel && biz.some((b) => b.id === bizSel)) { if (!keepDetail) renderDetail(); } else { bizSel = null; $('#bizDetail').hidden = true; }
   }
+  const redraw = () => renderBiz(lastMonthIncome, true);
+  $('#bizFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-bfilter]'); if (b) { bizFilter = b.dataset.bfilter; redraw(); } });
+  $('#bizKpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kfilter]'); if (b) { bizFilter = bizFilter === b.dataset.kfilter ? 'todos' : b.dataset.kfilter; redraw(); } });
+  $('#bizSearch').addEventListener('input', (e) => { bizQ = e.target.value; redraw(); });
 
   /* ---------- Módulos del negocio (plan + excepciones; la API está en worker/src/modulos.js) ---------- */
   const ORIGEN = { plan: ['ok', 'Del plan'], agregado: ['soon', 'Agregado'], quitado: ['bad', 'Quitado'], fuera: ['free', 'No incluido'] };
@@ -274,6 +316,22 @@ Admin.tab('negocios', (A) => {
     });
   }
 
+  /* ---------- Bitácora del negocio: cambios de plan y módulos + pagos ---------- */
+  const BIZ_TABS = [['negocio', 'Negocio', 'bi-shop'], ['plan', 'Plan', 'bi-credit-card'], ['modulos', 'Módulos', 'bi-grid-1x2'], ['bitacora', 'Bitácora', 'bi-clock-history']];
+  let bizTab = 'negocio';
+  async function loadLog(b) {
+    const box = $('#bizLog'); if (!box) return;
+    const app = bizApp;
+    try {
+      const [lg, pays] = await Promise.all([api(`modulos/bitacora?app=${app}`).catch(() => ({ rows: [] })), api(bizPath(b.id, '/payments')).catch(() => [])]);
+      if (bizSel !== b.id || bizApp !== app) return;
+      const items = [...lg.rows.filter((r) => r.business_id === b.id).map((r) => ({ ts: r.ts, text: r.accion, who: r.por || '' })),
+        ...pays.map((p) => ({ ts: p.ts, text: `Pago registrado · ${fmtCOP(p.amount)} · ${p.months} ${p.months === 1 ? 'mes' : 'meses'}${p.note ? ' · ' + p.note : ''} (hasta ${fmtDay(p.paid_until_after)})`, who: '' }))]
+        .sort((x, y) => Date.parse(y.ts) - Date.parse(x.ts) || y.ts - x.ts);
+      box.innerHTML = '<h3>Bitácora</h3>' + (items.length ? items.map((l) => `<div class="urow"><span class="e">${esc(l.text)}<br><span class="text-body-secondary" style="font-size:12px">${fmtDate(l.ts)}${l.who ? ' · ' + esc(l.who) : ''}</span></span></div>`).join('') : '<p class="text-body-secondary" style="margin:0">Sin movimientos todavía.</p>');
+    } catch (x) { box.innerHTML = `<h3>Bitácora</h3><p class="text-danger small">${esc(x.message)}</p>`; }
+  }
+
   async function renderDetail() {
     const b = biz.find((x) => x.id === bizSel); if (!b) return;
     const app = appCfg(), s = subState(b), price = b.plan?.precio ?? plat.prices[bizApp] ?? 0;
@@ -281,19 +339,8 @@ Admin.tab('negocios', (A) => {
     el.innerHTML = `<div class="dw-row" style="justify-content:space-between">
         <h2>${esc(b.name)} <span class="text-body-secondary" style="font-size:13px">· ${esc(app.name)}</span></h2>
         <div class="dw-row">${b.users.some((u) => u.role === 'owner') ? `<button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}"><i class="bi bi-box-arrow-in-right"></i>Entrar como dueño</button>` : ''}${loginUrl(b) ? `<button class="btn btn-sm btn-outline-secondary" data-loginlink><i class="bi bi-box-arrow-in-right"></i>Link de ingreso</button>` : ''}${app.url && b.slug && bizApp === 'citas' ? `<a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="${esc(app.url)}/${esc(b.slug)}"><i class="bi bi-box-arrow-up-right"></i>Ver reservas</a>` : ''}<button class="btn btn-sm btn-outline-secondary" data-close>Cerrar</button></div></div>
-      <div class="bizgrid">
-        <div class="sub">
-          <h3>Suscripción</h3>
-          <div class="dw-row"><span class="st ${s.k}">${s.t}</span><span class="text-body-secondary">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
-          ${b.plan?.nombre ? `<p class="text-body-secondary" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
-          <form class="dw-form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
-            <label class="dw-field">Meses<input class="form-control" type="number" name="months" min="1" max="24" value="1" required></label>
-            <label class="dw-field">Monto (COP)<input class="form-control" type="number" name="amount" min="0" step="1000" value="${price}"></label>
-            <label class="dw-field dw-full">Nota<input class="form-control" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
-            <div class="dw-row dw-full"><button class="btn btn-primary" type="submit"><i class="bi bi-currency-dollar"></i>Registrar pago</button><span class="text-danger small" data-err></span></div>
-          </form>
-          ${lockHtml(b)}
-        </div>
+      <div class="btn-group" id="bizTabs" role="tablist" aria-label="Detalle del negocio" style="margin:14px 0 0">${BIZ_TABS.map(([k, l, ic]) => `<button type="button" role="tab" class="btn btn-sm btn-outline-secondary ${k === bizTab ? 'active' : ''}" aria-selected="${k === bizTab}" data-btab="${k}"><i class="bi ${ic}"></i>${l}</button>`).join('')}</div>
+      <div data-bpane="negocio" ${bizTab === 'negocio' ? '' : 'hidden'}><div class="bizgrid">
         <div class="sub">
           <h3>Usuarios</h3>
           <div id="bizUsers">${usersHtml(b)}</div>
@@ -313,16 +360,34 @@ Admin.tab('negocios', (A) => {
             <div class="dw-row" style="flex-wrap:nowrap"><input class="form-control font-monospace small" id="slugIn" name="slug" value="${esc(b.slug)}" maxlength="40" pattern="[a-z0-9\-]{3,40}" required spellcheck="false" autocomplete="off"><button class="btn btn-sm btn-outline-secondary" type="submit">Cambiar</button></div>
             <span class="text-body-secondary" style="font-size:12px">Los links y QR con la dirección vieja siguen funcionando: redirigen a la nueva.</span></form>` : ''}
           <p class="text-body-secondary" style="margin:0;font-size:12px">Creado ${fmtDay(b.created_at.slice(0, 10))} · Total cobrado ${fmtCOP(b.total_paid)}</p>
-          <h3 style="margin-top:6px">Historial de pagos</h3>
-          <div id="payHist" class="text-body-secondary">Cargando…</div>
           <h3 style="margin-top:6px">Eliminar</h3>
           <p class="text-body-secondary" style="margin:0;font-size:12px">Se archiva: nadie puede entrar y sale de la lista. Se puede restaurar durante ${ARCHIVE_DAYS} días; después se borra con todos sus datos.</p>
           <button class="btn btn-sm btn-outline-danger" type="button" data-archive="${esc(b.id)}"><i class="bi bi-trash"></i>Eliminar negocio</button>
         </div>
-      </div>
-      <div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div>`;
+      </div></div>
+      <div data-bpane="plan" ${bizTab === 'plan' ? '' : 'hidden'}><div class="bizgrid">
+        <div class="sub">
+          <h3>Suscripción</h3>
+          <div class="dw-row"><span class="st ${s.k}">${s.t}</span><span class="text-body-secondary">Pagado hasta ${fmtDay(b.paid_until)}</span></div>
+          ${b.plan?.nombre ? `<p class="text-body-secondary" style="margin:6px 0 0;font-size:13px">Plan <b>${esc(b.plan.nombre)}</b> · ${fmtCOP(b.plan.precio)}/mes${b.plan.estado === 'error' ? ' · <span style="color:var(--bad)">los módulos no se pudieron enviar</span>' : ''}</p>` : ''}
+          <form class="dw-form" id="payForm" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            <label class="dw-field">Meses<input class="form-control" type="number" name="months" min="1" max="24" value="1" required></label>
+            <label class="dw-field">Monto (COP)<input class="form-control" type="number" name="amount" min="0" step="1000" value="${price}"></label>
+            <label class="dw-field dw-full">Nota<input class="form-control" name="note" maxlength="300" placeholder="Transferencia, Nequi…"></label>
+            <div class="dw-row dw-full"><button class="btn btn-primary" type="submit"><i class="bi bi-currency-dollar"></i>Registrar pago</button><span class="text-danger small" data-err></span></div>
+          </form>
+          ${lockHtml(b)}
+        </div>
+        <div class="sub">
+          <h3>Historial de pagos</h3>
+          <div id="payHist" class="text-body-secondary">Cargando…</div>
+        </div>
+      </div></div>
+      <div data-bpane="modulos" ${bizTab === 'modulos' ? '' : 'hidden'}><div class="sub" id="bizMods" style="margin-top:14px"><h3>Módulos</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div></div>
+      <div data-bpane="bitacora" ${bizTab === 'bitacora' ? '' : 'hidden'}><div class="sub" id="bizLog" style="margin-top:14px"><h3>Bitácora</h3><p class="text-body-secondary" style="margin:0">Cargando…</p></div></div>`;
     wireLock(el);
     loadMods(b);
+    if (bizTab === 'bitacora') loadLog(b);
     const pay = $('#payForm', el);
     pay.elements.months.addEventListener('input', () => { pay.elements.amount.value = price * (parseInt(pay.elements.months.value, 10) || 0); });
     try {
@@ -338,11 +403,11 @@ Admin.tab('negocios', (A) => {
     loadBiz();
   };
   $('#appSeg').addEventListener('click', (e) => {
+    if (e.target.closest('[data-home]')) { bizHome = true; bizSel = null; setNegView('negocios'); return; }
     const b = e.target.closest('[data-app]'); if (!b) return;
-    bizApp = b.dataset.app; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
+    bizApp = b.dataset.app; bizHome = false; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
     if (showArchived) $('#bizArchived').innerHTML = '<p class="text-body-secondary" style="margin:0">Cargando…</p>';
-    $$('#appSeg .btn').forEach((x) => x.classList.toggle('active', x === b));
-    if (negView !== 'negocios') modsView(); else loadBiz();
+    if (negView !== 'negocios') { drawApps(); modsView(); } else setNegView('negocios');
   });
   $('#bizNewBtn').addEventListener('click', async () => {
     const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trials?.[bizApp] ?? plat.trial_days; f.elements.name.focus();
@@ -367,21 +432,13 @@ Admin.tab('negocios', (A) => {
       bizSel = r.id; await loadBiz();
     } catch (x) { err.textContent = x.message; }
   });
-  // "Ver más" / "Ver menos": usuarios, permisos y bloqueo dentro de la tabla.
   $('#bizBody').addEventListener('click', (e) => {
-    const m = e.target.closest('[data-more]'); if (!m) return;
-    e.stopImmediatePropagation();
-    const id = m.dataset.more;
-    if (bizOpen.has(id)) bizOpen.delete(id); else bizOpen.add(id);
-    renderBiz(lastMonthIncome);
-  }, true);
-  $('#bizBody').addEventListener('click', (e) => {
-    if (e.target.closest('tr.xrow')) return;
     const tr = e.target.closest('[data-biz]'); if (!tr) return;
-    bizSel = tr.dataset.biz; $$('#bizBody tr').forEach((x) => x.classList.toggle('sel', x === tr));
+    bizSel = tr.dataset.biz; $$('#bizBody [data-biz]').forEach((x) => x.classList.toggle('sel', x === tr));
     renderDetail(); $('#bizDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
   // Botón "Link de registro / Restablecer contraseña" del dueño, directo en la tabla.
+  $('#bizBody').addEventListener('keydown', (e) => { const c = e.target.closest('[data-biz]'); if (c && e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); c.click(); } });
   $('#bizBody').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-olink]'); if (!btn) return;
     e.stopImmediatePropagation();
@@ -391,8 +448,16 @@ Admin.tab('negocios', (A) => {
     try { await issueLink(b, u, '#inviteBox'); } catch (x) { toast(x.message); } finally { btn.disabled = false; }
   }, true);
   $('#bizDetail').addEventListener('click', async (e) => {
-    if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody tr').forEach((x) => x.classList.remove('sel')); return; }
+    if (e.target.closest('[data-close]')) { bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody [data-biz]').forEach((x) => x.classList.remove('sel')); return; }
     const b = biz.find((x) => x.id === bizSel);
+    const tb = e.target.closest('[data-btab]');
+    if (tb) {
+      bizTab = tb.dataset.btab;
+      $$('[data-btab]', $('#bizDetail')).forEach((x) => { const on = x === tb; x.classList.toggle('active', on); x.setAttribute('aria-selected', on); });
+      $$('[data-bpane]', $('#bizDetail')).forEach((x) => { x.hidden = x.dataset.bpane !== bizTab; });
+      if (bizTab === 'bitacora') loadLog(b);
+      return;
+    }
     if (e.target.closest('[data-loginlink]')) { const el = $('#userInvite'); el.innerHTML = inviteHtml(loginUrl(b), b.name, 'ingreso'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
     const inv = e.target.closest('[data-uinvite], [data-xlink]');
     if (inv) {
@@ -435,20 +500,6 @@ Admin.tab('negocios', (A) => {
   });
   document.addEventListener('click', (e) => { const c = e.target.closest('#inviteBox [data-copy], #userInvite [data-copy], [data-xinvite] [data-copy]'); if (c) copy(c.dataset.copy); });
 
-  $('#bizBody').addEventListener('click', async (e) => {
-    const row = e.target.closest('tr.xrow'); if (!row) return;
-    const b = biz.find((x) => x.id === row.dataset.xbiz);
-    const lk = e.target.closest('[data-xlink]');
-    if (lk) {
-      const u = b.users.find((x) => x.id === lk.dataset.xlink);
-      lk.disabled = true;
-      try {
-        const r = await api(bizPath(b.id, '/users'), { method: 'POST', body: { email: u.email, role: u.role } });
-        $('[data-xinvite]', row).innerHTML = inviteHtml(r.invite_url, u.email, linkKind(u));
-      } catch (x) { toast(x.message); } finally { lk.disabled = false; }
-      return;
-    }
-  });
   // Pasar la propiedad a alguien del equipo.
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-mkowner]'); if (!btn) return;
@@ -554,11 +605,17 @@ Admin.tab('negocios', (A) => {
     await m.tab.setView(bizApp, negView);
   }
   async function setNegView(v) {
-    negView = v; drawSeg();
+    negView = v; if (v !== 'negocios') bizHome = false;
+    drawSeg(); drawApps();
     const isNeg = v === 'negocios';
-    $('#bizView').hidden = !isNeg; $('#modHost').hidden = isNeg;
-    ['bizNewBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg; });
-    if (isNeg) { A.unmount('modulos'); return loadBiz(); }
+    $('#appHome').hidden = !(isNeg && bizHome);
+    $('#bizView').hidden = !isNeg || bizHome; $('#modHost').hidden = isNeg;
+    ['bizNewBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg || bizHome; });
+    if (isNeg) {
+      A.unmount('modulos');
+      if (bizHome) return loadHome().catch((x) => { if (x.message !== 'sesión') $('#homeErr').textContent = x.message; });
+      return loadBiz();
+    }
     $('#bizArchived').hidden = true;
     try { await modsView(); } catch (e) { if (e.message !== 'sesión') toast(e.message); }
   }

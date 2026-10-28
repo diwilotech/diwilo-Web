@@ -501,3 +501,10 @@ body[data-tab="finanzas"] .dw-main,body[data-tab="nomina"] .dw-main,body[data-ta
 .dw-splash__lema{color:var(--bs-secondary-color);max-width:320px;animation:dwsplash .7s .2s cubic-bezier(.2,.8,.2,1) both}
 @keyframes dwsplash{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){#dw-splash{transition:none}.dw-splash__logo,.dw-splash__name,.dw-splash__lema{animation:none}}
+
+/* Negocios: tarjetas de negocio y de app */
+.bizcard{display:grid;gap:10px;align-content:start;cursor:pointer;transition:box-shadow .15s}
+.bizcard:hover{box-shadow:0 0 0 1px var(--lilac)}
+.bizcard.sel{box-shadow:0 0 0 2px var(--lilac)}
+.appcard{display:grid;gap:16px;align-content:space-between;min-height:130px;text-align:left;color:inherit;cursor:pointer;font:inherit}
+.appcard:hover{box-shadow:0 0 0 1px var(--lilac)}

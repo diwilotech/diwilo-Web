@@ -8,9 +8,20 @@
   </div>
 </div>
 <div class="btn-group mb-3" id="negSeg" role="group" aria-label="Vista"></div>
+<div id="appHome" hidden>
+  <p class="text-danger small" id="homeErr"></p>
+  <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="homeKpis"></div>
+  <p class="text-body-secondary" style="margin:0 0 10px">Elige una app para ver sus negocios.</p>
+  <div class="dw-grid" style="--min:290px" id="homeApps"></div>
+</div>
 <div id="bizView">
 <p class="text-danger small" id="bizErr"></p>
 <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
+
+<div class="dw-row" style="justify-content:space-between;margin-bottom:14px" id="bizBar">
+  <div class="dw-row" id="bizFilters" role="group" aria-label="Filtrar por estado"></div>
+  <label class="dw-field" style="min-width:240px;margin:0"><span class="visually-hidden">Buscar negocio</span><input class="form-control" type="search" id="bizSearch" placeholder="Buscar negocio, dueño o dirección" autocomplete="off"></label>
+</div>
 
 <form class="dw-card" id="bizNew" style="margin-bottom:14px" hidden>
   <h2>Nuevo negocio en <span data-appname></span></h2>
@@ -29,7 +40,7 @@
 
 <div class="dw-card" id="bizArchived" style="margin-bottom:14px" hidden></div>
 
-<div class="dw-card table-responsive" id="bizTable"><table class="table dw-table align-middle"><thead><tr><th>Negocio</th><th>Dueño</th><th>Usuarios y permisos</th><th>Estado</th><th>Último pago</th><th>Acceso del dueño</th></tr></thead><tbody id="bizBody"></tbody></table></div>
+<div class="dw-grid" style="--min:290px" id="bizBody"></div>
 <div class="dw-card" id="bizDetail" style="margin-top:14px" hidden></div>
 
 </div>
