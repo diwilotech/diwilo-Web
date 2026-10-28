@@ -8,7 +8,7 @@ Admin.tab('negocios', (A) => {
   const fmtCOP = (n) => '$' + fmtN(n);
   const fmtDay = (iso) => iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-  let plat = null, bizHome = true, bizApp = 'pedidos', biz = [], bizToday = '', bizSel = null;
+  let plat = null, bizApp = 'pedidos', newApp = 'pedidos', areaFilter = 'todas', allBiz = [], biz = [], bizToday = '', bizSel = null;
   let lastMonthIncome = 0;
   const ARCHIVE_DAYS = 20;
   let showArchived = false;
@@ -155,109 +155,60 @@ Admin.tab('negocios', (A) => {
 
   async function loadPlatform() {
     plat = await api('platform');
-    drawApps();
-  }
-  // Conteos por app para la barra lateral y el inicio.
-  const appStats = {};
-  const statOf = (list, today) => { const st = list.map((b) => subState(b, today)); const c = (k) => st.filter((x) => x.k === k).length; return { n: list.length, ok: c('ok') + c('free'), soon: c('soon'), bad: c('bad') }; };
-  function drawApps() {
-    const home = `<button class="btn btn-outline-secondary" type="button" data-home style="justify-content:flex-start;gap:8px"><i class="bi bi-grid"></i>Todas las apps</button>`;
-    $('#appSeg').innerHTML = home + plat.apps.map((a) => {
-      const t = appStats[a.key], al = t ? t.soon + t.bad : 0;
-      return `<button type="button" class="sideapp ${a.key === bizApp ? 'active' : ''}" data-app="${a.key}"><i class="bi ${APP_ICON[a.key] || 'bi-app'} ic"></i>
-        <span style="flex:1;min-width:0"><b style="font-weight:500;display:block">${esc(a.name)}</b><span class="text-body-secondary" style="font-size:12px">${t ? `${t.n} ${t.n === 1 ? 'negocio' : 'negocios'}` : '&nbsp;'}</span></span>${al ? `<span class="st soon" title="Requieren atención">${al}</span>` : ''}</button>`;
-    }).join('');
   }
   const APP_ICON = { pedidos: 'bi-bag', nutricion: 'bi-heart-pulse', citas: 'bi-calendar-check', residentes: 'bi-building', academia: 'bi-mortarboard' };
-  // Inicio: todas las apps con sus negocios, activos y alertas.
-  async function fetchStats() { try { await Promise.all(plat.apps.filter((a) => a.connected).map(async (a) => { const d = await api(`platform/${a.key}/businesses`).catch(() => null); if (d) appStats[a.key] = statOf(d.businesses, d.today); })); drawApps(); } catch {} }
-  async function loadHome() {
-    const box = $('#homeApps'); $('#homeErr').textContent = '';
-    box.innerHTML = '<div class="dw-empty" style="grid-column:1/-1">Cargando…</div>';
-    const data = await Promise.all(plat.apps.map(async (a) => {
-      if (!a.connected) return { a, list: [], today: '', inc: 0, off: true };
-      const d = await api(`platform/${a.key}/businesses`).catch(() => null);
-      return { a, list: d?.businesses || [], today: d?.today || '', inc: d?.month_income || 0, err: !d };
-    }));
-    if (!bizHome) return;
-    const rows = data.map((x) => ({ ...x, t: statOf(x.list, x.today) }));
-    rows.forEach((x) => { appStats[x.a.key] = x.t; });
-    const all = (k) => rows.reduce((n, x) => n + x.t[k], 0);
-    $('#homeKpis').innerHTML = [['Negocios', fmtN(rows.reduce((n, x) => n + x.t.n, 0))], ['Al día', fmtN(all('ok'))], ['Vencen en 7 días', fmtN(all('soon'))],
-      ['Solo lectura', fmtN(all('bad'))], ['Cobrado este mes', fmtCOP(rows.reduce((n, x) => n + x.inc, 0))]]
-      .map(([l, v]) => `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
-    box.innerHTML = rows.map((x) => {
-      const alert = x.t.soon + x.t.bad;
-      return `<button type="button" class="dw-card appcard" data-pick="${esc(x.a.key)}">
-        <span class="dw-row" style="gap:12px;flex-wrap:nowrap"><i class="bi ${APP_ICON[x.a.key] || 'bi-app'}" style="font-size:26px;color:var(--lilac)"></i><b style="font-weight:500;color:var(--hi);font-size:16px">${esc(x.a.name)}</b></span>
-        <span class="dw-row"><span class="st free">${x.list.length} ${x.list.length === 1 ? 'negocio' : 'negocios'}</span><span class="st ok">${x.t.ok} al día</span>
-          ${x.off ? '<span class="st bad">Sin conectar</span>' : x.err ? '<span class="st bad">Error al cargar</span>' : alert ? `<span class="st soon">${alert} requieren atención</span>` : ''}</span></button>`;
-    }).join('');
+  // `biz` son los negocios de la app abierta en la ficha; `allBiz` es la lista de todas las áreas.
+  const useApp = (key) => { bizApp = key; biz = allBiz.filter((b) => b._app === key); };
+  function switchApp(key) {
+    if (key === bizApp) return;
+    bizSel = null; $('#bizDetail').hidden = true; $$('#bizBody [data-biz]').forEach((x) => x.classList.remove('sel'));
+    useApp(key);
   }
-  $('#homeApps').addEventListener('click', (e) => {
-    const c = e.target.closest('[data-pick]'); if (!c) return;
-    bizApp = c.dataset.pick; bizHome = false; bizSel = null; bizFilter = 'todos'; bizQ = ''; $('#bizSearch').value = '';
-    $('#bizNew').hidden = true; showInvite(null);
-    setNegView('negocios');
-  });
 
   async function loadBiz() {
     $('#bizErr').textContent = '';
     $('#bizBody').innerHTML = '<div class="dw-empty" style="grid-column:1/-1">Cargando…</div>';
-    const app = appCfg();
-    $$('[data-appname]').forEach((e) => { e.textContent = app.name; });
-    $('#bizSlug').hidden = !app.slug;
-    $('#bizSlug').querySelector('input').required = app.slug === 'required';
-    if (!app.connected) {
-      biz = []; renderBiz();
-      $('#bizErr').textContent = `${app.name} no está conectada: falta el service binding o la URL en wrangler.jsonc.`;
-      return;
+    const res = await Promise.all(plat.apps.filter((a) => a.connected).map(async (a) => { try { return { a, d: await api(`platform/${a.key}/businesses`) }; } catch (e) { return { a, e }; } }));
+    allBiz = []; lastMonthIncome = 0;
+    const errs = [];
+    for (const { a, d, e } of res) {
+      if (d) { d.businesses.forEach((b) => allBiz.push({ ...b, _app: a.key })); bizToday = d.today; lastMonthIncome += d.month_income || 0; }
+      else if (e.message === 'sesión') return;
+      else errs.push(`${a.name}: ${e.message}`);
     }
-    try {
-      const d = await api(`platform/${bizApp}/businesses`);
-      biz = d.businesses; bizToday = d.today; lastMonthIncome = d.month_income;
-      appStats[bizApp] = statOf(biz, bizToday); drawApps();
-      renderBiz(d.month_income);
-      loadArchived();
-    } catch (e) {
-      biz = []; renderBiz();
-      if (e.message !== 'sesión') $('#bizErr').textContent = e.message;
-    }
+    $('#bizErr').textContent = errs.join(' · ');
+    useApp(bizApp); renderBiz(); loadArchived();
   }
 
-  // Filtro por estado y búsqueda de la lista (los KPIs y los chips usan el mismo filtro).
+  // Filtros de la lista: área (app), estado y búsqueda.
   let bizFilter = 'todos', bizQ = '';
-  const FILTERS = [['todos', 'Todos'], ['ok', 'Al día'], ['free', 'Sin límite'], ['soon', 'Por vencer'], ['bad', 'Solo lectura']];
-  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  function renderBiz(monthIncome = 0, keepDetail = false) {
-    const st = biz.map((b) => subState(b));
-    const count = (k) => st.filter((s) => s.k === k).length;
-    const tiles = [['Negocios', fmtN(biz.length), 'todos'], ['Al día', fmtN(count('ok') + count('free')), 'ok'],
-      ['Vencen en 7 días', fmtN(count('soon')), 'soon'], ['Solo lectura', fmtN(count('bad')), 'bad'],
-      ['Cobrado este mes', fmtCOP(monthIncome)]];
-    $('#bizKpis').innerHTML = tiles.map(([l, v, f]) => f
-      ? `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`
-      : `<div class="dw-card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
-    $('#bizFilters').innerHTML = FILTERS.map(([k, l]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === bizFilter ? 'active' : ''}" data-bfilter="${k}" aria-pressed="${k === bizFilter}">${l} (${k === 'todos' ? biz.length : count(k)})</button>`).join('');
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function renderBiz(keepDetail = false) {
+    const items = allBiz.map((b) => ({ b, s: subState(b) }));
+    const inArea = items.filter((x) => areaFilter === 'todas' || x.b._app === areaFilter);
+    const c = (k) => inArea.filter((x) => x.s.k === k).length;
+    const areas = [['todas', 'Todas', allBiz.length], ...plat.apps.filter((a) => a.connected).map((a) => [a.key, a.name, allBiz.filter((b) => b._app === a.key).length])];
+    $('#bizFilters').innerHTML = areas.map(([k, l, n]) => `<button type="button" class="btn btn-sm btn-outline-secondary ${k === areaFilter ? 'active' : ''}" data-afilter="${k}" aria-pressed="${k === areaFilter}">${esc(l)} (${n})</button>`).join('');
+    $('#bizSum').textContent = `${fmtN(inArea.length)} ${inArea.length === 1 ? 'negocio' : 'negocios'} · ${fmtN(c('ok') + c('free'))} al día · ${fmtN(c('soon'))} por vencer · ${fmtN(c('bad'))} solo lectura · Cobrado este mes ${fmtCOP(lastMonthIncome)}`;
     const q = norm(bizQ.trim());
-    const rows = biz.map((b, i) => [b, i]).filter(([b, i]) => (bizFilter === 'todos' || st[i].k === bizFilter)
-      && (!q || norm([b.name, b.slug, ...b.users.map((u) => u.email + ' ' + (u.name || ''))].join(' ')).includes(q)));
-    $('#bizBody').innerHTML = rows.length ? rows.map(([b, i]) => {
+    const rows = inArea.filter((x) => (bizFilter === 'todos' || x.s.k === bizFilter)
+      && (!q || norm([x.b.name, x.b.slug, ...x.b.users.map((u) => u.email + ' ' + (u.name || ''))].join(' ')).includes(q)));
+    $('#bizBody').innerHTML = rows.length ? rows.map(({ b, s }) => {
       const owner = b.users.find((u) => u.role === 'owner');
-      const s = st[i];
-      return `<div class="dw-card bizcard ${b.id === bizSel ? 'sel' : ''}" data-biz="${esc(b.id)}" tabindex="0" role="button" aria-label="Ver ficha de ${esc(b.name)}">
-        <div style="min-width:0"><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b>
-          <div class="text-body-secondary" style="font-size:13px;overflow:hidden;text-overflow:ellipsis">${owner ? esc(owner.email) : '—'}</div>
-          ${b.slug ? `<div class="text-body-secondary font-monospace" style="font-size:12px">/${esc(b.slug)}</div>` : ''}</div>
+      const an = plat.apps.find((a) => a.key === b._app)?.name || b._app;
+      return `<div class="dw-card bizcard ${b.id === bizSel && b._app === bizApp ? 'sel' : ''}" data-biz="${esc(b.id)}" data-bapp="${esc(b._app)}" tabindex="0" role="button" aria-label="Ver ficha de ${esc(b.name)}">
+        <div style="min-width:0"><span class="text-body-secondary" style="font-size:12px"><i class="bi ${APP_ICON[b._app] || 'bi-app'}"></i> ${esc(an)}</span>
+          <div><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b></div>
+          <div class="text-body-secondary" style="font-size:13px;overflow:hidden;text-overflow:ellipsis">${owner ? esc(owner.email) : '—'}</div></div>
         <div class="dw-row" style="justify-content:space-between;flex-wrap:nowrap">
           <div><span class="st ${s.k}">${s.t}</span><span class="estado-fecha">${b.paid_until ? `${s.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span></div>
           ${owner ? `<div class="dw-row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm btn-primary" data-sso="${esc(b.id)}" title="Entrar como dueño" aria-label="Entrar como dueño de ${esc(b.name)}"><i class="bi bi-box-arrow-in-right"></i></button>${iconLink(owner, 'data-olink')}</div>` : ''}</div></div>`;
-    }).join('') : `<div class="dw-empty" style="grid-column:1/-1">${biz.length ? 'Ningún negocio coincide con el filtro.' : `Aún no hay negocios en ${esc(appCfg().name)}. Crea el primero con “Nuevo negocio”.`}</div>`;
+    }).join('') : `<div class="dw-empty" style="grid-column:1/-1">${allBiz.length ? 'Ningún negocio coincide con el filtro.' : 'Aún no hay negocios. Crea el primero con “Nuevo negocio”.'}</div>`;
     if (bizSel && biz.some((b) => b.id === bizSel)) { if (!keepDetail) renderDetail(); } else { bizSel = null; $('#bizDetail').hidden = true; }
   }
-  const redraw = () => renderBiz(lastMonthIncome, true);
-  $('#bizFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-bfilter]'); if (b) { bizFilter = b.dataset.bfilter; redraw(); } });
-  $('#bizKpis').addEventListener('click', (e) => { const b = e.target.closest('[data-kfilter]'); if (b) { bizFilter = bizFilter === b.dataset.kfilter ? 'todos' : b.dataset.kfilter; redraw(); } });
+  const redraw = () => renderBiz(true);
+  $('#bizFilters').addEventListener('click', (e) => { const b = e.target.closest('[data-afilter]'); if (b) { areaFilter = b.dataset.afilter; redraw(); } });
+  $('#bizStatus').addEventListener('change', (e) => { bizFilter = e.target.value; redraw(); });
   $('#bizSearch').addEventListener('input', (e) => { bizQ = e.target.value; redraw(); });
 
   /* ---------- Módulos del negocio (plan + excepciones; la API está en worker/src/modulos.js) ---------- */
@@ -407,38 +358,45 @@ Admin.tab('negocios', (A) => {
     try { if (!plat) await loadPlatform(); } catch (e) { $('#bizErr').textContent = e.message; return; }
     loadBiz();
   };
-  $('#appSeg').addEventListener('click', (e) => {
-    if (e.target.closest('[data-home]')) { bizHome = true; bizSel = null; setNegView('negocios'); return; }
-    const b = e.target.closest('[data-app]'); if (!b) return;
-    bizApp = b.dataset.app; bizHome = false; bizSel = null; $('#bizNew').hidden = true; showInvite(null);
-    if (showArchived) $('#bizArchived').innerHTML = '<p class="text-body-secondary" style="margin:0">Cargando…</p>';
-    if (negView !== 'negocios') { drawApps(); modsView(); } else setNegView('negocios');
-  });
-  $('#bizNewBtn').addEventListener('click', async () => {
-    const f = $('#bizNew'); f.hidden = false; f.reset(); f.elements.trial_days.value = plat.trials?.[bizApp] ?? plat.trial_days; f.elements.name.focus();
-    // Plan de módulos (si la app ya maneja módulos)
+  // Formulario de nuevo negocio: el área se elige en el propio formulario.
+  const newCfg = () => plat.apps.find((a) => a.key === newApp);
+  async function prepNew() {
+    const f = $('#bizNew'), app = newCfg();
+    $('#bizSlug').hidden = !app.slug;
+    $('#bizSlug').querySelector('input').required = app.slug === 'required';
+    f.elements.trial_days.value = plat.trials?.[newApp] ?? plat.trial_days;
     const box = $('#bizPlan'); box.hidden = true;
     try {
-      const d = await api(`modulos/${bizApp}`);
-      if (d.soporta && d.planes.length) {
+      const d = await api(`modulos/${newApp}`);
+      if (newApp === f.elements.app.value && d.soporta && d.planes.length) {
         f.elements.plan_id.innerHTML = d.planes.map((p) => `<option value="${p.id}" ${p.por_defecto ? 'selected' : ''}>${esc(p.nombre)} · ${fmtCOP(p.precio)}/mes</option>`).join('');
         box.hidden = false;
       }
     } catch {}
+  }
+  $('#bizNewBtn').addEventListener('click', async () => {
+    const f = $('#bizNew'), apps = plat.apps.filter((a) => a.connected);
+    newApp = areaFilter !== 'todas' ? areaFilter : (apps.some((a) => a.key === newApp) ? newApp : apps[0]?.key);
+    f.hidden = false; f.reset();
+    f.elements.app.innerHTML = apps.map((a) => `<option value="${a.key}" ${a.key === newApp ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
+    f.elements.name.focus();
+    prepNew();
   });
+  $('#bizNew').elements.app.addEventListener('change', (e) => { newApp = e.target.value; prepNew(); });
   $('[data-cancel]', $('#bizNew')).addEventListener('click', () => { $('#bizNew').hidden = true; });
   $('#bizNew').addEventListener('submit', async (e) => {
     e.preventDefault(); const err = $('[data-err]', e.target); err.textContent = '';
-    const body = formData(e.target);
+    const { app: _a, ...body } = formData(e.target);
     try {
-      const r = await api(`platform/${bizApp}/businesses`, { method: 'POST', body });
+      const r = await api(`platform/${newApp}/businesses`, { method: 'POST', body });
       e.target.hidden = true; toast('Negocio creado');
       showInvite(r.invite_url, body.owner_email, 'registro');
-      bizSel = r.id; await loadBiz();
+      bizApp = newApp; bizSel = r.id; await loadBiz();
     } catch (x) { err.textContent = x.message; }
   });
   $('#bizBody').addEventListener('click', (e) => {
     const tr = e.target.closest('[data-biz]'); if (!tr) return;
+    switchApp(tr.dataset.bapp);
     bizSel = tr.dataset.biz; $$('#bizBody [data-biz]').forEach((x) => x.classList.toggle('sel', x === tr));
     renderDetail(); $('#bizDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
@@ -447,6 +405,7 @@ Admin.tab('negocios', (A) => {
   $('#bizBody').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-olink]'); if (!btn) return;
     e.stopImmediatePropagation();
+    switchApp(btn.closest('[data-bapp]').dataset.bapp);
     const b = biz.find((x) => x.users.some((u) => u.id === btn.dataset.olink));
     const u = b.users.find((x) => x.id === btn.dataset.olink);
     btn.disabled = true;
@@ -523,6 +482,7 @@ Admin.tab('negocios', (A) => {
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-sso]'); if (!btn) return;
     e.stopImmediatePropagation();
+    const card = btn.closest('[data-bapp]'); if (card) switchApp(card.dataset.bapp);
     const w = window.open('about:blank', '_blank');
     btn.disabled = true;
     try {
@@ -567,17 +527,18 @@ Admin.tab('negocios', (A) => {
   async function loadArchived() {
     const el = $('#bizArchived');
     try {
-      const d = await api(`platform/${bizApp}/businesses?archived=1`);
-      setBadge('bizArchCount', d.businesses.length);
+      const res = await Promise.all(plat.apps.filter((a) => a.connected).map((a) => api(`platform/${a.key}/businesses?archived=1`).then((d) => d.businesses.map((b) => ({ ...b, _app: a.key, _name: a.name, _today: d.today }))).catch(() => [])));
+      const list = res.flat();
+      setBadge('bizArchCount', list.length);
       if (!showArchived) return;
-      el.innerHTML = `<div class="dw-row" style="justify-content:space-between;margin-bottom:10px"><h2>Archivados en ${esc(appCfg().name)}</h2><span class="text-body-secondary" style="font-size:12px">Se borran solos, con todos sus datos, a los ${ARCHIVE_DAYS} días</span></div>`
-        + (d.businesses.length ? `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Negocio</th><th>Dueño</th><th>Archivado</th><th>Se borra</th><th></th></tr></thead><tbody>${d.businesses.map((b) => {
+      el.innerHTML = `<div class="dw-row" style="justify-content:space-between;margin-bottom:10px"><h2>Archivados</h2><span class="text-body-secondary" style="font-size:12px">Se borran solos, con todos sus datos, a los ${ARCHIVE_DAYS} días</span></div>`
+        + (list.length ? `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Negocio</th><th>Área</th><th>Dueño</th><th>Archivado</th><th>Se borra</th><th></th></tr></thead><tbody>${list.map((b) => {
           const owner = b.users.find((u) => u.role === 'owner');
-          const left = b.purge_on ? daysBetween(d.today, b.purge_on) : null;
-          return `<tr><td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b></td><td>${owner ? esc(owner.email) : '—'}</td>
+          const left = b.purge_on ? daysBetween(b._today, b.purge_on) : null;
+          return `<tr><td><b style="font-weight:500;color:var(--hi)">${esc(b.name)}</b></td><td>${esc(b._name)}</td><td>${owner ? esc(owner.email) : '—'}</td>
             <td class="text-body-secondary">${b.archived_at ? fmtDate(Date.parse(b.archived_at)) : '—'}</td>
             <td><span class="st ${left !== null && left <= 3 ? 'bad' : 'soon'}">${b.purge_on ? `${fmtDay(b.purge_on)}${left !== null ? ` · ${left <= 0 ? 'hoy' : `en ${left} d`}` : ''}` : '—'}</span></td>
-            <td><button class="btn btn-sm btn-outline-secondary" data-restore="${esc(b.id)}"><i class="bi bi-arrow-counterclockwise"></i>Restaurar</button></td></tr>`;
+            <td><button class="btn btn-sm btn-outline-secondary" data-restore="${esc(b.id)}" data-rapp="${esc(b._app)}"><i class="bi bi-arrow-counterclockwise"></i>Restaurar</button></td></tr>`;
         }).join('')}</tbody></table></div>` : '<p class="text-body-secondary" style="margin:0">No hay negocios archivados.</p>');
     } catch (x) { if (showArchived) el.innerHTML = `<p class="text-danger small">${esc(x.message)}</p>`; }
   }
@@ -591,7 +552,7 @@ Admin.tab('negocios', (A) => {
   $('#bizArchived').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-restore]'); if (!btn) return;
     btn.disabled = true;
-    try { await api(bizPath(btn.dataset.restore, '/restore'), { method: 'POST' }); toast('Negocio restaurado'); loadBiz(); }
+    try { await api(`platform/${btn.dataset.rapp}/businesses/${encodeURIComponent(btn.dataset.restore)}/restore`, { method: 'POST' }); toast('Negocio restaurado'); loadBiz(); }
     catch (x) { toast(x.message); btn.disabled = false; }
   });
 
@@ -600,29 +561,23 @@ Admin.tab('negocios', (A) => {
   let negView = 'negocios';
   const canNeg = () => A.me?.owner || A.me?.modules.includes('negocios');
   const canMods = () => A.me?.owner || A.me?.modules.includes('modulos');
+  // Dentro del menú «Más»: Planes, Módulos, Bitácora y el regreso a Negocios.
   function drawSeg() {
-    $('#negSeg').innerHTML = NEG_VIEWS.filter(([k]) => (k === 'negocios' ? canNeg() : canMods()))
-      .map(([k, l, i]) => `<button class="btn btn-sm ${k === negView ? 'active' : ''} btn-outline-secondary" data-nv="${k}"><i class="bi ${i}"></i>${l}</button>`).join('');
-    $('#negSeg').hidden = !(canNeg() && canMods());
+    const items = NEG_VIEWS.filter(([k]) => k !== negView && (k === 'negocios' ? canNeg() : canMods()));
+    $('#negSeg').innerHTML = (items.length ? '<div class="dropdown-divider"></div>' : '') + items
+      .map(([k, l, i]) => `<button class="dropdown-item" data-nv="${k}"><i class="bi ${i} me-2"></i>${k === 'negocios' ? 'Volver a Negocios' : l}</button>`).join('');
   }
   async function modsView() {
     const m = await A.mount('modulos', $('#modHost'));
     await m.tab.setView(bizApp, negView);
   }
   async function setNegView(v) {
-    negView = v; if (v !== 'negocios') bizHome = false;
-    drawSeg(); drawApps();
+    negView = v;
+    drawSeg();
     const isNeg = v === 'negocios';
-    $('#appHome').hidden = !(isNeg && bizHome); $('#appLayout').hidden = isNeg && bizHome;
-    $('#negSub').textContent = isNeg && bizHome ? 'Elige una app para ver sus negocios' : `${appCfg().name}`;
-    if (!(isNeg && bizHome) && !Object.keys(appStats).length) fetchStats();
-    $('#bizView').hidden = !isNeg || bizHome; $('#modHost').hidden = isNeg;
-    ['bizNewBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg || bizHome; });
-    if (isNeg) {
-      A.unmount('modulos');
-      if (bizHome) return loadHome().catch((x) => { if (x.message !== 'sesión') $('#homeErr').textContent = x.message; });
-      return loadBiz();
-    }
+    $('#bizView').hidden = !isNeg; $('#modHost').hidden = isNeg;
+    ['bizNewBtn', 'priceBtn', 'bizArchBtn'].forEach((id) => { $('#' + id).hidden = !isNeg && id !== 'priceBtn'; });
+    if (isNeg) { A.unmount('modulos'); return loadBiz(); }
     $('#bizArchived').hidden = true;
     try { await modsView(); } catch (e) { if (e.message !== 'sesión') toast(e.message); }
   }

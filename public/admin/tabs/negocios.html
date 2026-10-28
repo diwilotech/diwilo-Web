@@ -1,34 +1,33 @@
 <div class="dw-page-head">
-  <div><h1>Negocios</h1><p class="text-body-secondary" id="negSub" style="margin:2px 0 0"></p></div>
+  <div><h1>Negocios</h1></div>
   <div class="dw-row">
-    <button class="btn btn-outline-secondary" id="priceBtn" title="Precios, planes y días de prueba de todas las apps y negocios"><i class="bi bi-cash-coin"></i>Precios y pruebas</button>
-    <button class="btn btn-outline-secondary" id="bizArchBtn" aria-pressed="false"><i class="bi bi-archive"></i>Archivados<span class="badge text-bg-primary" id="bizArchCount" hidden></span></button>
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" id="moreBtn"><i class="bi bi-three-dots"></i>Más<span class="badge text-bg-primary" id="bizArchCount" hidden></span></button>
+      <div class="dropdown-menu dropdown-menu-end">
+        <button class="dropdown-item" id="priceBtn" title="Precios, planes y días de prueba de todas las apps y negocios"><i class="bi bi-cash-coin me-2"></i>Precios y pruebas</button>
+        <button class="dropdown-item" id="bizArchBtn" aria-pressed="false"><i class="bi bi-archive me-2"></i>Archivados</button>
+        <div id="negSeg"></div>
+      </div>
+    </div>
     <button class="btn btn-primary" id="bizNewBtn"><i class="bi bi-plus-lg"></i>Nuevo negocio</button>
   </div>
 </div>
-<div class="btn-group mb-3" id="negSeg" role="group" aria-label="Vista"></div>
-<div id="appHome" hidden>
-  <p class="text-danger small" id="homeErr"></p>
-  <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="homeKpis"></div>
-  <p class="text-body-secondary" style="margin:0 0 10px">Elige una app para ver sus negocios.</p>
-  <div class="dw-grid" style="--min:290px" id="homeApps"></div>
-</div>
-<div id="appLayout" class="negwrap" hidden>
-<aside class="negside" id="appSeg" aria-label="Apps"></aside>
-<div class="negmain">
 <div id="bizView">
 <p class="text-danger small" id="bizErr"></p>
-<div class="dw-grid" style="--min:150px;margin-bottom:14px" id="bizKpis"></div>
-
-<div class="dw-row" style="justify-content:space-between;margin-bottom:14px" id="bizBar">
-  <div class="dw-row" id="bizFilters" role="group" aria-label="Filtrar por estado"></div>
-  <label class="dw-field" style="min-width:240px;margin:0"><span class="visually-hidden">Buscar negocio</span><input class="form-control" type="search" id="bizSearch" placeholder="Buscar negocio, dueño o dirección" autocomplete="off"></label>
+<div class="dw-row" style="justify-content:space-between;margin-bottom:6px">
+  <div class="dw-row" id="bizFilters" role="group" aria-label="Filtrar por área"></div>
+  <div class="dw-row">
+    <select class="form-select" id="bizStatus" aria-label="Filtrar por estado" style="width:auto"><option value="todos">Todos los estados</option><option value="ok">Al día</option><option value="free">Sin límite</option><option value="soon">Por vencer</option><option value="bad">Solo lectura</option></select>
+    <input class="form-control" type="search" id="bizSearch" placeholder="Buscar negocio o dueño" aria-label="Buscar negocio" autocomplete="off" style="width:220px">
+  </div>
 </div>
+<p class="text-body-secondary" id="bizSum" style="margin:0 0 14px;font-size:13px"></p>
 
 <form class="dw-card" id="bizNew" style="margin-bottom:14px" hidden>
-  <h2>Nuevo negocio en <span data-appname></span></h2>
+  <h2>Nuevo negocio</h2>
   <p class="text-body-secondary" style="margin:4px 0 0;font-size:13px">Se crea el negocio con su dueño y se genera un link para que el dueño cree su contraseña.</p>
   <div class="dw-form" style="margin-top:12px">
+    <label class="dw-field">Área<select class="form-select" name="app" required></select></label>
     <label class="dw-field">Nombre del negocio<input class="form-control" name="name" maxlength="120" required></label>
     <label class="dw-field" id="bizSlug">Slug (va en la URL)<input class="form-control" name="slug" maxlength="40" pattern="[a-z0-9\-]{3,40}" placeholder="mi-negocio"></label>
     <label class="dw-field">Correo del dueño<input class="form-control" name="owner_email" type="email" required></label>
@@ -40,12 +39,11 @@
 </form>
 <div id="inviteBox" style="margin-bottom:14px" hidden></div>
 
+<div id="inviteBox" style="margin-bottom:14px" hidden></div>
+
 <div class="dw-card" id="bizArchived" style="margin-bottom:14px" hidden></div>
 
 <div class="dw-grid" style="--min:290px" id="bizBody"></div>
 <div class="dw-card" id="bizDetail" style="margin-top:14px" hidden></div>
-
 </div>
 <div id="modHost" hidden></div>
-</div>
-</div>
