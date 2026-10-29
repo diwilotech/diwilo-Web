@@ -8,7 +8,7 @@
  *
  * Todo exige Cloudflare Access (adminEmail). Las escrituras llevan x-app: 1 (CSRF), igual que en las apps.
  */
-import { ccall, ctxFor, syncLeads } from './central.js';
+import { ccall, cmedia, ctxFor, syncLeads } from './central.js';
 import { propiasDiwilo } from './propias.js';
 import { setPrefs } from './access.js';
 
@@ -88,6 +88,8 @@ export async function embedApi(req, env, url, email, callAI) {
     const r = await ccall(env, org, email, M, '/api/marca/logo', { body });
     return r.status < 300 ? text(JSON.stringify({ logo: M === 'PUT' ? body.dataUrl : null }), 200, JSONH) : new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
   }
+  const med = M === 'GET' ? /^\/api\/whatsapp\/media\/(\d{1,12})$/.exec(url.pathname) : null;
+  if (med) { const rm = await cmedia(env, org, email, med[1], req.headers.get('range')); return new Response(rm.body, { status: rm.status, headers: rm.headers }); }
   const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body, propias: org === 'diwilo' && callAI && url.pathname.startsWith('/api/ai/') ? propiasDiwilo(env, email, callAI) : undefined });
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
 }

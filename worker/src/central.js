@@ -36,6 +36,10 @@ export async function equipoDiwilo(env) {
   try { for (const r of (await env.DB.prepare('SELECT email, name FROM team WHERE active = 1').all()).results || []) { const e = String(r.email || '').toLowerCase(); if (e && !out.has(e)) out.set(e, { email: e, nombre: r.name || null, rol: 'equipo' }); else if (out.has(e) && r.name) out.get(e).nombre = r.name; } } catch { /* sin tabla de equipo */ }
   return [...out.values()];
 }
+// Foto, video, audio o documento de un chat de Mensajes (con soporte de Range para reproducir audio y video)
+export async function cmedia(env, org, email, id, rango) {
+  return need(env).media(await ctxFor(env, org, email), id, rango);
+}
 export async function ccall(env, org, email, method, path, { query = '', body, propias } = {}) {
   const ctx = await ctxFor(env, org, email);
   if (org === 'diwilo' && path.startsWith('/api/whatsapp/admins')) ctx.equipo = await equipoDiwilo(env);
