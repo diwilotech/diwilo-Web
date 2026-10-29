@@ -20,8 +20,8 @@ const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => n
 const cookieOrg = (req) => /(?:^|;\s*)dwl_org=([^;]+)/.exec(req.headers.get('cookie') || '')?.[1];
 
 export async function embedPage(req, env, url, email) {
-  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca|dashboard|whatsapp)(\.js)?$/.exec(url.pathname);
-  if (!m) return text('No encontrado', 404);
+  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca|dashboard|whatsapp|inicio)(\.js)?$/.exec(url.pathname);
+  if (!m || (m[1] === 'inicio' && !m[2])) return text('No encontrado', 404);   // «inicio» es solo código: la figura del Inicio (Diwilo Modulos /m/inicio.js)
   if (!env.MODULOS) return text('Falta la conexión con Diwilo Modulos (service binding MODULOS)', 503);
   const [, id, js] = m;
   if (js) {

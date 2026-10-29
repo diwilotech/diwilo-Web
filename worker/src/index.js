@@ -628,7 +628,7 @@ export default {
         if (!access) return json({ error: 'Entra al panel a través de Cloudflare Access' }, 401);
         const email = access.email;
         const mod = path.startsWith('/admin/m/') ? path.slice(9).split(/[./]/)[0] : path.split('/')[2];
-        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' || mod === 'settings' ? 'marca' : mod === 'dashboard' ? 'dashboard' : mod === 'whatsapp' ? 'whatsapp' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
+        if (!access.modules.includes(mod === 'marketing' ? 'marketing' : mod === 'nomina' ? 'nomina' : mod === 'marca' || mod === 'settings' ? 'marca' : mod === 'dashboard' || mod === 'inicio' ? 'dashboard' : mod === 'whatsapp' ? 'whatsapp' : mod === 'ai' || mod === 'ia' ? 'ia' : 'finanzas')) return json({ error: 'No tienes acceso a esta sección' }, 403);
         if (path.startsWith('/api/ia/tokens')) return req.method !== 'GET' && req.headers.get('x-app') !== '1' ? json({ error: 'Falta la cabecera x-app' }, 403) : tokensApi(req, env, path, email, url.origin);
         return path.startsWith('/admin/m/') ? embedPage(req, env, url, email) : embedApi(req, env, url, email, callAI);
       }
