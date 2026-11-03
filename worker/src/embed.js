@@ -20,7 +20,7 @@ const text = (body, status, type = 'text/plain; charset=utf-8', extra = {}) => n
 const cookieOrg = (req) => /(?:^|;\s*)dwl_org=([^;]+)/.exec(req.headers.get('cookie') || '')?.[1];
 
 export async function embedPage(req, env, url, email) {
-  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca|dashboard|whatsapp|iniciomods|calendario|datatable|inicio)(\.js)?$/.exec(url.pathname);
+  const m = /^\/admin\/m\/(finanzas|marketing|nomina|ai|marca|dashboard|whatsapp|iniciomods|calendario|datatable|agentemod|inicio)(\.js)?$/.exec(url.pathname);
   if (!m || (/^inicio/.test(m[1]) && !m[2])) return text('No encontrado', 404);   // «inicio» es solo código: la figura del Inicio (Diwilo Modulos /m/inicio.js) y el Inicio por módulos (/m/iniciomods.js)
   if (!env.MODULOS) return text('Falta la conexión con Diwilo Modulos (service binding MODULOS)', 503);
   const [, id, js] = m;
@@ -90,6 +90,6 @@ export async function embedApi(req, env, url, email, callAI) {
   }
   const med = M === 'GET' ? /^\/api\/whatsapp\/media\/(\d{1,12})$/.exec(url.pathname) : null;
   if (med) { const rm = await cmedia(env, org, email, med[1], req.headers.get('range')); return new Response(rm.body, { status: rm.status, headers: rm.headers }); }
-  const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body, propias: org === 'diwilo' && callAI && url.pathname.startsWith('/api/ai/') ? propiasDiwilo(env, email, callAI) : undefined });
+  const r = await ccall(env, org, email, M, url.pathname, { query: url.search, body, propias: org === 'diwilo' && callAI && (url.pathname.startsWith('/api/ai/') || url.pathname === '/api/dashboard/agentes') ? propiasDiwilo(env, email, callAI) : undefined });
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'cache-control': 'no-store' } });
 }
