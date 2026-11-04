@@ -278,28 +278,36 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
     } catch (e) { console.error('claude', e.message); }   // si falla, seguimos con Gemini o Workers AI
   }
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
+  let falloGemini = '';
   if (sel.proveedor !== 'workers-ai') for (const claveG of clavesSel(env, sel, 'gemini')) {
-    const model = [env.GEMINI_MODEL].find((m) => m && !/^gemini-(1|2)/.test(m)) || 'gemini-3.6-flash';   // los 2.x ya no se ofrecen a cuentas nuevas
-    const generationConfig = { maxOutputTokens: maxTokens };
-    if (!/gemini-3/.test(model)) generationConfig.temperature = temperature;   // los 3.x no admiten temperature
-    // Los modelos «flash» piensan antes de responder y ese pensamiento se cobra como salida: se apaga
-    if (/2\.5-flash/.test(model) && !env.GEMINI_THINKING) generationConfig.thinkingConfig = { thinkingBudget: 0 };
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': claveG },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        generationConfig
-      })
-    });
-    if (r.ok) {
-      const d = await r.json();
-      const text = d.candidates?.[0]?.content?.parts?.map((p) => p.text).join('').trim();
-      const u = d.usageMetadata || {};
-      if (text || u.promptTokenCount) {
-        const out = await done('gemini', text, u.promptTokenCount ?? Math.ceil(promptChars / 4), (u.candidatesTokenCount ?? est(text)) + (u.thoughtsTokenCount || 0));
-        if (out) return out;
+    // El modelo que elegiste en IA → Modelo de IA primero y, si Google lo rechaza (cuota o límite de ese modelo), los demás Gemini
+    const elegido = [sel.modelo_gemini, env.GEMINI_MODEL].find((m) => m && !/^gemini-(1|2)/.test(m)) || 'gemini-3.6-flash';   // los 2.x ya no se ofrecen a cuentas nuevas
+    for (const model of [elegido, ...(sel.modelos_gemini?.length ? sel.modelos_gemini : ['gemini-3.6-flash', 'gemini-3.5-flash-lite']).filter((m) => m !== elegido)]) {
+      const generationConfig = { maxOutputTokens: maxTokens };
+      if (!/gemini-3/.test(model)) generationConfig.temperature = temperature;   // los 3.x no admiten temperature
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': claveG },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          generationConfig
+        })
+      }).catch((e) => ({ ok: false, status: 0, text: async () => e.message }));
+      if (r.ok) {
+        const d = await r.json();
+        const text = d.candidates?.[0]?.content?.parts?.map((p) => p.text).join('').trim();
+        const u = d.usageMetadata || {};
+        if (text || u.promptTokenCount) {
+          const out = await done('gemini', text, u.promptTokenCount ?? Math.ceil(promptChars / 4), (u.candidatesTokenCount ?? est(text)) + (u.thoughtsTokenCount || 0));
+          if (out) return out;
+        }
+        falloGemini = `${model} no devolvió texto`;
+      } else {
+        const t = (await r.text()).replace(/\s+/g, ' '), msg = /"message":\s*"([^"]{1,200})/.exec(t)?.[1] || t.slice(0, 200);
+        falloGemini = `Gemini ${r.status} (${model}): ${msg}`;
+        console.error('gemini', r.status, model, t.slice(0, 300));   // antes el fallo se perdía sin rastro
+        if (r.status === 401 || r.status === 403) break;   // la clave no sirve: otros modelos tampoco
       }
     }
     // si esta clave de Gemini falla, probamos la siguiente y, al final, Workers AI
@@ -312,7 +320,7 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
     });
   } catch (e) {
     // Plan gratis de Workers AI: 10.000 neuronas al día; al agotarse, error 4006 hasta las 00:00 UTC
-    if (/4006|daily free allocation/i.test(e.message)) throw new BudgetError(QUOTA_MSG);
+    if (/4006|daily free allocation/i.test(e.message)) throw new BudgetError(falloGemini ? `${falloGemini}. Y el respaldo (Workers AI) llegó a su cuota diaria.` : QUOTA_MSG);
     throw e;
   }
   const res = out?.response ?? out?.choices?.[0]?.message?.content ?? '';

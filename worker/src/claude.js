@@ -13,7 +13,7 @@ export async function seleccionIA(env) {
   try {
     const r = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor');
     const d = JSON.parse(r.body);
-    if (r.status < 300 && d.proveedor) v = { ...v, proveedor: d.proveedor, modelo: d.proveedores?.claude?.modelo || v.modelo };
+    if (r.status < 300 && d.proveedor) v = { ...v, proveedor: d.proveedor, modelo: d.proveedores?.claude?.modelo || v.modelo, modelo_gemini: d.proveedores?.gemini?.modelo || null, modelos_gemini: d.proveedores?.gemini?.modelos || [] };
     // Claves puestas desde la pantalla (cifradas en el módulo central); si el Worker tiene sus propios secretos, van de última opción
     const k = await ccall(env, 'diwilo', null, 'GET', '/api/ai/proveedor/claves-uso'), kd = JSON.parse(k.body);
     if (k.status < 300) v.claves = { claude: kd.claude || [], gemini: kd.gemini || [], higgsfield: kd.higgsfield || [] };
