@@ -279,10 +279,11 @@ export async function callAI(env, system, history, { maxTokens = 400, temperatur
   }
   // Gemini si hay clave configurada como secreto; si no, Workers AI de Cloudflare
   if (sel.proveedor !== 'workers-ai') for (const claveG of clavesSel(env, sel, 'gemini')) {
-    const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const generationConfig = { maxOutputTokens: maxTokens, temperature };
+    const model = [env.GEMINI_MODEL].find((m) => m && !/^gemini-(1|2)/.test(m)) || 'gemini-3.6-flash';   // los 2.x ya no se ofrecen a cuentas nuevas
+    const generationConfig = { maxOutputTokens: maxTokens };
+    if (!/gemini-3/.test(model)) generationConfig.temperature = temperature;   // los 3.x no admiten temperature
     // Los modelos «flash» piensan antes de responder y ese pensamiento se cobra como salida: se apaga
-    if (/flash/.test(model) && !env.GEMINI_THINKING) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    if (/2\.5-flash/.test(model) && !env.GEMINI_THINKING) generationConfig.thinkingConfig = { thinkingBudget: 0 };
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': claveG },
