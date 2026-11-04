@@ -12,6 +12,7 @@
     { id: 'negocios', nombre: 'Negocios', icono: 'bi-buildings', mod: ['negocios', 'modulos'], badge: 'bizBadge' },
     { id: 'marketing', nombre: 'Marketing', icono: 'bi-megaphone', mod: 'marketing', badge: 'leadBadge' },
     { id: 'finanzas', nombre: 'Finanzas', icono: 'bi-pie-chart', mod: 'finanzas' },
+    { id: 'proyectos', nombre: 'Proyectos', icono: 'bi-kanban', mod: 'proyectos' },
     { id: 'nomina', nombre: 'Nómina', icono: 'bi-people-fill', mod: 'nomina' },
     { id: 'whatsapp', nombre: 'Mensajes', icono: 'bi-chat-dots', mod: 'whatsapp' },
     { id: 'marca', nombre: 'Marca', icono: 'bi-palette', mod: 'marca' },

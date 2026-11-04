@@ -20,13 +20,13 @@ const need = (env) => { if (!env.MODULOS) throw new CentralError(503, 'Falta la 
 export async function ctxFor(env, org, email) {
   if (!ORG_RE.test(org || '')) throw new CentralError(400, 'Organización no válida');
   if (org === 'diwilo') return { app: 'diwilo', business: { id: 'diwilo', name: 'Diwilo', tema: 'violeta' }, role: 'owner', readOnly: false,
-    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp'] };
+    user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null }, origin: env.SITE_URL || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp', 'proyectos'] };
   const [app, id] = org.split(':');
   if (!APPS[app]) throw new CentralError(404, 'App no encontrada');
   const name = (await env.DB.prepare('SELECT name FROM orgs WHERE id = ?').bind(org).first().catch(() => null))?.name || null;
   // En Diwilo Modulos cada app se identifica por su Worker (cdacademia, cdcitas…), igual que en su modulos.app.json
   return { app: `cd${app}`, business: { id, name }, role: 'owner', readOnly: false, user: { id: `diwilo:${email || 'sistema'}`, email: email || null, name: null },
-    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp'] };
+    origin: env[APPS[app].url] || 'https://diwilo.com', via: 'app', modulos: ['finanzas', 'marketing', 'nomina', 'whatsapp', 'proyectos'] };
 }
 
 // Personas del equipo de Diwilo con acceso al panel: titulares (ADMIN_EMAILS) y las activas de «team». Mensajes → Administrador las usa para activar el modo administrador por WhatsApp.
