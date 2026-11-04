@@ -153,6 +153,11 @@ export async function publicWhatsapp(req, env, ctx, slug) {
 }
 export async function publicValidate(req, env) {
   const u = new URL(req.url);
+  const kind = u.pathname.split('/')[3];
+  if (kind === 'rut' || kind === 'banco') {   // RUT o certificación bancaria de Diwilo, con el código de un documento suyo
+    const a = await need(env).archivoPublico('diwilo', decodeURIComponent(u.pathname.split('/')[2] || ''), kind);
+    return a.status === 200 ? new Response(a.bytes, { headers: { 'content-type': a.mime, 'content-disposition': `inline; filename="${encodeURIComponent(a.nombre)}"`, 'cache-control': 'no-store', 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } }) : new Response('Documento no encontrado', { status: 404 });
+  }
   const r = await need(env).validar('diwilo', decodeURIComponent(u.pathname.split('/')[2] || ''), u.origin, u.pathname.split('/')[3] === 'documento');
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } });
 }
