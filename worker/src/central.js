@@ -153,6 +153,6 @@ export async function publicWhatsapp(req, env, ctx, slug) {
 }
 export async function publicValidate(req, env) {
   const u = new URL(req.url);
-  const r = await need(env).validar('diwilo', decodeURIComponent(u.pathname.split('/')[2] || ''), u.origin);
+  const r = await need(env).validar('diwilo', decodeURIComponent(u.pathname.split('/')[2] || ''), u.origin, u.pathname.split('/')[3] === 'documento');
   return new Response(r.body, { status: r.status, headers: { ...r.headers, 'x-robots-tag': 'noindex', 'referrer-policy': 'no-referrer' } });
 }
