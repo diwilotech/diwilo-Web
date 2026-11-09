@@ -4,8 +4,10 @@
     <div class="dw-row"><a class="btn btn-outline-secondary" href="/blog" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Ver blog</a><button class="btn btn-primary" id="postNew"><i class="bi bi-plus-lg"></i>Nueva entrada</button></div>
   </div>
   <div class="dw-grid" style="--min:150px;margin-bottom:14px" id="blogKpis"></div>
+  <div id="blogViz" style="margin-bottom:14px"></div>
   <div class="dw-row" style="justify-content:space-between;margin-bottom:12px">
     <div class="bfil btn-group" id="blogFilter"><button class="btn btn-sm active btn-outline-secondary" data-f="">Todas</button><button class="btn btn-sm btn-outline-secondary" data-f="pub">Publicadas</button><button class="btn btn-sm btn-outline-secondary" data-f="sched">Programadas</button><button class="btn btn-sm btn-outline-secondary" data-f="draft">Borradores</button></div>
+    <button class="btn btn-sm btn-outline-secondary" id="blogCsv" title="Descargar la lista en CSV"><i class="bi bi-download"></i> CSV</button>
     <input class="form-control" id="blogSearch" placeholder="Buscar por título…" style="max-width:260px">
   </div>
   <div class="dw-card table-responsive"><table class="table table-sm align-middle"><thead><tr><th></th><th>Entrada</th><th>Categoría</th><th>Estado</th><th>Fecha</th><th class="text-end">Lecturas</th><th></th></tr></thead><tbody id="blogBody"></tbody></table></div>

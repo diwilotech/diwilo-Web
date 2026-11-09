@@ -16,9 +16,41 @@ Admin.tab('blog', (A) => {
     const tiles = [['Entradas', posts.length], ['Publicadas', st.filter((s) => s[0] === 'pub').length], ['Programadas', st.filter((s) => s[0] === 'sched').length],
       ['Borradores', st.filter((s) => s[0] === 'draft').length], ['Lecturas totales', posts.reduce((n, p) => n + p.views, 0)]];
     $('#blogKpis').innerHTML = tiles.map(([l, v]) => `<div class="dw-card kpi"><div class="v">${fmtN(v)}</div><div class="l">${l}</div></div>`).join('');
+    tableroBlog().catch(() => {});
     renderPosts();
     fillCovers();
   };
+  // Tablero del blog: qué se lee, cuánto se publica, de qué se escribe y en qué estado está cada entrada (arrastrar publica o devuelve a borrador)
+  const kitViz = new Promise((ok) => { if (window.DwViz) return ok(); const j = document.createElement('script'); j.src = '/admin/m/dwviz.js'; j.onload = j.onerror = () => ok(); document.head.appendChild(j); });
+  async function tableroBlog() {
+    await kitViz; const V = window.DwViz, host = $('#blogViz'); if (!V || !host) return;
+    if (!posts.length) { host.innerHTML = ''; return; }
+    const pub = posts.filter((p) => postState(p)[0] === 'pub');
+    const d = new Date(), meses = []; for (let i = 5; i >= 0; i--) meses.push(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1)).toISOString().slice(0, 7));
+    const porMes = meses.map((m) => pub.filter((p) => new Date(p.published_at).toISOString().slice(0, 7) === m).length);
+    const cats = {}; pub.forEach((p) => { const c = p.category || 'Sin categoría'; cats[c] = (cats[c] || 0) + 1; });
+    host.innerHTML = '<div class="dv-g"><div data-a></div><div data-b></div></div><div class="dv-g mt-3"><div data-c></div><div data-d></div></div>';
+    const box = (id, titulo, sub) => { const h = host.querySelector(`[data-${id}]`); h.innerHTML = V.tarjeta(titulo, '<div data-in></div>', { sub }); return h.querySelector('[data-in]'); };
+    const top = [...pub].sort((a, b) => b.views - a.views).slice(0, 6);
+    if (top.length) V.ranking(box('a', 'Lo más leído', 'Lecturas por entrada publicada'), top.map((p) => ({ nombre: p.title, valor: p.views })), { fmt: fmtN });
+    else V.vacio(box('a', 'Lo más leído', 'Aún sin entradas publicadas'), { icono: 'bi-journal-text', titulo: 'Nada publicado todavía', texto: 'Cuando publiques, verás aquí lo que más se lee.' });
+    V.barras(box('b', 'Entradas publicadas por mes', 'Últimos 6 meses'), { etiquetas: meses.map((m) => m.slice(5) + '/' + m.slice(2, 4)), series: [{ nombre: 'Entradas', datos: porMes }], fmt: fmtN });
+    V.dona(box('c', 'De qué se escribe', 'Entradas publicadas por categoría'), Object.entries(cats).map(([nombre, valor]) => ({ nombre, valor })), { fmt: fmtN, centro: 'Entradas' });
+    const col = (id, titulo, color) => ({ id, titulo, color, items: posts.filter((p) => postState(p)[0] === id).map((p) => ({ id: p.id, titulo: p.title, detalle: p.category || '', etiqueta: id === 'pub' ? `${fmtN(p.views)} lecturas` : id === 'sched' ? 'programada ' + fmtDate(p.published_at) : 'editada ' + fmtDate(p.updated_at) })) });
+    const kb = box('d', 'Embudo de entradas', 'Arrastra a Publicada o a Borrador'), pintar = () => V.kanban(kb, {
+      columnas: [col('draft', 'Borrador', '#94A3B8'), col('sched', 'Programada', '#FBBF24'), col('pub', 'Publicada', '#34D399')], fmt: fmtN, abrir: (id) => openPost(+id),
+      mover: async (id, desde, hasta) => {
+        if (hasta === 'sched') { toast('Para programar una fecha abre la entrada y elige día y hora'); return; }
+        const p = posts.find((x) => String(x.id) === String(id)); if (!p) return;
+        try { await api('blog/' + id, { method: 'PATCH', body: { status: hasta === 'pub' ? 'published' : 'draft' } }); toast(hasta === 'pub' ? 'Entrada publicada' : 'Vuelve a borrador'); load(); } catch (e) { toast(e.message); }
+      } });
+    pintar();
+  }
+  $('#blogCsv').addEventListener('click', () => {
+    const cel = (v) => { const t = String(v ?? '').replace(/\r?\n/g, ' '); return /[",;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const filas = [['Título', 'Dirección', 'Categoría', 'Autor', 'Estado', 'Fecha', 'Lecturas'], ...posts.map((p) => [p.title, `/blog/${p.slug}`, p.category || '', p.author || '', postState(p)[1], new Date(p.published_at || p.updated_at).toISOString().slice(0, 10), p.views])];
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF' + filas.map((f) => f.map(cel).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'blog.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
   function renderPosts() {
     const q = $('#blogSearch').value.trim().toLowerCase();
     const list = posts.filter((p) => (!postFilter || postState(p)[0] === postFilter) && (!q || p.title.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q)));

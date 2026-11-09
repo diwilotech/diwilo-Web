@@ -386,6 +386,16 @@ export async function blogAdmin(req, env, path, url, email) {
     }
     if (!sub && M === 'POST') return json(await savePost(db, await body(3_500_000)));
     const id = Number(sub);
+    // Cambiar solo el estado (el embudo del panel): publicar ahora o volver a borrador; las programadas se programan en el editor
+    if (id && M === 'PATCH') {
+      const b = await body(2000), st = b.status === 'published' ? 'published' : b.status === 'draft' ? 'draft' : null;
+      if (!st) return json({ error: 'status debe ser published o draft' }, 400);
+      const p = await db.prepare('SELECT id, content, published_at FROM posts WHERE id = ?').bind(id).first();
+      if (!p) return json({ error: 'No existe' }, 404);
+      if (st === 'published' && !String(p.content || '').trim()) return json({ error: 'La entrada no tiene contenido: escríbela antes de publicar' }, 400);
+      await db.prepare('UPDATE posts SET status = ?, published_at = ?, updated_at = ? WHERE id = ?').bind(st, st === 'published' ? (p.published_at && p.published_at <= now() ? p.published_at : now()) : null, now(), id).run();
+      return json({ ok: true });
+    }
     if (id && M === 'GET') {
       const p = await db.prepare(`SELECT ${LIST_COLS}, content, seo_title, seo_desc FROM posts WHERE id = ?`).bind(id).first();
       return p ? json({ ...p, cover_url: coverUrl(p) }) : json({ error: 'No existe' }, 404);
