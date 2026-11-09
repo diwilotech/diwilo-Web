@@ -177,7 +177,32 @@ Admin.tab('negocios', (A) => {
       else errs.push(`${a.name}: ${e.message}`);
     }
     $('#bizErr').textContent = errs.join(' · ');
-    useApp(bizApp); renderBiz(); loadArchived();
+    useApp(bizApp); renderBiz(); loadArchived(); tableroNegocios().catch(() => {});
+  }
+
+  // Tablero de la plataforma: cómo están los negocios de todas las apps (suscripciones, quién vence pronto y dónde está la gente)
+  const kitViz = new Promise((ok) => { if (window.DwViz) return ok(); const j = document.createElement('script'); j.src = '/admin/m/dwviz.js'; j.onload = j.onerror = () => ok(); document.head.appendChild(j); });
+  async function tableroNegocios() {
+    await kitViz; const V = window.DwViz, host = $('#bizTablero'); if (!V || !host) return;
+    if (!allBiz.length) { host.innerHTML = ''; return; }
+    const items = allBiz.map((b) => ({ b, s: subState(b) })), cuenta = (k) => items.filter((x) => x.s.k === k).length;
+    const apps = plat.apps.filter((a) => a.connected).map((a) => ({ nombre: a.name, valor: allBiz.filter((b) => b._app === a.key).length })).filter((x) => x.valor);
+    const pronto = items.filter((x) => x.s.k === 'soon' || (x.s.k === 'ok' && x.b.paid_until && daysBetween(bizToday, x.b.paid_until) <= 30)).sort((a, b) => a.b.paid_until.localeCompare(b.b.paid_until)).slice(0, 6);
+    const solo = items.filter((x) => x.s.k === 'bad');
+    host.innerHTML = `${solo.length ? `<div class="alert alert-warning py-2 d-flex gap-2 align-items-center"><i class="bi bi-lock"></i><span>${solo.length} ${solo.length === 1 ? 'negocio está' : 'negocios están'} en solo lectura por suscripción vencida: ${solo.slice(0, 3).map((x) => esc(x.b.name)).join(', ')}${solo.length > 3 ? '…' : ''}.</span></div>` : ''}
+      <div data-k></div><div class="dv-g"><div data-a></div><div data-b></div></div>`;
+    V.kpis(host.querySelector('[data-k]'), [
+      { titulo: 'Negocios', valor: fmtN(items.length), icono: 'bi-shop', detalle: `${apps.length} ${apps.length === 1 ? 'app' : 'apps'}` },
+      { titulo: 'Al día', valor: fmtN(cuenta('ok') + cuenta('free')), icono: 'bi-check-circle', tono: 'ok' },
+      { titulo: 'Por vencer (7 días)', valor: fmtN(cuenta('soon')), icono: 'bi-hourglass-split', tono: cuenta('soon') ? 'aviso' : 'ok' },
+      { titulo: 'Cobrado este mes', valor: fmtCOP(lastMonthIncome), icono: 'bi-cash-coin', tono: 'ok', detalle: `${fmtN(cuenta('bad'))} en solo lectura` }]);
+    host.querySelector('[data-a]').innerHTML = V.tarjeta('Negocios por app', '<div data-in></div>', { sub: 'Dónde está tu gente' });
+    V.dona(host.querySelector('[data-a] [data-in]'), apps, { fmt: (n) => String(n), centro: 'Negocios' });
+    host.querySelector('[data-b]').innerHTML = V.tarjeta('Próximos vencimientos', '<div data-in></div>', { sub: 'Los que vencen en 30 días' });
+    const w = host.querySelector('[data-b] [data-in]');
+    if (!pronto.length) V.vacio(w, { icono: 'bi-emoji-smile', titulo: 'Nada vence pronto', texto: 'Ninguna suscripción vence en los próximos 30 días.' });
+    else { w.innerHTML = pronto.map((x) => `<button type="button" class="btn w-100 text-start d-flex align-items-center gap-2 py-2 border-bottom rounded-0" data-ver="${esc(x.b.id)}" data-vapp="${esc(x.b._app)}"><i class="bi ${APP_ICON[x.b._app] || 'bi-app'}"></i><span class="flex-grow-1 text-truncate"><b>${esc(x.b.name)}</b></span><span class="small ${x.s.k === 'soon' ? 'text-warning' : 'text-body-secondary'}">${fmtDay(x.b.paid_until)}</span></button>`).join('');
+      w.addEventListener('click', (e) => { const b = e.target.closest('[data-ver]'); if (!b) return; const card = [...document.querySelectorAll('#bizBody [data-biz]')].find((c) => c.dataset.biz === b.dataset.ver && c.dataset.bapp === b.dataset.vapp); if (card) card.click(); else { areaFilter = 'todas'; bizQ = ''; bizFilter = 'todos'; redraw(); } }); }
   }
 
   // Filtros de la lista: área (app), estado y búsqueda.
