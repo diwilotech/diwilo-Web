@@ -39,6 +39,7 @@
     { "binding": "CITAS", "service": "cdcitas", "entrypoint": "Platform" },
     { "binding": "RESIDENTES", "service": "cdresidentes", "entrypoint": "Platform" },
     { "binding": "ACADEMIA", "service": "cdacademia", "entrypoint": "Platform" },
+    { "binding": "ROTARACT", "service": "cdrotaract", "entrypoint": "Platform" },
     // Diwilo Modulos (Worker central de Finanzas, Marketing… de las apps): al borrar un negocio se borran también sus datos.
     { "binding": "MODULOS", "service": "diwilo-modulos", "entrypoint": "Modulos" }
   ],
@@ -50,6 +51,7 @@
     "CITAS_URL": "https://cdcitas.diwilo.com",
     "RESIDENTES_URL": "https://cdresidentes.diwilo.com",
     "ACADEMIA_URL": "https://cdacademia.diwilo.com",
+    "ROTARACT_URL": "https://cdrotaract.diwilo.com",
     // Cloudflare Access (Zero Trust → Access → Applications): equipo y AUD de la app que protege /admin.
     "ACCESS_TEAM_DOMAIN": "diwilo.cloudflareaccess.com",
     "ACCESS_AUD": "8aff5757625de9f788990028811bd004a1e93adac714772bc786ce263e4af6dc"

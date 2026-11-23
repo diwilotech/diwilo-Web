@@ -92,8 +92,11 @@ export async function refreshCatalog(env, app) {
   ]);
   if (!(await one(env, 'SELECT 1 FROM mod_plans WHERE app = ?', app))) {
     const price = Number((await one(env, 'SELECT value FROM settings WHERE key = ?', `platform_price_${app}`))?.value || 0);
-    await env.DB.prepare("INSERT INTO mod_plans (app, nombre, descripcion, precio, todos, por_defecto, created_at, updated_at) VALUES (?, 'Completo', 'Todos los módulos de la app, también los nuevos', ?, 1, 1, ?, ?)").bind(app, price, t, t).run();
-    await log(env, app, 'sistema', 'Creó el plan «Completo» (todos los módulos) como plan por defecto');
+    // Apps con `modulosPorDefecto: false` (platform.js → APPS) arrancan con un plan vacío: cada negocio nuevo empieza sin módulos y se activan a mano.
+    const vacio = APPS[app]?.modulosPorDefecto === false;
+    await env.DB.prepare("INSERT INTO mod_plans (app, nombre, descripcion, precio, todos, por_defecto, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)")
+      .bind(app, vacio ? 'Sin módulos' : 'Completo', vacio ? 'Plan inicial sin módulos: actívalos a mano en cada negocio' : 'Todos los módulos de la app, también los nuevos', price, vacio ? 0 : 1, t, t).run();
+    await log(env, app, 'sistema', vacio ? 'Creó el plan «Sin módulos» como plan por defecto (los módulos se activan a mano)' : 'Creó el plan «Completo» (todos los módulos) como plan por defecto');
   }
   return { soporta: true, ...(await setState(env, app, { soporta: true, error: null, at: t, nombre: data.nombre })) };
 }
