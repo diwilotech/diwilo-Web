@@ -29,8 +29,8 @@ export const APPS = {
   citas: { name: 'Citas', binding: 'CITAS', url: 'CITAS_URL', roles: ['owner', 'staff'], slug: 'required' },
   residentes: { name: 'Residentes', binding: 'RESIDENTES', url: 'RESIDENTES_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional' },
   academia: { name: 'Academia', binding: 'ACADEMIA', url: 'ACADEMIA_URL', roles: ['owner', 'admin', 'staff'], slug: false },
-  // Rotaract: sin módulos por defecto (plan inicial «Sin módulos»); cada negocio los recibe a mano en Negocios → Módulos.
-  rotaract: { name: 'Rotaract', binding: 'ROTARACT', url: 'ROTARACT_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional', modulosPorDefecto: false },
+  // Rotary (CD Rotary: clubes Rotary, Rotaract e Interact; id interno «rotaract»): sin módulos por defecto (plan inicial «Sin módulos»); cada negocio los recibe a mano en Negocios → Módulos.
+  rotaract: { name: 'Rotary', binding: 'ROTARACT', url: 'ROTARACT_URL', roles: ['owner', 'admin', 'staff'], slug: 'optional', modulosPorDefecto: false },
 };
 import { centralPayment } from './central.js';
 import { onBusinessCreated, businessPlans } from './modulos.js';
