@@ -217,13 +217,13 @@ Admin.tab('negocios', (A) => {
     $('#bizSum').textContent = `${fmtN(inArea.length)} ${inArea.length === 1 ? 'negocio' : 'negocios'} · ${fmtN(c('ok') + c('free'))} al día · ${fmtN(c('soon'))} por vencer · ${fmtN(c('bad'))} solo lectura · Cobrado este mes ${fmtCOP(lastMonthIncome)}`;
     const q = norm(bizQ.trim());
     const rows = inArea.filter((x) => (bizFilter === 'todos' || x.s.k === bizFilter)
-      && (!q || norm([x.b.name, x.b.slug, ...x.b.users.map((u) => u.email + ' ' + (u.name || ''))].join(' ')).includes(q)));
+      && (!q || norm([x.b.name, x.b.etiqueta || '', x.b.slug, ...x.b.users.map((u) => u.email + ' ' + (u.name || ''))].join(' ')).includes(q)));
     $('#bizBody').innerHTML = rows.length ? rows.map(({ b, s }) => {
       const owner = b.users.find((u) => u.role === 'owner');
       const an = plat.apps.find((a) => a.key === b._app)?.name || b._app;
       return `<div class="dw-card bizcard ${b.id === bizSel && b._app === bizApp ? 'sel' : ''}" data-biz="${esc(b.id)}" data-bapp="${esc(b._app)}" tabindex="0" role="button" aria-label="Ver ficha de ${esc(b.name)}">
         <div style="min-width:0"><span class="text-body-secondary" style="font-size:12px"><i class="bi ${APP_ICON[b._app] || 'bi-app'}"></i> ${esc(an)}</span>
-          <div><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.name)}</b></div>
+          <div><b style="font-weight:500;color:var(--hi);font-size:15px">${esc(b.etiqueta || b.name)}</b></div>
           <div class="text-body-secondary" style="font-size:13px;overflow:hidden;text-overflow:ellipsis">${owner ? esc(owner.email) : '—'}</div></div>
         <div class="dw-row" style="justify-content:space-between;flex-wrap:nowrap">
           <div><span class="st ${s.k}">${s.t}</span><span class="estado-fecha">${b.paid_until ? `${s.k === 'bad' ? 'Venció' : 'Termina'} ${fmtDay(b.paid_until)}` : 'No se bloquea'}</span></div>
