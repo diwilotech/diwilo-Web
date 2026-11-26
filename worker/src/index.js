@@ -27,6 +27,7 @@ import { embedPage, embedApi } from './embed.js';
 import { videosApi } from './videos.js';
 import { seleccionIA, clavesSel, viaClaude, iaModelApi } from './claude.js';
 import { tokensApi, mcpNegocio } from './mcp-negocio.js';
+import { mcpAdminTokens, mcpAdmin } from './mcp-admin.js';
 import { assistantApi } from './assistant.js';
 
 const DAY = 86400000;
@@ -539,6 +540,8 @@ async function adminApi(req, env, path, url, ctx) {
     const r = await env.MODULOS.googleCallback(url.search, `${env.SITE_URL || url.origin}/admin/api/google/callback`);
     return new Response(r.html, { status: r.status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
   }
+  // Conexiones MCP de administración (crear/manejar negocios desde un asistente): solo el dueño del panel
+  if (path === '/admin/api/mcp-admin' || path.startsWith('/admin/api/mcp-admin/')) return access.owner ? mcpAdminTokens(req, env, path, email, url.origin) : json({ error: 'Solo el dueño del panel' }, 403);
   const need = adminModule(path);
   if (need === 'owner' ? !access.owner : need === 'any' ? !access.modules.some((m) => m === 'marketing' || m === 'finanzas') : !access.modules.includes(need)) return json({ error: 'No tienes acceso a esta sección' }, 403);
   if (path === '/admin/api/platform' || path.startsWith('/admin/api/platform/')) return platformApi(req, env, path, url, email);
@@ -659,7 +662,8 @@ export default {
       if (path === '/mcp') {
         const h = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type, mcp-protocol-version, mcp-session-id' };
         if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
-        const r = /^Bearer\s+dwm_/i.test(req.headers.get('authorization') || '') ? await mcpNegocio(req, env) : await mcpServer(req, env, ctx);
+        const au = req.headers.get('authorization') || '';
+        const r = /^Bearer\s+dwa_/i.test(au) ? await mcpAdmin(req, env) : /^Bearer\s+dwm_/i.test(au) ? await mcpNegocio(req, env) : await mcpServer(req, env, ctx);
         const res = new Response(r.body, r);
         Object.entries(h).forEach(([k, v]) => res.headers.set(k, v));
         return res;

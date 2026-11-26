@@ -641,6 +641,35 @@ Admin.tab('negocios', (A) => {
       } catch (x) { $('[data-err]', d).textContent = x.message; }
     });
   }
+  /* ---------- Conectar asistente: conexión MCP de administración (token dwa_, solo el dueño) ---------- */
+  async function openMcpAdmin(nuevo) {
+    const d = document.createElement('dialog'); d.className = 'ask';
+    document.body.appendChild(d); d.showModal();
+    const close = () => { d.close(); d.remove(); };
+    d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+    let r; try { r = await api('mcp-admin'); } catch (x) { d.innerHTML = `<form method="dialog"><p class="text-danger">${esc(x.message)}</p><button class="btn btn-outline-secondary">Cerrar</button></form>`; $('form', d).onsubmit = close; return; }
+    const cmd = nuevo ? `claude mcp add --transport http diwilo-admin ${r.url} --header "Authorization: Bearer ${nuevo}"` : '';
+    const activos = r.tokens.filter((t) => !t.revoked_at);
+    d.innerHTML = `<form method="dialog" style="max-width:640px">
+      <div class="dw-row" style="justify-content:space-between"><h2 style="margin:0">Conectar asistente</h2><button class="btn-close" type="button" data-no aria-label="Cerrar"></button></div>
+      <p class="text-body-secondary small" style="margin:6px 0 12px">Un asistente conectado (Claude Code u otro con MCP) puede ver las apps y negocios, <b>crear negocios</b> (envía la invitación), cambiar nombre, dirección, fecha de pago y dueño, y manejar módulos y planes. Todo queda en la bitácora a tu nombre. No puede entrar como el dueño, registrar pagos ni archivar.</p>
+      ${nuevo ? `<div class="dw-card" style="border-color:var(--dw-p)"><b>Copia esto ahora: el token no se vuelve a mostrar.</b>
+        <div class="small text-body-secondary mt-2">En la terminal (Claude Code):</div><pre class="small" style="white-space:pre-wrap;word-break:break-all;margin:4px 0">${esc(cmd)}</pre>
+        <div class="dw-row"><button class="btn btn-primary btn-sm" type="button" data-copy="${esc(cmd)}"><i class="bi bi-clipboard"></i>Copiar comando</button><button class="btn btn-outline-secondary btn-sm" type="button" data-copy="${esc(nuevo)}">Copiar solo el token</button></div></div>` : ''}
+      <h3 style="margin-top:14px">Conexiones</h3>
+      ${activos.length ? activos.map((t) => `<div class="dw-row" style="justify-content:space-between;border-bottom:1px solid var(--dw-borde);padding:6px 0"><span><b>${esc(t.name)}</b><span class="small text-body-secondary d-block">${esc(t.email || '')} · ${t.last_used_at ? `usada ${ago(t.last_used_at)}` : 'sin usar'}</span></span><button class="btn btn-outline-danger btn-sm" type="button" data-rev="${t.id}">Revocar</button></div>`).join('') : '<p class="text-body-secondary small">Aún no hay conexiones.</p>'}
+      <div class="dw-row" style="margin-top:12px"><input class="form-control" name="name" placeholder="Nombre, p. ej. Claude Code de Yomar" maxlength="60" style="flex:1"><button class="btn btn-primary"><i class="bi bi-plus-lg"></i>Crear conexión</button></div>
+      <p class="text-danger small" data-err></p></form>`;
+    $$('[data-no]', d).forEach((b) => (b.onclick = close));
+    $$('[data-copy]', d).forEach((b) => (b.onclick = () => copy(b.dataset.copy)));
+    $$('[data-rev]', d).forEach((b) => (b.onclick = async () => { if (!(await sure('¿Revocar esta conexión? El asistente deja de poder usarla.'))) return; await api(`mcp-admin/${b.dataset.rev}`, { method: 'DELETE' }); close(); openMcpAdmin(); }));
+    $('form', d).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { const name = $('[name=name]', d).value.trim(); const x = await api('mcp-admin', { method: 'POST', body: { name } }); close(); openMcpAdmin(x.token); } catch (x) { $('[data-err]', d).textContent = x.message; }
+    });
+  }
+  $('#mcpAdmBtn').addEventListener('click', () => openMcpAdmin().catch((x) => toast(x.message)));
+
   $('#priceBtn').addEventListener('click', () => { if (plat) openPricing().catch((x) => toast(x.message)); });
 
   const show = async () => {
