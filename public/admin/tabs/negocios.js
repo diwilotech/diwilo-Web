@@ -156,7 +156,7 @@ Admin.tab('negocios', (A) => {
   async function loadPlatform() {
     plat = await api('platform');
   }
-  const APP_ICON = { pedidos: 'bi-bag', nutricion: 'bi-heart-pulse', citas: 'bi-calendar-check', residentes: 'bi-building', academia: 'bi-mortarboard', rotary: 'bi-gear-wide-connected' };
+  const APP_ICON = { pedidos: 'bi-bag', nutricion: 'bi-heart-pulse', citas: 'bi-calendar-check', residentes: 'bi-building', academia: 'bi-mortarboard', rotaract: 'bi-gear-wide-connected' };
   // `biz` son los negocios de la app abierta en la ficha; `allBiz` es la lista de todas las líneas.
   const useApp = (key) => { bizApp = key; biz = allBiz.filter((b) => b._app === key); };
   // Ficha del negocio en un panel a la derecha (offcanvas de Bootstrap).
