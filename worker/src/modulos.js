@@ -277,7 +277,9 @@ async function route(req, env, path, url, por) {
   if (!a && M === 'GET') {
     const st = await appState(env, app);
     const [cat, ps, negocios] = await Promise.all([catalog(env, app), plans(env, app), all(env, 'SELECT b.*, p.nombre plan FROM mod_business b LEFT JOIN mod_plans p ON p.id = b.plan_id WHERE b.app = ? ORDER BY b.business_name', app)]);
-    return json({ app, nombre: name, soporta: st.soporta ?? null, error: st.error || null, revisado_at: st.revisado_at || null, catalogo: cat, planes: ps, negocios });
+    // ?activos=1: los módulos activos de cada negocio (para mostrarlos en las tarjetas de Negocios)
+    const activos = url.searchParams.get('activos') && st.soporta !== false ? Object.fromEntries(await Promise.all(negocios.map(async (n) => [n.business_id, (await effective(env, app, n.business_id)).rows.map((r) => r.modulo)]))) : undefined;
+    return json({ app, nombre: name, soporta: st.soporta ?? null, error: st.error || null, revisado_at: st.revisado_at || null, catalogo: cat, planes: ps, negocios, activos });
   }
   if (a === 'sincronizar' && M === 'POST') {
     const r = await reconcile(env, app);

@@ -9,7 +9,7 @@ const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/M
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 const today = new Date().toISOString().slice(0, 10);
 const prefs = { saved: null };
-const APPS = ['pedidos', 'nutricion', 'citas', 'residentes', 'academia'].map((key) => ({ key, name: 'CD ' + key, connected: true, slug: 'required' }));
+const APPS = ['pedidos', 'nutricion', 'citas', 'residentes', 'academia'].map((key) => ({ key, name: 'CD ' + key, connected: true, slug: 'required', roles: ['owner', 'admin', 'staff'] }));
 const stub = (p, method, body) => {
   if (p === 'me') return { email: 'prueba@diwilo.com', owner: true, modules: ['resumen', 'negocios', 'modulos', 'marketing', 'finanzas', 'blog', 'ia'], prefs: prefs.saved };
   if (p === 'prefs') { prefs.saved = JSON.parse(body || '{}'); return { ok: true }; }
@@ -23,7 +23,8 @@ const stub = (p, method, body) => {
   if (p === 'agents') return { agents: [], templates: [], tools: [] };
   if (p === 'hub/orgs') return { orgs: [{ id: 'diwilo', name: 'Diwilo', kind: 'diwilo' }] };
   if (p === 'modulos') return { apps: APPS };
-  if (/^modulos\/[a-z]+$/.test(p)) return { soporta: true, nombre: 'App', catalogo: [], planes: [{ id: 1, nombre: 'Básico', precio: 50000, modulos: [], todos: 1, negocios: 1 }], negocios: [] };
+  if (/^modulos\/[a-z]+\/negocios\/b1$/.test(p)) return { negocio: { id: 'b1', nombre: 'Demo', estado: 'ok' }, plan_id: 1, modulos: [{ modulo: 'ventas', nombre: 'Ventas', tipo: 'propio', activo: true, origen: 'plan' }, { modulo: 'marca', nombre: 'Marca', tipo: 'compartido', activo: false, origen: 'fuera' }], excepciones: [], faltan: [] };
+  if (/^modulos\/[a-z]+(\?.*)?$/.test(p)) return { soporta: true, nombre: 'App', catalogo: [{ modulo: 'ventas', nombre: 'Ventas', en_app: 1 }, { modulo: 'marca', nombre: 'Marca', en_app: 1 }], planes: [{ id: 1, nombre: 'Básico', precio: 50000, modulos: [], todos: 1, negocios: 1 }], negocios: [], activos: { b1: ['ventas'] } };
   return {};
 };
 const server = http.createServer((req, res) => {
@@ -72,7 +73,14 @@ try {
       await p.evaluate(() => document.querySelector('#priceBtn').click()); await wait(900);
       ok(await p.evaluate(() => !!document.querySelector('dialog.pricedlg[open] input[name^="price_"]') && !!document.querySelector('dialog.pricedlg [data-csv]')), `${tag}: el modal de precios y pruebas no abrió`);
       await p.evaluate(() => document.querySelector('dialog.pricedlg [data-no]').click());
+      ok(await p.evaluate(() => document.querySelectorAll('#bizLineas [data-linea]').length === 5), `${tag}: Negocios sin el resumen por líneas`);
+      await p.evaluate(() => document.querySelector('#bizLineas [data-linea]').click()); await wait(300);
       ok(await p.evaluate(() => !!document.querySelector('#bizBody .estado-fecha')), `${tag}: Estado sin la fecha debajo`);
+      ok(await p.evaluate(() => !!document.querySelector('#bizBody .mchip.on') && !!document.querySelector('#bizBody .mchip:not(.on)')), `${tag}: la tarjeta no muestra módulos activos e inactivos`);
+      await p.evaluate(() => document.querySelector('#bizBody [data-biz]').click()); await wait(700);
+      ok(await p.evaluate(() => document.querySelector('#bizDrawer').classList.contains('show') && document.querySelectorAll('#bizMods [data-mt]').length === 2), `${tag}: la ficha a la derecha no abrió con los módulos`);
+      await p.evaluate(() => document.querySelector('#bizDetail [data-close]')?.click()); await wait(500);
+      await p.evaluate(() => document.querySelector('#bizCrumb [data-back]')?.click()); await wait(200);
       // Finanzas y Marketing: la página del módulo ocupa el espacio como en las apps, sin título repetido
       for (const t of ['finanzas', 'marketing']) {
         await p.evaluate((t) => document.querySelector(`.dw-nav a[data-mod="${t}"]`).click(), t); await wait(500);
